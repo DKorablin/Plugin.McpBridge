@@ -1,0 +1,76 @@
+name: Test, Build
+
+on:
+  pull_request:
+    branches: [ "master", "main" ]
+  workflow_dispatch:
+    inputs:
+      dotNetVersion:
+        description: 'Determine the version of .NET used to configure the environment'
+        required: false
+        default: '8.0.x'
+
+env:
+  SolutionName: ${{github.event.repository.name}}
+  NuGetPackageSourceCredentials_github_DKorablin: Username=${{github.actor}};Password=${{secrets.GITHUB_TOKEN}}
+  DotNetVersion: ${{github.event.inputs.dotNetVersion || '8.0.x'}}
+  ArtifactsDir: ${{github.workspace}}\bin
+
+jobs:
+  test:
+    name: Testing .NET (Windows)
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        token: ${{secrets.SUBMODULE_TOKEN}}
+        submodules: true
+    - name: Caching NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('/Directory.Packages.props', '/nuget.config') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{env.DotNetVersion}}
+    - name: Restoring dependencies
+      run: dotnet restore ${{env.SolutionName}}.sln
+    - name: Testing .NET
+      run: >
+        dotnet test ${{env.SolutionName}}.sln --framework net8.0-windows --no-restore --verbosity normal
+        /p:GenerateDocumentationFile=true
+
+  build:
+    name: Build
+    needs: [test]
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        token: ${{secrets.SUBMODULE_TOKEN}}
+        submodules: true
+    - name: Caching NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/packages.lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+    - name: Restore
+      run: msbuild ${{env.SolutionName}}.sln /t:Restore
+    - name: Building multi-target project
+      run: >
+        msbuild ${{env.SolutionName}}.sln
+        /p:ArtifactsDir="${{env.ArtifactsDir}}"
+        /p:Configuration=Release
+        /p:GenerateDocumentationFile=true
+        /p:SignAssembly=false
+    - name: Listing release directory
+      run: |
+        echo "Listing files in the release directory:"
+        ls ${{env.ArtifactsDir}} -Recurse

@@ -1,0 +1,166 @@
+# This GitHub Actions workflow automates the CI/CD process for all SAL plugins.
+#
+# Workflow Steps:
+# 1. Test: Runs all unit tests for the solution.
+# 2. Version: Automatically increments the version number based on commit history and creates a new Git tag.
+# 3. Build, Package, and Release: This is a multi-stage job that performs the following:
+#    - Builds the multi-targeted project for all target frameworks.
+#    - Signs the output assemblies.
+#    - Creates and publishes a NuGet package to GitHub Packages.
+#    - Organizes build artifacts into a 'Plugin' subfolder structure.
+#    - Calls an external PowerShell script to download required release assets from the 'Flatbed.Dialog.Lite' repository,
+#      matching only the frameworks that were just built.
+#    - Organize build artifacts, injects dependencies, and creates the final zipped release archives for each target framework.
+#    - Publishes a single, comprehensive GitHub Release with all generated .zip files as artifacts.
+# 4. Cleanup: If any part of the build or release process fails, a final job runs to remove the Git tag that was created.
+
+name: Build, Release
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  workflow_dispatch:
+    inputs:
+      dotNetVersion:
+        description: 'Determine the version of .NET used to configure the environment'
+        required: false
+        default: '8.0.x'
+      newVersion:
+        description: 'Optionally specify a new version number (overrides automatic versioning)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write      # Needed for creating releases and tags
+  packages: write      # Needed for pushing to GitHub Packages
+
+env:
+  SolutionName: ${{github.event.repository.name}}
+  NuGetPackageSourceCredentials_github_DKorablin: Username=${{github.actor}};Password=${{secrets.DEPLOYMENT_TOKEN}}
+  DotNetVersion: ${{github.event.inputs.dotNetVersion || '8.0.x'}}
+  ArtifactsDir: ${{github.workspace}}\bin
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  version:
+    name: Incrementing version number
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{steps.tag_version.outputs.new_version}}
+      new_tag: ${{steps.tag_version.outputs.new_tag}}
+      changelog: ${{steps.tag_version.outputs.changelog}}
+    steps:
+    - name: Updating version number
+      id: tag_version
+      uses: mathieudutour/github-tag-action@v6.2
+      with:
+        github_token: ${{secrets.GITHUB_TOKEN}}
+        custom_tag: ${{github.event.inputs.newVersion}}
+
+  build_net:
+    name: Build
+    needs: [version]
+    runs-on: windows-latest
+    steps:
+    - name: Decoding strong-name key
+      id: sign_key_file
+      uses: timheuer/base64-to-file@v1.2
+      with:
+        fileName: 'Signature.snk'
+        encodedString: ${{secrets.SIGN_ASM_KEY}}
+    - uses: actions/checkout@v4
+      with:
+        token: ${{secrets.SUBMODULE_TOKEN}}
+        submodules: true
+    - name: Caching NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('/Directory.Packages.props', '/nuget.config') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+    - name: Restore
+      run: msbuild ${{env.SolutionName}}.sln /t:Restore
+    - name: Build multi-target project
+      run: >
+        msbuild ${{env.SolutionName}}.sln
+        /p:Configuration=Release
+        /p:ArtifactsDir="${{env.ArtifactsDir}}"
+        /p:GenerateDocumentationFile=true
+        /p:SignAssembly=true
+        /p:Version=${{needs.version.outputs.new_version}}
+        /p:AssemblyOriginatorKeyFile="${{steps.sign_key_file.outputs.filePath}}"
+    - name: Listing release directory
+      run: |
+        echo "Listing files in the release directory:"
+        ls ${{env.ArtifactsDir}} -Recurse
+    - name: Finding portable executables to sign
+      id: find_binaries
+      run: |
+        $filePaths = Get-ChildItem -Path "${{env.ArtifactsDir}}" -Recurse -Include "${{env.SolutionName}}.dll" | ForEach-Object { $_.FullName }
+        $multiLineString = $filePaths -join "`n"
+
+        echo "Found files to sign:"
+        echo $multiLineString
+
+        echo "files_to_sign<<EOF" >> $env:GITHUB_OUTPUT
+        echo $multiLineString >> $env:GITHUB_OUTPUT
+        echo "EOF" >> $env:GITHUB_OUTPUT
+    - name: Signing portable executables
+      uses: dlemstra/code-sign-action@v1
+      with:
+        certificate: '${{secrets.SIGN_PE_CERTIFICATE}}'
+        password: '${{secrets.SIGN_PE_PASSWORD}}'
+        recursive: false
+        files: ${{steps.find_binaries.outputs.files_to_sign}}
+    - name: Creating NuGet package
+      run: >
+        dotnet pack ${{env.SolutionName}}.sln --no-build --no-restore -c Release -o ${{github.workspace}}\nupkg
+        /p:ArtifactsDir="${{env.ArtifactsDir}}"
+        /p:PackageVersion=${{needs.version.outputs.new_version}}
+        /p:GenerateDocumentationFile=true
+        /p:IncludeSymbols=true
+        /p:DebugType=Portable
+        /p:EmbedUntrackedSources=true
+        /p:PublishRepositoryUrl=true
+        /p:EnablePackageValidation=true
+        /p:SymbolPackageFormat=snupkg
+    - name: Deploying package to GitHub
+      run: dotnet nuget push ${{github.workspace}}\nupkg\*.nupkg --skip-duplicate --api-key ${{secrets.GITHUB_TOKEN}} --source https://nuget.pkg.github.com/DKorablin/index.json
+    - name: Package Release Artifacts
+      run: |
+        .\.github\scripts\Build-ReleasePackage.ps1 `
+          -GitHubToken "${{secrets.DEPLOYMENT_TOKEN}}" `
+          -BinDirectory "${{github.workspace}}\bin" `
+          -SolutionName "${{env.SolutionName}}" `
+          -ReleaseVersion "${{needs.version.outputs.new_version}}"
+    - name: Publish GitHub Release
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: ${{env.ArtifactsDir}}\*.zip
+        tag: ${{needs.version.outputs.new_tag}}
+        name: Auto ${{needs.version.outputs.new_tag}}
+        body: ${{needs.version.outputs.changelog}}
+        artifactErrorsFailBuild: true
+        generateReleaseNotes: true
+
+  failure_cleanup:
+    name: Cleanup Tag On Failure
+    needs: [version, build_net]
+    if: always() && needs.build_net.result != 'success'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        token: ${{secrets.SUBMODULE_TOKEN}}
+        submodules: false
+        fetch-depth: 0 #Fetch all history for all tags and branches
+    - name: Removing version tag
+      run: |
+        git tag -d ${{needs.version.outputs.new_tag}} || true
+        git push origin :refs/tags/${{needs.version.outputs.new_tag}} || true
