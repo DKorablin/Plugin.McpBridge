@@ -1,0 +1,6 @@
+[submodule "SAL.Shared"]
+	path = SAL.Shared
+	url = https://github.com/DKorablin/SAL.Shared.git
+[submodule "Images.Shared"]
+	path = Images.Shared
+	url = https://github.com/DKorablin/Images.Shared.git
