@@ -6,6 +6,10 @@
 		<PackageVersion Include="SAL.Windows" Version="1.2.11">
 			<ExcludeAssets>runtime</ExcludeAssets>
 		</PackageVersion>
+		<PackageVersion Include="Microsoft.SemanticKernel" Version="1.74.0" />
+		<PackageVersion Include="Microsoft.SemanticKernel.Connectors.OpenAI" Version="1.74.0" />
+		<PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
+		<PackageVersion Include="ModelContextProtocol" Version="1.1.0" />
 		<!--Analyzers-->
 		<GlobalPackageReference Include="SonarAnalyzer.CSharp" Version="10.8.0.113526">
 			<PrivateAssets>All</PrivateAssets>

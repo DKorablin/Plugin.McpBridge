@@ -1,0 +1,54 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFrameworks>net48;net8.0-windows</TargetFrameworks>
+		<UseWindowsForms>true</UseWindowsForms>
+		<LangVersion>latest</LangVersion>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+		<GeneratePackageOnBuild>False</GeneratePackageOnBuild>
+		<GenerateDocumentationFile>False</GenerateDocumentationFile>
+		<CopyLocalLockFileAssemblies>True</CopyLocalLockFileAssemblies>
+		<NoWarn>CA1416</NoWarn>
+	</PropertyGroup>
+
+	<!--nuspec-->
+	<PropertyGroup>
+		<PackageId>AlphaOmega.SAL.Plugin.McpBridge</PackageId>
+		<Version>$(Version)</Version>
+		<Title>SAL MCP Bridge Plugin</Title>
+		<Description>A SAL plugin that bridges the Model Context Protocol (MCP) with AI assistants powered by Microsoft Semantic Kernel. Hosts an in-process MCP server and client over named-pipe transport, and exposes a multi-turn chat panel. Supports OpenAI, Azure OpenAI, and OpenAI-compatible providers including Qwen, Grok, Gemini, and custom endpoints.</Description>
+		<Authors>Danila Korablin</Authors>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageReadmeFile>docs\README.md</PackageReadmeFile>
+		<PackageIcon>docs\SAL.100.png</PackageIcon>
+		<RepositoryUrl>https://github.com/DKorablin/Plugin.McpBridge</RepositoryUrl>
+		<PackageTags>SAL plugin mcp model-context-protocol semantic-kernel openai azure-openai ai chat assistant</PackageTags>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<None Include="..\README.md" Pack="true" PackagePath="\docs" />
+		<None Include="..\Images.Shared\SAL.100.png" Pack="true" PackagePath="\docs" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="SAL.Windows" />
+		<PackageReference Include="Microsoft.SemanticKernel" />
+		<PackageReference Include="Microsoft.SemanticKernel.Connectors.OpenAI" />
+		<PackageReference Include="Microsoft.Extensions.Hosting" />
+		<PackageReference Include="ModelContextProtocol" />
+	</ItemGroup>
+
+	<PropertyGroup Condition="'$(Configuration)'=='Release'">
+		<Optimize>true</Optimize>
+		<PublishSingleFile>true</PublishSingleFile>
+		<TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+	</PropertyGroup>
+
+	<ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+		<AssemblyAttributes Include="AssemblyMetadata">
+			<_Parameter1>ProjectUrl</_Parameter1>
+			<_Parameter2>https://github.com/DKorablin/Plugin.McpBridge</_Parameter2>
+		</AssemblyAttributes>
+	</ItemGroup>
+</Project>
