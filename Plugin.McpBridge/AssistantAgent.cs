@@ -30,6 +30,7 @@ namespace Plugin.McpBridge
 			}
 
 			IKernelBuilder kernelBuilder = Kernel.CreateBuilder();
+			System.Net.Http.HttpClient httpClient = new System.Net.Http.HttpClient { Timeout = settings.ConnectionTimeout };
 			switch(settings.ProviderType)
 			{
 			case AiProviderType.AzureOpenAI:
@@ -37,13 +38,25 @@ namespace Plugin.McpBridge
 					deploymentName: settings.DeploymentName,
 					endpoint: settings.ModelEndpointUrl,
 					apiKey: settings.ApiKey,
-					modelId: settings.ModelId);
+					modelId: settings.ModelId,
+					httpClient: httpClient);
 				break;
 			default:
 				if(settings.ModelEndpointUrl == null)
-					kernelBuilder.AddOpenAIChatCompletion(settings.ModelId, "local-no-key", settings.OrganizationId, null, null);
+					kernelBuilder.AddOpenAIChatCompletion(
+						modelId: settings.ModelId,
+						apiKey: "local-no-key",
+						orgId: settings.OrganizationId,
+						serviceId: null,
+						httpClient: httpClient);
 				else
-					kernelBuilder.AddOpenAIChatCompletion(settings.ModelId, new Uri(settings.ModelEndpointUrl), settings.ApiKey, settings.OrganizationId, null, null);
+					kernelBuilder.AddOpenAIChatCompletion(
+						modelId: settings.ModelId,
+						endpoint: new Uri(settings.ModelEndpointUrl),
+						apiKey: settings.ApiKey,
+						orgId: settings.OrganizationId,
+						serviceId: null,
+						httpClient: httpClient);
 				break;
 			}
 
@@ -121,7 +134,7 @@ namespace Plugin.McpBridge
 
 		private Boolean TryHandleSystemCommand(String aiResponse, out String commandResult)
 		{
-			if(String.IsNullOrWhiteSpace(aiResponse) || !aiResponse.StartsWith("COMMAND:", StringComparison.OrdinalIgnoreCase))
+			if(!aiResponse.StartsWith("COMMAND:", StringComparison.OrdinalIgnoreCase))
 			{
 				commandResult = String.Empty;
 				return false;
@@ -141,7 +154,7 @@ namespace Plugin.McpBridge
 		private Boolean TryHandleSettingsCommand(String commandPayload, out String commandResult)
 		{
 			commandResult = String.Empty;
-			if(String.IsNullOrWhiteSpace(commandPayload) || !commandPayload.StartsWith("SETTINGS ", StringComparison.OrdinalIgnoreCase))
+			if(!commandPayload.StartsWith("SETTINGS ", StringComparison.OrdinalIgnoreCase))
 				return false;
 
 			String settingsPayload = commandPayload.Substring("SETTINGS ".Length).Trim();

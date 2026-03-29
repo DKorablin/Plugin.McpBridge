@@ -231,7 +231,7 @@ namespace Plugin.McpBridge
 				this._inner.Write(buffer, offset, count);
 			}
 
-			public override async ValueTask<Int32> ReadAsync(Memory<Byte> buffer, CancellationToken cancellationToken = default)
+			/*public override async ValueTask<Int32> ReadAsync(Memory<Byte> buffer, CancellationToken cancellationToken = default)
 			{
 				Int32 bytesRead = await this._inner.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
 				if(this._traceReads && bytesRead > 0)
@@ -249,7 +249,7 @@ namespace Plugin.McpBridge
 					this.Trace("WRITE", buffer, offset, count);
 
 				await this._inner.WriteAsync(buffer, offset, count, cancellationToken).ConfigureAwait(false);
-			}
+			}*/
 
 			public override async ValueTask WriteAsync(ReadOnlyMemory<Byte> buffer, CancellationToken cancellationToken = default)
 			{
@@ -270,11 +270,11 @@ namespace Plugin.McpBridge
 				base.Dispose(disposing);
 			}
 
-			public override async ValueTask DisposeAsync()
+			/*public override async ValueTask DisposeAsync()
 			{
 				await this._inner.DisposeAsync().ConfigureAwait(false);
 				await base.DisposeAsync().ConfigureAwait(false);
-			}
+			}*/
 
 			private void Trace(String action, Byte[] buffer, Int32 offset, Int32 count)
 			{

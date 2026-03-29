@@ -28,9 +28,11 @@ public partial class PanelChat : UserControl
 		txtRequest.Clear();
 		txtResponse.AppendText($"> {request}");
 		txtResponse.AppendText(Environment.NewLine);
+
 		foreach(var response in this.Plugin.InvokeMessage(request))
 		{
-			txtResponse.AppendText($"< {response}");
+			var formattedResponse = response.Replace("\r\n", Environment.NewLine).Replace("\n", Environment.NewLine);
+			txtResponse.AppendText($"< {formattedResponse}");
 			txtResponse.AppendText(Environment.NewLine);
 		}
 	}

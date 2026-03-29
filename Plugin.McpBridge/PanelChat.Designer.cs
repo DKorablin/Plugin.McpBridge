@@ -64,7 +64,7 @@ partial class PanelChat
 		splitMain.Panel2.Controls.Add(this.txtRequest);
 		splitMain.Size = new Size(175, 148);
 		splitMain.SplitterDistance = 70;
-		splitMain.TabIndex = 1;
+		splitMain.TabIndex = 3;
 		// 
 		// txtResponse
 		// 
@@ -74,7 +74,7 @@ partial class PanelChat
 		this.txtResponse.Name = "txtResponse";
 		this.txtResponse.ScrollBars = ScrollBars.Vertical;
 		this.txtResponse.Size = new Size(175, 70);
-		this.txtResponse.TabIndex = 0;
+		this.txtResponse.TabIndex = 2;
 		// 
 		// bnSend
 		// 
@@ -102,7 +102,7 @@ partial class PanelChat
 		this.toolStrip1.Location = new Point(0, 0);
 		this.toolStrip1.Name = "toolStrip1";
 		this.toolStrip1.Size = new Size(175, 25);
-		this.toolStrip1.TabIndex = 0;
+		this.toolStrip1.TabIndex = 4;
 		this.toolStrip1.Text = "toolStrip1";
 		// 
 		// PanelChat

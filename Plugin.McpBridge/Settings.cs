@@ -24,6 +24,7 @@ namespace Plugin.McpBridge
 			public const String AzureApiVersion = "2024-10-21";
 			public const String AssistantSystemPrompt = "You are a SAL automation assistant. Use available MCP tools when useful. Return clear user-facing responses, or a command payload only when automation is required.";
 			public const Int32 AgentLoopCap = 3;
+			public static readonly TimeSpan ConnectionTimeout = TimeSpan.FromSeconds(100);
 		}
 
 		private AiProviderType _providerType = Defaults.ProviderType;
@@ -37,6 +38,7 @@ namespace Plugin.McpBridge
 		private Double? _temperature;
 		private Int32? _maxTokens;
 		private Int32 _agentLoopCap = Defaults.AgentLoopCap;
+		private TimeSpan _connectionTimeout = Defaults.ConnectionTimeout;
 
 		/// <summary>Selects the provider profile used to initialize the AI client.</summary>
 		[Category("AI Provider")]
@@ -182,6 +184,20 @@ namespace Plugin.McpBridge
 				if(value <= 0)
 					value = Defaults.AgentLoopCap;
 				this.SetField(ref this._agentLoopCap, value, nameof(this.AgentLoopCap));
+			}
+		}
+
+		[Category("Network")]
+		[DefaultValue(typeof(TimeSpan), "00:01:40")]
+		[Description("The timeout duration for network connections to the AI provider.")]
+		public TimeSpan ConnectionTimeout
+		{
+			get => this._connectionTimeout;
+			set
+			{
+				if(value <= TimeSpan.Zero)
+					value = Defaults.ConnectionTimeout;
+				this.SetField(ref this._connectionTimeout, value, nameof(this.ConnectionTimeout));
 			}
 		}
 
