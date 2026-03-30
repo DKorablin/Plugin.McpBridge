@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.ComponentModel;
+using System.Diagnostics;
 using SAL.Flatbed;
 using SAL.Windows;
 
@@ -6,8 +7,6 @@ namespace Plugin.McpBridge
 {
 	public class Plugin : IPlugin, IPluginSettings<Settings>
 	{
-		private readonly SAL.Flatbed.IHost _host;
-
 		private Settings? _settings;
 		private TraceSource? _trace;
 
@@ -27,13 +26,23 @@ namespace Plugin.McpBridge
 				if(this._settings == null)
 				{
 					this._settings = new Settings();
-					this._host.Plugins.Settings(this).LoadAssemblyParameters(this._settings);
+					this.Host.Plugins.Settings(this).LoadAssemblyParameters(this._settings);
+					this._settings.PropertyChanged += _settings_PropertyChanged;
 				}
 				return this._settings;
 			}
 		}
 
-		private IHostWindows HostWindows => this._host as IHostWindows ?? throw new InvalidOperationException("Host does not support windows.");
+		private void _settings_PropertyChanged(Object? sender, PropertyChangedEventArgs e)
+		{
+			this._mcpBridge?.Dispose();
+			this._mcpBridge = null;
+			this._agent = null;
+		}
+
+		internal IHost Host { get; }
+
+		private IHostWindows HostWindows => this.Host as IHostWindows ?? throw new InvalidOperationException("Host does not support windows.");
 
 		private static Dictionary<String, DockState> DocumentTypes
 		{
@@ -45,7 +54,7 @@ namespace Plugin.McpBridge
 
 		public Plugin(IHost host)
 		{
-			this._host = host ?? throw new ArgumentNullException(nameof(host));
+			this.Host = host ?? throw new ArgumentNullException(nameof(host));
 		}
 
 		public IWindow? GetPluginControl(String typeName, Object args)
@@ -64,15 +73,14 @@ namespace Plugin.McpBridge
 			{
 				try
 				{
-					PluginSettingsHelper settingsHelper = new PluginSettingsHelper(this._host);
-					this._mcpBridge = new McpBridge(this.Trace, this._host, settingsHelper);
+					PluginSettingsHelper settingsHelper = new PluginSettingsHelper(this.Host);
+					this._mcpBridge = new McpBridge(this.Trace, this.Host, settingsHelper);
 					this._agent = new AssistantAgent(this.Trace, this._mcpBridge, settingsHelper);
 
 					this._agent.Initialize(this.Settings);
 					this._mcpBridge.Start();
 				} catch(Exception)
 				{
-					this._mcpBridge?.Stop();
 					this._mcpBridge = null;
 					this._agent = null;
 					throw;
@@ -82,7 +90,7 @@ namespace Plugin.McpBridge
 
 		Boolean IPlugin.OnConnection(ConnectMode mode)
 		{
-			var hostWindows = this._host as IHostWindows;
+			var hostWindows = this.Host as IHostWindows;
 			if(hostWindows != null)
 			{
 				IMenuItem menuTools = hostWindows.MainMenu.FindMenuItem("Tools");

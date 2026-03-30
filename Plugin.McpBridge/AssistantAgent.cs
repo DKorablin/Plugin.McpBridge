@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
+using SAL.Flatbed;
 
 namespace Plugin.McpBridge
 {
@@ -12,6 +13,7 @@ namespace Plugin.McpBridge
 		private readonly McpBridge _mcpBridge;
 		private readonly PluginSettingsHelper _settingsHelper;
 		private Kernel? _kernel;
+		private ChatHistory? _chatHistory;
 
 		public AssistantAgent(TraceSource trace, McpBridge mcpBridge, PluginSettingsHelper settingsHelper)
 		{
@@ -68,6 +70,8 @@ namespace Plugin.McpBridge
 			if(String.IsNullOrWhiteSpace(message))
 				return new String[] { "Message is empty." };
 
+			this._trace.TraceEvent(TraceEventType.Verbose, 0, "> " + message);
+
 			ChatHistory chatHistory = this.CreateChatHistory(message, settings);
 			Int32 loopCap = Math.Max(settings.AgentLoopCap, 1);
 
@@ -75,6 +79,7 @@ namespace Plugin.McpBridge
 			{
 				String aiResponse = this.GetAssistantResponse(chatHistory, settings);
 				chatHistory.AddAssistantMessage(aiResponse);
+				this._trace.TraceEvent(TraceEventType.Verbose, 0, "< " + aiResponse);
 
 				String commandResult;
 				if(!this.TryHandleSystemCommand(aiResponse, out commandResult))
@@ -88,13 +93,16 @@ namespace Plugin.McpBridge
 
 		private ChatHistory CreateChatHistory(String message, Settings settings)
 		{
-			ChatHistory chatHistory = new ChatHistory();
-			String? systemPrompt = settings.AssistantSystemPrompt;
-			if(!String.IsNullOrWhiteSpace(systemPrompt))
-				chatHistory.AddSystemMessage(systemPrompt!);
+			if(this._chatHistory == null)
+			{
+				this._chatHistory = new ChatHistory();
+				String? systemPrompt = settings.AssistantSystemPrompt;
+				if(!String.IsNullOrWhiteSpace(systemPrompt))
+					this._chatHistory.AddSystemMessage(systemPrompt!);
+			}
 
-			chatHistory.AddUserMessage(this.BuildAiPrompt(message));
-			return chatHistory;
+			this._chatHistory.AddUserMessage(this.BuildAiPrompt(message));
+			return this._chatHistory;
 		}
 
 		private String GetAssistantResponse(ChatHistory chatHistory, Settings settings)
