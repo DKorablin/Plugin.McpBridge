@@ -21,7 +21,6 @@ namespace Plugin.McpBridge
 		{
 			public const AiProviderType ProviderType = AiProviderType.OpenAI;
 			public const String ModelId = "gpt-4o-mini";
-			public const String AzureApiVersion = "2024-10-21";
 			public const String AssistantSystemPrompt = "You are a SAL automation assistant. Use available MCP tools when useful. Return clear user-facing responses, or a command payload only when automation is required.";
 			public const Int32 AgentLoopCap = 3;
 			public static readonly TimeSpan ConnectionTimeout = TimeSpan.FromSeconds(100);
@@ -31,9 +30,7 @@ namespace Plugin.McpBridge
 		private String _modelId = Defaults.ModelId;
 		private String? _apiKey = null;
 		private String? _modelEndpointUrl = null;
-		private String? _organizationId;
 		private String? _deploymentName = null;
-		private String _azureApiVersion = Defaults.AzureApiVersion;
 		private String? _assistantSystemPrompt = Defaults.AssistantSystemPrompt;
 		private Double? _temperature;
 		private Int32? _maxTokens;
@@ -75,24 +72,10 @@ namespace Plugin.McpBridge
 			}
 		}
 
-		/// <summary>Optional organization identifier supported by some OpenAI-compatible providers.</summary>
+		/// <summary>The Azure OpenAI deployment name found in Azure OpenAI Studio under Deployments or organization identifier supported by some OpenAI-compatible providers.</summary>
 		[Category("AI Provider")]
-		[Description("Optional organization identifier supported by some OpenAI-compatible providers.")]
-		public String? OrganizationId
-		{
-			get => this._organizationId;
-			set
-			{
-				if(String.IsNullOrWhiteSpace(value))
-					value = null;
-
-				this.SetField(ref this._organizationId, value, nameof(this.OrganizationId));
-			}
-		}
-
-		/// <summary>The Azure OpenAI deployment name found in Azure OpenAI Studio under Deployments.</summary>
-		[Category("Azure OpenAI")]
-		[Description("The deployment name from Azure OpenAI Studio (Deployments section). Required when using the Azure OpenAI provider.")]
+		[DisplayName("Deplymanet Name / Organization ID")]
+		[Description("The deployment name from Azure OpenAI Studio (Deployments section). Required when using the Azure OpenAI provider.\r\nOrganization identifier supported by some OpenAI-compatible providers.")]
 		public String? DeploymentName
 		{
 			get => this._deploymentName;
@@ -122,18 +105,8 @@ namespace Plugin.McpBridge
 			}
 		}
 
-		/// <summary>Azure OpenAI API version appended when building Azure-compatible endpoint URL.</summary>
-		[Category("AI Provider")]
-		[DefaultValue(Defaults.AzureApiVersion)]
-		[Description("Azure OpenAI API version appended when building Azure-compatible endpoint URL.")]
-		public String AzureApiVersion
-		{
-			get => this._azureApiVersion;
-			set => this.SetField(ref this._azureApiVersion, value, nameof(this.AzureApiVersion));
-		}
-
 		/// <summary>The system prompt that defines the assistant's behavior and persona.</summary>
-		[Category("AI Model Settings")]
+		[Category("Prompt Settings")]
 		[DefaultValue(Defaults.AssistantSystemPrompt)]
 		[Description("The system prompt that defines the assistant's behavior and persona.")]
 		public String? AssistantSystemPrompt
@@ -149,7 +122,7 @@ namespace Plugin.McpBridge
 		}
 
 		/// <summary>The sampling temperature controlling randomness in responses (0.0–2.0).</summary>
-		[Category("AI Model Settings")]
+		[Category("Prompt Settings")]
 		[Description("The sampling temperature controlling randomness in responses. Lower values produce more deterministic output (0.0–2.0).")]
 		public Double? Temperature
 		{
@@ -158,7 +131,7 @@ namespace Plugin.McpBridge
 		}
 
 		/// <summary>The maximum number of tokens to generate in a single response.</summary>
-		[Category("AI Model Settings")]
+		[Category("Prompt Settings")]
 		[Description("The maximum number of tokens to generate in a single response. Leave empty for the model default.")]
 		public Int32? MaxTokens
 		{
@@ -173,7 +146,7 @@ namespace Plugin.McpBridge
 		}
 
 		/// <summary>The maximum number of agentic tool-call iterations before forcing a final response.</summary>
-		[Category("AI Model Settings")]
+		[Category("Prompt Settings")]
 		[DefaultValue(Defaults.AgentLoopCap)]
 		[Description("The maximum number of agentic tool-call iterations before forcing a final response.")]
 		public Int32 AgentLoopCap

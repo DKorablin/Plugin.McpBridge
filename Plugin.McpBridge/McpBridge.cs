@@ -1,12 +1,13 @@
+using System.Diagnostics;
 using System.IO.Pipes;
 using System.Text;
-using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using ModelContextProtocol;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
+using Plugin.McpBridge.Helpers;
 using SAL.Flatbed;
 using HostingIHost = Microsoft.Extensions.Hosting.IHost;
 
@@ -17,6 +18,7 @@ namespace Plugin.McpBridge
 	{
 		private readonly SAL.Flatbed.IHost _host;
 		private readonly PluginSettingsHelper _settingsHelper;
+		private readonly PluginMethodsHelper _methodsHelper;
 		private readonly TraceSource _trace;
 		private readonly Object _syncRoot = new Object();
 		private HostingIHost? _mcpHost;
@@ -26,11 +28,12 @@ namespace Plugin.McpBridge
 		private Stream? _clientInputStream;
 		private Stream? _clientOutputStream;
 
-		public McpBridge(TraceSource trace, SAL.Flatbed.IHost host, PluginSettingsHelper settingsHelper)
+		public McpBridge(TraceSource trace, SAL.Flatbed.IHost host, PluginSettingsHelper settingsHelper, PluginMethodsHelper methodsHelper)
 		{
+			this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
 			this._host = host ?? throw new ArgumentNullException(nameof(host));
 			this._settingsHelper = settingsHelper ?? throw new ArgumentNullException(nameof(settingsHelper));
-			this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
+			this._methodsHelper = methodsHelper ?? throw new ArgumentNullException(nameof(methodsHelper));
 		}
 
 		public void Start()
@@ -142,10 +145,13 @@ namespace Plugin.McpBridge
 		private IEnumerable<McpServerTool> CreateMcpTools()
 		{
 			yield return McpServerTool.Create(new Func<String>(this.ListLoadedPluginsFromHost), new McpServerToolCreateOptions() { Description = "Lists all plugins currently loaded in the SAL host, including their ID, name, version, whether they expose settings, and their available methods." });
+			//Plugin settings management
 			yield return McpServerTool.Create(new Func<String, String>(this._settingsHelper.ListPluginSettings), new McpServerToolCreateOptions() { Description = "Lists all settings exposed by a specific SAL plugin, including each setting's name, current value, type, and description. Requires the plugin ID." });
 			yield return McpServerTool.Create(new Func<String, String, String>(this._settingsHelper.ReadPluginSetting), new McpServerToolCreateOptions() { Description = "Reads the current value of a single setting from a specific SAL plugin. Requires the plugin ID and the setting name (property name or display name)." });
 			yield return McpServerTool.Create(new Func<String, String, String, String>(this._settingsHelper.UpdatePluginSetting), new McpServerToolCreateOptions() { Description = "Updates the value of a single setting on a specific SAL plugin and returns the new value. Requires the plugin ID, the setting name, and the new value as a string." });
-			yield return McpServerTool.Create(new Func<String, String, String, String>(this.InvokePluginMethodPlaceholder), new McpServerToolCreateOptions() { Description = "Invokes a named method on a specific SAL plugin with the provided arguments serialized as JSON. Requires the plugin ID, the method name, and a JSON string of arguments." });
+			//Plugin method management
+			yield return McpServerTool.Create(new Func<String, String>(this._methodsHelper.ListPluginMethods), new McpServerToolCreateOptions() { Description = "Lists all callable methods exposed by a specific SAL plugin, including each method's name and its parameters with their types. Requires the plugin ID." });
+			yield return McpServerTool.Create(new Func<String, String, String, String>(this._methodsHelper.InvokePluginMethodPlaceholder), new McpServerToolCreateOptions() { Description = "Invokes a named method on a specific SAL plugin with the provided arguments serialized as JSON. Requires the plugin ID, the method name, and a JSON string of arguments." });
 		}
 
 		public String ListLoadedPluginsFromHost()
@@ -165,23 +171,13 @@ namespace Plugin.McpBridge
 				pluginsText.Append(pluginDescription.Version.ToString());
 				pluginsText.Append(" | Settings: ");
 				pluginsText.Append(PluginSettingsHelper.HasPluginSettings(pluginDescription) ? "yes" : "no");
+				pluginsText.Append(" | Members: ");
+				pluginsText.Append(PluginMethodsHelper.HasCallableMembers(pluginDescription) ? "yes" : "no");
 				pluginsText.AppendLine();
-
-				if(pluginDescription.Type != null && pluginDescription.Type.Members != null)
-					foreach(IPluginMemberInfo pluginMember in pluginDescription.Type.Members)
-						if(pluginMember != null && pluginMember.MemberType == System.Reflection.MemberTypes.Method)
-						{
-							pluginsText.Append("  * method: ");
-							pluginsText.Append(pluginMember.Name);
-							pluginsText.AppendLine();
-						}
 			}
 
 			return pluginsText.ToString().Trim();
 		}
-
-		private String InvokePluginMethodPlaceholder(String pluginId, String methodName, String argumentsJson)
-			=> $"Plugin invocation placeholder. Plugin='{pluginId}', Method='{methodName}', Args='{argumentsJson}'";
 
 		private sealed class TraceTapStream : Stream
 		{

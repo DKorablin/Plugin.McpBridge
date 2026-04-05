@@ -60,6 +60,7 @@ Settings are managed through the standard SAL plugin settings mechanism (right-c
 | `Temperature` | *(provider default)* | Sampling temperature (0.0 – 2.0). |
 | `MaxTokens` | *(provider default)* | Maximum completion tokens per request. |
 | `AgentLoopCap` | `3` | Maximum number of automated command/result iterations before giving up. |
+| `ConnectionTimeout` | `100` | Request timeout in seconds. |
 
 **Default system prompt:**
 > *You are a SAL automation assistant. Use available MCP tools when useful. Return clear user-facing responses, or a command payload only when automation is required.*

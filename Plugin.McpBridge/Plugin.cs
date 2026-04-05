@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
+using Plugin.McpBridge.Helpers;
 using SAL.Flatbed;
 using SAL.Windows;
 
@@ -64,27 +65,47 @@ namespace Plugin.McpBridge
 		{
 			this.EnsureConnected();
 
-			return this._agent.InvokeMessage(message, this.Settings);
+			var responses = new List<String>();
+			var agent = this._agent!;
+			EventHandler<AgentResponseEventArgs> responseHandler =
+				(Object? sender, AgentResponseEventArgs e) => responses.Add(e.Response);
+
+			agent.AiResponseReceived += responseHandler;
+
+			try
+			{
+				Task.Run(() => agent.InvokeMessageAsync(message, this.Settings, CancellationToken.None))
+					.GetAwaiter().GetResult();
+			} finally
+			{
+				agent.AiResponseReceived -= responseHandler;
+			}
+
+			return responses;
 		}
 
 		private void EnsureConnected()
 		{
 			if(this._mcpBridge == null || this._agent == null)
-			{
-				try
-				{
-					PluginSettingsHelper settingsHelper = new PluginSettingsHelper(this.Host);
-					this._mcpBridge = new McpBridge(this.Trace, this.Host, settingsHelper);
-					this._agent = new AssistantAgent(this.Trace, this._mcpBridge, settingsHelper);
+				this.InitializeMcpBridge(out this._mcpBridge, out this._agent);
+		}
 
-					this._agent.Initialize(this.Settings);
-					this._mcpBridge.Start();
-				} catch(Exception)
-				{
-					this._mcpBridge = null;
-					this._agent = null;
-					throw;
-				}
+		internal void InitializeMcpBridge(out McpBridge? bridge, out AssistantAgent? agent)
+		{
+			try
+			{
+				PluginSettingsHelper settingsHelper = new PluginSettingsHelper(this.Host);
+				PluginMethodsHelper methodsHelper = new PluginMethodsHelper(this.Host);
+				bridge = new McpBridge(this.Trace, this.Host, settingsHelper, methodsHelper);
+				agent = new AssistantAgent(this.Trace, bridge, settingsHelper, methodsHelper);
+
+				agent.Initialize(this.Settings);
+				bridge.Start();
+			} catch(Exception)
+			{
+				bridge = null;
+				agent = null;
+				throw;
 			}
 		}
 

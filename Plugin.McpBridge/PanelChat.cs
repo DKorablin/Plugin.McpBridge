@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using Plugin.McpBridge.Helpers;
 using SAL.Windows;
 
 namespace Plugin.McpBridge;
@@ -26,6 +27,11 @@ public partial class PanelChat : UserControl
 
 	private void Settings_PropertyChanged(Object? sender, PropertyChangedEventArgs e)
 	{
+		if(this._agent != null)
+		{
+			this._agent.AiResponseReceived -= this.Agent_AiResponseReceived;
+			this._agent.ConfirmationRequired -= this.Agent_ConfirmationRequired;
+		}
 		this._mcpBridge?.Dispose();
 		this._mcpBridge = null;
 		this._agent = null;
@@ -35,47 +41,75 @@ public partial class PanelChat : UserControl
 	{
 		if(this._mcpBridge == null || this._agent == null)
 		{
-			try
-			{
-				PluginSettingsHelper settingsHelper = new PluginSettingsHelper(this.Plugin.Host);
-				this._mcpBridge = new McpBridge(this.Plugin.Trace, this.Plugin.Host, settingsHelper);
-				this._agent = new AssistantAgent(this.Plugin.Trace, this._mcpBridge, settingsHelper);
-
-				this._agent.Initialize(this.Plugin.Settings);
-				this._mcpBridge.Start();
-			} catch(Exception)
-			{
-				this._mcpBridge = null;
-				this._agent = null;
-				throw;
-			}
+			this.Plugin.InitializeMcpBridge(out this._mcpBridge, out this._agent);
+			this._agent.AiResponseReceived += this.Agent_AiResponseReceived;
+			this._agent.ConfirmationRequired += this.Agent_ConfirmationRequired;
 		}
 	}
 
-	private IEnumerable<String> InvokeMessage(String message)
+	private void InvokeMessage(String message)
 	{
 		if(String.IsNullOrWhiteSpace(message))
-			return Enumerable.Empty<String>();
+			return;
 
 		this.EnsureConnected();
+		bnSend.Enabled = false;
 
-		return this._agent.InvokeMessage(message, this.Plugin.Settings);
+		AssistantAgent agent = this._agent!;
+		Task.Run(async () =>
+		{
+			try
+			{
+				await agent.InvokeMessageAsync(message, this.Plugin.Settings, CancellationToken.None);
+			} catch(Exception ex)
+			{
+				this.Invoke(() =>
+				{
+					txtResponse.AppendText($"< Error: {ex.Message}");
+					txtResponse.AppendText(Environment.NewLine);
+				});
+			} finally
+			{
+				this.Invoke(() => bnSend.Enabled = true);
+			}
+		});
+	}
+
+	private void Agent_AiResponseReceived(Object? sender, AgentResponseEventArgs e)
+	{
+		String formattedResponse = e.Response.Replace("\r\n", Environment.NewLine).Replace("\n", Environment.NewLine);
+		this.Invoke(() =>
+		{
+			txtResponse.AppendText($"> {formattedResponse}");
+			txtResponse.AppendText(Environment.NewLine);
+		});
+	}
+
+	private void Agent_ConfirmationRequired(Object? sender, AgentConfirmationEventArgs e)
+	{
+		Boolean allowed = false;
+		this.Invoke(() =>
+		{
+			DialogResult result = MessageBox.Show(
+				$"The AI assistant wants to perform the following action:\r\n\r\n{e.ActionDescription}\r\n\r\nAllow this action?",
+				"Confirm Action",
+				MessageBoxButtons.YesNo,
+				MessageBoxIcon.Question,
+				MessageBoxDefaultButton.Button2);
+			allowed = result == DialogResult.Yes;
+		});
+		e.Confirm(allowed);
 	}
 
 	private void bnSend_Click(Object sender, EventArgs e)
 	{
-		var request = txtRequest.Text;
+		String request = txtRequest.Text.Trim();
 
 		txtRequest.Clear();
-		txtResponse.AppendText($"> {request}");
+		txtResponse.AppendText($"< {request}");
 		txtResponse.AppendText(Environment.NewLine);
 
-		foreach(var response in this.InvokeMessage(request))
-		{
-			var formattedResponse = response.Replace("\r\n", Environment.NewLine).Replace("\n", Environment.NewLine);
-			txtResponse.AppendText($"< {formattedResponse}");
-			txtResponse.AppendText(Environment.NewLine);
-		}
+		this.InvokeMessage(request);
 	}
 
 	private void txtRequest_KeyDown(Object sender, KeyEventArgs e)
