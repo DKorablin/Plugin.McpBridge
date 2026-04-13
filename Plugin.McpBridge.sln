@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.2.11430.68 d18.0
+VisualStudioVersion = 18.2.11430.68
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{29EFF129-D181-471B-939B-05374FAEB871}"
 	ProjectSection(SolutionItems) = preProject
@@ -23,6 +23,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Workflows", "Workflows", "{
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Plugin.McpBridge", "Plugin.McpBridge\Plugin.McpBridge.csproj", "{A34DFEFD-FDE4-4BC2-B48C-DB9B43D265E6}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Plugin.McpBridge.Tests", "Plugin.McpBridge.Tests\Plugin.McpBridge.Tests.csproj", "{A4CB0215-FB05-405D-9A66-CBDEC21900CD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{A34DFEFD-FDE4-4BC2-B48C-DB9B43D265E6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A34DFEFD-FDE4-4BC2-B48C-DB9B43D265E6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A34DFEFD-FDE4-4BC2-B48C-DB9B43D265E6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A4CB0215-FB05-405D-9A66-CBDEC21900CD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A4CB0215-FB05-405D-9A66-CBDEC21900CD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A4CB0215-FB05-405D-9A66-CBDEC21900CD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A4CB0215-FB05-405D-9A66-CBDEC21900CD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

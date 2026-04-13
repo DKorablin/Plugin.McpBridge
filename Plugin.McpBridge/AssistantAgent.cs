@@ -3,7 +3,6 @@ using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using Plugin.McpBridge.Helpers;
-using SAL.Flatbed;
 
 namespace Plugin.McpBridge
 {
@@ -90,14 +89,17 @@ namespace Plugin.McpBridge
 				chatHistory.AddAssistantMessage(aiResponse);
 				this._trace.TraceEvent(TraceEventType.Verbose, 0, "> " + aiResponse);
 
-				(Boolean isCommand, String commandResult) = await this.TryHandleSystemCommandAsync(aiResponse);
-				if(!isCommand)
+				AgentCommand command = AgentCommand.Parse(aiResponse);
+				if(command.IsCommand)
+				{
+					String commandResult = await this.ExecuteAsync(command);
+					this._trace.TraceEvent(TraceEventType.Verbose, 0, "< " + commandResult);
+					chatHistory.AddSystemMessage(AssistantAgent.BuildCommandResultPrompt(commandResult, loopIndex + 1, loopCap));
+				} else
 				{
 					this.OnAiResponseReceived(new AgentResponseEventArgs(aiResponse, true));
 					return;
 				}
-
-				chatHistory.AddSystemMessage(this.BuildCommandResultPrompt(commandResult, loopIndex + 1, loopCap));
 			}
 
 			this.OnAiResponseReceived(new AgentResponseEventArgs("Assistant reached the configured agent loop cap before returning a final user response.", true));
@@ -126,11 +128,29 @@ namespace Plugin.McpBridge
 		{
 			String pluginInventory = this._mcpBridge.ListLoadedPluginsFromHost();
 			String mcpTools = this._mcpBridge.ListLoadedToolsFromMcpClient();
-			return $"User message: {userMessage}{Environment.NewLine}{Environment.NewLine}Loaded SAL plugins:{Environment.NewLine}{pluginInventory}{Environment.NewLine}{Environment.NewLine}MCP tools discovered by MCP client:{Environment.NewLine}{mcpTools}{Environment.NewLine}{Environment.NewLine}Supported command payloads:{Environment.NewLine}COMMAND: SETTINGS LIST <plugin>{Environment.NewLine}COMMAND: SETTINGS GET <plugin> <setting>{Environment.NewLine}COMMAND: SETTINGS SET <plugin> <setting>=<value>{Environment.NewLine}COMMAND: METHODS LIST <plugin>{Environment.NewLine}COMMAND: METHODS INVOKE <plugin> <method> <argsJson>{Environment.NewLine}{Environment.NewLine}If automation command is required, return a supported payload prefixed with COMMAND:. Otherwise return a normal response for the user.";
+			return $@"User message: {userMessage}
+
+Loaded SAL plugins:
+{pluginInventory}
+
+MCP tools discovered by MCP client:
+{mcpTools}
+
+Supported command payloads:
+COMMAND: SETTINGS LIST <plugin>
+COMMAND: SETTINGS GET <plugin> <setting>
+COMMAND: SETTINGS SET <plugin> <setting>=<valueJson>
+COMMAND: METHODS LIST <plugin>
+COMMAND: METHODS INVOKE <plugin> <method> <argsJson>
+
+If automation command is required, return a supported payload prefixed with COMMAND:. Otherwise return the final user-facing response only.";
 		}
 
-		private String BuildCommandResultPrompt(String commandResult, Int32 loopIndex, Int32 loopCap)
-			=> $"System command result {loopIndex}/{loopCap}:{Environment.NewLine}{commandResult}{Environment.NewLine}{Environment.NewLine}If additional automation is required, return another payload prefixed with COMMAND:. Otherwise return the final user-facing response only.";
+		private static String BuildCommandResultPrompt(String commandResult, Int32 loopIndex, Int32 loopCap)
+			=> $@"System command result {loopIndex}/{loopCap}:
+{commandResult}
+
+If additional automation is required, return another payload prefixed with COMMAND:. Otherwise return the final user-facing response only.";
 
 		private async Task<String> GetAssistantResponseAsync(ChatHistory chatHistory, Settings settings, CancellationToken cancellationToken)
 		{
@@ -156,104 +176,6 @@ namespace Plugin.McpBridge
 			}
 		}
 
-		private async Task<(Boolean isCommand, String commandResult)> TryHandleSystemCommandAsync(String aiResponse)
-		{
-			if(!aiResponse.StartsWith("COMMAND:", StringComparison.OrdinalIgnoreCase))
-				return (false, String.Empty);
-
-			String commandPayload = aiResponse.Substring("COMMAND:".Length).Trim();
-			(Boolean handled, String? result) = await this.TryHandleSettingsCommandAsync(commandPayload);
-			if(handled)
-				return (true, result);
-
-			(handled, result) = await this.TryHandleMethodsCommandAsync(commandPayload);
-			if(handled)
-				return (true, result);
-
-			String commandResult = String.IsNullOrWhiteSpace(commandPayload)
-				? "Command payload is empty."
-				: $"Command interception placeholder: {commandPayload}";
-
-			return (true, commandResult);
-		}
-
-		private async Task<(Boolean handled, String commandResult)> TryHandleSettingsCommandAsync(String commandPayload)
-		{
-			if(!commandPayload.StartsWith("SETTINGS ", StringComparison.OrdinalIgnoreCase))
-				return (false, String.Empty);
-
-			String settingsPayload = commandPayload.Substring("SETTINGS ".Length).Trim();
-			if(settingsPayload.StartsWith("LIST ", StringComparison.OrdinalIgnoreCase))
-			{
-				String pluginId = settingsPayload.Substring("LIST ".Length).Trim();
-				return (true, this._settingsHelper.ListPluginSettings(pluginId));
-			}
-
-			if(settingsPayload.StartsWith("GET ", StringComparison.OrdinalIgnoreCase))
-			{
-				String readPayload = settingsPayload.Substring("GET ".Length).Trim();
-				Int32 separatorIndex = readPayload.IndexOf(' ');
-				if(separatorIndex <= 0 || separatorIndex >= readPayload.Length - 1)
-					return (true, "SETTINGS GET syntax: COMMAND: SETTINGS GET <plugin> <setting>");
-
-				String pluginId = readPayload.Substring(0, separatorIndex).Trim();
-				String settingName = readPayload.Substring(separatorIndex + 1).Trim();
-				return (true, this._settingsHelper.ReadPluginSetting(pluginId, settingName));
-			}
-
-			if(settingsPayload.StartsWith("SET ", StringComparison.OrdinalIgnoreCase))
-			{
-				String writePayload = settingsPayload.Substring("SET ".Length).Trim();
-				Int32 separatorIndex = writePayload.IndexOf(' ');
-				Int32 equalsIndex = writePayload.IndexOf('=');
-				if(separatorIndex <= 0 || equalsIndex <= separatorIndex + 1 || equalsIndex >= writePayload.Length)
-					return (true, "SETTINGS SET syntax: COMMAND: SETTINGS SET <plugin> <setting>=<value>");
-
-				String pluginId = writePayload.Substring(0, separatorIndex).Trim();
-				String settingName = writePayload.Substring(separatorIndex + 1, equalsIndex - separatorIndex - 1).Trim();
-				String settingValue = writePayload.Substring(equalsIndex + 1).Trim();
-				Boolean confirmed = await this.RequestConfirmationAsync($"SETTINGS SET {pluginId} {settingName}={settingValue}");
-				return confirmed
-					? (true, this._settingsHelper.UpdatePluginSetting(pluginId, settingName, settingValue))
-					: (true, "Operation was cancelled.");
-			}
-
-			return (true, "Supported settings commands: SETTINGS LIST <plugin>, SETTINGS GET <plugin> <setting>, SETTINGS SET <plugin> <setting>=<value>");
-		}
-
-		private async Task<(Boolean handled, String commandResult)> TryHandleMethodsCommandAsync(String commandPayload)
-		{
-			if(!commandPayload.StartsWith("METHODS ", StringComparison.OrdinalIgnoreCase))
-				return (false, String.Empty);
-
-			String methodsPayload = commandPayload.Substring("METHODS ".Length).Trim();
-			if(methodsPayload.StartsWith("LIST ", StringComparison.OrdinalIgnoreCase))
-			{
-				String pluginId = methodsPayload.Substring("LIST ".Length).Trim();
-				return (true, this._methodsHelper.ListPluginMethods(pluginId));
-			}
-
-			if(methodsPayload.StartsWith("INVOKE ", StringComparison.OrdinalIgnoreCase))
-			{
-				String invokePayload = methodsPayload.Substring("INVOKE ".Length).Trim();
-				Int32 firstSpace = invokePayload.IndexOf(' ');
-				if(firstSpace <= 0 || firstSpace >= invokePayload.Length - 1)
-					return (true, "METHODS INVOKE syntax: COMMAND: METHODS INVOKE <plugin> <method> <argsJson>");
-
-				String pluginId = invokePayload.Substring(0, firstSpace).Trim();
-				String remainder = invokePayload.Substring(firstSpace + 1).Trim();
-				Int32 secondSpace = remainder.IndexOf(' ');
-				String methodName = secondSpace < 0 ? remainder : remainder.Substring(0, secondSpace).Trim();
-				String argumentsJson = secondSpace < 0 ? "{}" : remainder.Substring(secondSpace + 1).Trim();
-				Boolean confirmed = await this.RequestConfirmationAsync($"METHODS INVOKE {pluginId} {methodName} {argumentsJson}");
-				return confirmed
-					? (true, this._methodsHelper.InvokePluginMethodPlaceholder(pluginId, methodName, argumentsJson))
-					: (true, "Operation was cancelled.");
-			}
-
-			return (true, "Supported methods commands: METHODS LIST <plugin>, METHODS INVOKE <plugin> <method> <argsJson>");
-		}
-
 		private Task<Boolean> RequestConfirmationAsync(String actionDescription)
 		{
 			if(this.ConfirmationRequired == null)
@@ -262,6 +184,78 @@ namespace Plugin.McpBridge
 			AgentConfirmationEventArgs confirmArgs = new AgentConfirmationEventArgs(actionDescription);
 			this.OnConfirmationRequired(confirmArgs);
 			return confirmArgs.ConfirmationTask;
+		}
+
+		private async Task<String> ExecuteAsync(AgentCommand command)
+		{
+			try
+			{
+				switch(command.CommandGroup)
+				{
+				case "SETTINGS":
+					return await this.ExecuteSettingsCommandAsync(command);
+				case "METHODS":
+					return await this.ExecuteMethodsCommandAsync(command);
+				default:
+					return String.IsNullOrWhiteSpace(command.CommandGroup)
+						? "Command payload is empty."
+						: $"Command interception placeholder: {command.CommandGroup}";
+				}
+			}catch(ArgumentException exc)
+			{
+				this._trace.TraceData(TraceEventType.Warning, 0, exc);
+				return exc.Message;
+			}catch(OperationCanceledException exc)
+			{
+				this._trace.TraceData(TraceEventType.Stop, 0, exc);
+				return "Operation was cancelled.";
+			}
+		}
+
+		private async Task<String> ExecuteSettingsCommandAsync(AgentCommand command)
+		{
+			switch(command.Command)
+			{
+			case "LIST":
+				return String.IsNullOrWhiteSpace(command.PluginId)
+					? throw new ArgumentException("SETTINGS LIST syntax: COMMAND: SETTINGS LIST <plugin>")
+					: this._settingsHelper.ListPluginSettings(command.PluginId);
+			case "GET":
+				return String.IsNullOrWhiteSpace(command.PluginId) || String.IsNullOrWhiteSpace(command.MemberName)
+					? throw new ArgumentException("SETTINGS GET syntax: COMMAND: SETTINGS GET <plugin> <setting>")
+					: this._settingsHelper.ReadPluginSetting(command.PluginId, command.MemberName);
+			case "SET":
+				if(String.IsNullOrWhiteSpace(command.PluginId) || String.IsNullOrWhiteSpace(command.MemberName))
+					throw new ArgumentException("SETTINGS SET syntax: COMMAND: SETTINGS SET <plugin> <setting>=<valueJson>");
+
+				Boolean setConfirmed = await this.RequestConfirmationAsync($"SETTINGS SET {command.PluginId} {command.MemberName}={command.Arguments}");
+				return setConfirmed
+					? this._settingsHelper.UpdatePluginSetting(command.PluginId, command.MemberName, command.Arguments)
+					: throw new OperationCanceledException();
+			default:
+				throw new ArgumentException("Supported settings commands: SETTINGS LIST <plugin>, SETTINGS GET <plugin> <setting>, SETTINGS SET <plugin> <setting>=<value>");
+			}
+		}
+
+		private async Task<String> ExecuteMethodsCommandAsync(AgentCommand command)
+		{
+			switch(command.Command)
+			{
+			case "LIST":
+				return String.IsNullOrWhiteSpace(command.PluginId)
+					? throw new ArgumentException("METHODS LIST syntax: COMMAND: METHODS LIST <plugin>")
+					: this._methodsHelper.ListPluginMethods(command.PluginId);
+			case "INVOKE":
+				if(String.IsNullOrWhiteSpace(command.PluginId) || String.IsNullOrWhiteSpace(command.MemberName))
+					throw new ArgumentException("METHODS INVOKE syntax: COMMAND: METHODS INVOKE <plugin> <method> <argsJson>");
+
+				Boolean invokeConfirmed = await this.RequestConfirmationAsync($"METHODS INVOKE {command.PluginId} {command.MemberName} {command.Arguments}");
+				return invokeConfirmed
+					? this._methodsHelper.InvokePluginMethodPlaceholder(command.PluginId, command.MemberName, command.Arguments)
+					: throw new OperationCanceledException();
+			default:
+				throw new ArgumentException("Supported methods commands: METHODS LIST <plugin>, METHODS INVOKE <plugin> <method> <argsJson>");
+			}
 		}
 	}
 }

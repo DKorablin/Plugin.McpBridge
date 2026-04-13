@@ -1,9 +1,10 @@
-namespace Plugin.McpBridge
+﻿namespace Plugin.McpBridge
 {
 	/// <summary>Arguments for the AiResponseReceived event.</summary>
 	internal sealed class AgentResponseEventArgs : EventArgs
 	{
 		public String Response { get; }
+
 		public Boolean IsFinal { get; }
 
 		public AgentResponseEventArgs(String response, Boolean isFinal)

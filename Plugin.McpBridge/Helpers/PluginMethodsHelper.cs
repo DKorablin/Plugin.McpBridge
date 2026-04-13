@@ -1,6 +1,7 @@
 ﻿using System.Reflection;
 using System.Text;
 using SAL.Flatbed;
+using System.Text.Json;
 
 namespace Plugin.McpBridge.Helpers
 {
@@ -19,7 +20,7 @@ namespace Plugin.McpBridge.Helpers
 			if(pluginDescription == null)
 				return $"Plugin with ID '{pluginId}' was not found.";
 
-			IEnumerable<IPluginMemberInfo> callableMembers = GetCallableMembers(pluginDescription);
+			IEnumerable<IPluginMemberInfo> callableMembers = PluginMethodsHelper.GetCallableMembers(pluginDescription);
 			if(!callableMembers.Any())
 				return $"Plugin '{pluginDescription.ID}' does not expose any callable methods.";
 
@@ -29,14 +30,14 @@ namespace Plugin.McpBridge.Helpers
 			builder.Append("' (");
 			builder.Append(pluginDescription.Name);
 			builder.AppendLine("):");
-			foreach(IPluginMemberInfo pluginMember in PluginMethodsHelper.GetCallableMembers(pluginDescription))
+			foreach(IPluginMemberInfo member in PluginMethodsHelper.GetCallableMembers(pluginDescription))
 			{
-				if(pluginMember.MemberType == MemberTypes.Method)
+				if(member.MemberType == MemberTypes.Method)
 				{
 					builder.Append("- ");
-					builder.Append(pluginMember.Name);
+					builder.Append(member.Name);
 
-					IPluginMethodInfo method = (IPluginMethodInfo)pluginMember;
+					IPluginMethodInfo method = (IPluginMethodInfo)member;
 					Boolean firstArg = true;
 					builder.Append(" with parameters: ");
 					foreach(IPluginParameterInfo argument in method.GetParameters())
@@ -45,21 +46,14 @@ namespace Plugin.McpBridge.Helpers
 							builder.Append(", ");
 						if(argument.IsOut)
 							builder.Append("out ");
-						builder.Append(argument.Name);
-						builder.Append(": ");
-						builder.Append(argument.TypeName);
+						builder.Append($"{argument.Name}: {argument.TypeName}");
 						String[] defaultValues = argument.GetDefaultValues();
-						if(defaultValues != null && defaultValues.Length > 0)
-						{
-							builder.Append(" [");
-							builder.Append(String.Join("|", defaultValues));
-							builder.Append(']');
-						}
-						firstArg = false;
+						if(defaultValues?.Length > 0)
+							builder.Append($" [{String.Join("|", defaultValues)}]");
 
+						firstArg = false;
 					}
 
-					builder.Append(')');
 					builder.AppendLine();
 				}
 			}
@@ -69,6 +63,20 @@ namespace Plugin.McpBridge.Helpers
 
 		public String InvokePluginMethodPlaceholder(String pluginId, String methodName, String argumentsJson)
 		{
+			var pluginDescription = this._host.Plugins[pluginId]
+				?? throw new ArgumentException($"Plugin '{pluginId}' was not found.");
+
+			var member = PluginMethodsHelper.GetCallableMembers(pluginDescription).FirstOrDefault(m => m.Name == methodName)
+				?? throw new ArgumentException($"Method '{methodName}' was not found in plugin '{pluginId}'.");
+
+			if(member.MemberType == MemberTypes.Method)
+			{
+				var method = (IPluginMethodInfo)member;
+				var arguments = ConvertArgumentsValue(method, argumentsJson);
+				var result = method.Invoke(arguments);
+
+				return JsonSerializer.Serialize(result);
+			}
 			//TODO: Implement actual method invocation on the specified plugin using reflection, parsing argumentsJson as needed to match the method signature. This is a placeholder to demonstrate the concept.
 			//TODO: Consider adding check for recursion or loops if the invoked method can call back into MCP tools, to avoid infinite loops.
 			return $"Plugin invocation placeholder. Plugin='{pluginId}', Method='{methodName}', Args='{argumentsJson}'";
@@ -83,6 +91,45 @@ namespace Plugin.McpBridge.Helpers
 				foreach(IPluginMemberInfo pluginMember in pluginDescription.Type.Members)
 					if(pluginMember != null && pluginMember.MemberType == System.Reflection.MemberTypes.Method)
 						yield return pluginMember;
+		}
+
+		private static Object?[] ConvertArgumentsValue(IPluginMethodInfo method, String argumentsJson)
+		{
+			using(JsonDocument doc = JsonDocument.Parse(argumentsJson))
+			{
+				JsonElement root = doc.RootElement;
+
+				var arguments = method.GetParameters().ToArray();
+				var result = new Object?[arguments.Length];
+
+				for(var loop = 0; loop < arguments.Length; loop++)
+				{
+					var argument = arguments[loop];
+
+					// 1. Find the property in the JSON
+					if(root.TryGetProperty(argument.Name, out JsonElement element))
+					{
+						// 2. Resolve the string type name to a System.Type
+						Type targetType = ResolveType(argument.TypeName);
+
+						// 3. Convert the specific JsonElement to the target type
+						result[loop] = JsonSerializer.Deserialize(element.GetRawText(), targetType);
+					} else
+						result[loop] = null; // Or handle missing arguments as needed
+				}
+
+				return result;
+
+				Type ResolveType(String typeName)
+				{
+					// Type.GetType requires assembly-qualified names for non-primitive types
+					// (e.g., "System.DateTime" or "System.String[]")
+					var t = Type.GetType(typeName)
+						?? throw new ArgumentException($"Could not resolve type: {typeName}");
+
+					return t;
+				}
+			}
 		}
 	}
 }

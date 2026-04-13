@@ -90,7 +90,7 @@ namespace Plugin.McpBridge
 				this.InitializeMcpBridge(out this._mcpBridge, out this._agent);
 		}
 
-		internal void InitializeMcpBridge(out McpBridge? bridge, out AssistantAgent? agent)
+		internal void InitializeMcpBridge(out McpBridge bridge, out AssistantAgent agent)
 		{
 			try
 			{
@@ -103,8 +103,8 @@ namespace Plugin.McpBridge
 				bridge.Start();
 			} catch(Exception)
 			{
-				bridge = null;
-				agent = null;
+				bridge = null!;
+				agent = null!;
 				throw;
 			}
 		}

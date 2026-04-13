@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 using SAL.Flatbed;
 
 namespace Plugin.McpBridge.Helpers
@@ -21,12 +22,11 @@ namespace Plugin.McpBridge.Helpers
 
 		public String ListPluginSettings(String pluginId)
 		{
-			if(!this.TryGetPluginSettingsInstance(pluginId, out IPluginDescription? pluginDescription, out Object? settingsInstance, out String? errorMessage))
-				return errorMessage ?? String.Empty;
+			var settingsInstance = this.GetPluginSettingsInstance(pluginId, out IPluginDescription? pluginDescription);
 
 			PropertyInfo[] properties = settingsInstance!.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public);
 			if(properties.Length == 0)
-				return $"Plugin '{pluginDescription!.ID}' exposes a settings object, but it does not contain public properties.";
+				throw new ArgumentException($"Plugin '{pluginDescription!.ID}' exposes a settings object, but it does not contain public properties.");
 
 			StringBuilder builder = new StringBuilder();
 			builder.Append("Settings for plugin '");
@@ -68,29 +68,20 @@ namespace Plugin.McpBridge.Helpers
 
 		public String ReadPluginSetting(String pluginId, String settingName)
 		{
-			if(!this.TryGetPluginSettingsInstance(pluginId, out IPluginDescription? pluginDescription, out Object? settingsInstance, out String errorMessage))
-				return errorMessage;
+			var settingsInstance = this.GetPluginSettingsInstance(pluginId, out IPluginDescription? pluginDescription);
 
 			PropertyInfo? propertyInfo = this.FindSettingsProperty(settingsInstance!, settingName);
 			if(propertyInfo == null || !propertyInfo.CanRead)
-				return $"Setting '{settingName}' was not found for plugin '{pluginDescription!.ID}'.";
+				throw new ArgumentException($"Setting '{settingName}' was not found for plugin '{pluginDescription!.ID}'.");
 
 			Object? currentValue = propertyInfo.GetValue(settingsInstance, null);
 			String displayName = this.GetSettingDisplayName(propertyInfo);
 			String propertyDescription = this.GetSettingDescription(propertyInfo);
 
 			StringBuilder builder = new StringBuilder();
-			builder.Append("Plugin '");
-			builder.Append(pluginDescription!.ID);
-			builder.Append("' setting ");
-			builder.Append(displayName);
-			builder.Append(" [");
-			builder.Append(propertyInfo.Name);
-			builder.Append("] = ");
-			builder.Append(this.FormatSettingValue(currentValue));
-			builder.Append(" (");
-			builder.Append(this.GetFriendlyTypeName(propertyInfo.PropertyType));
-			builder.Append(')');
+			builder.Append($"Plugin '{pluginDescription!.ID}' setting {displayName}");
+			builder.Append($" [{propertyInfo.Name}] = {this.FormatSettingValue(currentValue)}");
+			builder.Append($" ({this.GetFriendlyTypeName(propertyInfo.PropertyType)})");
 
 			if(!String.IsNullOrWhiteSpace(propertyDescription))
 			{
@@ -101,46 +92,32 @@ namespace Plugin.McpBridge.Helpers
 			return builder.ToString();
 		}
 
-		public String UpdatePluginSetting(String pluginId, String settingName, String settingValue)
+		public String UpdatePluginSetting(String pluginId, String settingName, String valueJson)
 		{
-			if(!this.TryGetPluginSettingsInstance(pluginId, out IPluginDescription? pluginDescription, out Object? settingsInstance, out String errorMessage))
-				return errorMessage;
+			var settingsInstance = this.GetPluginSettingsInstance(pluginId, out IPluginDescription? pluginDescription);
 
-			PropertyInfo? propertyInfo = this.FindSettingsProperty(settingsInstance!, settingName);
-			if(propertyInfo == null)
-				return $"Setting '{settingName}' was not found for plugin '{pluginDescription!.ID}'.";
+			PropertyInfo? propertyInfo = this.FindSettingsProperty(settingsInstance!, settingName)
+				?? throw new ArgumentException($"Setting '{settingName}' was not found for plugin '{pluginDescription!.ID}'.");
 
 			if(!propertyInfo.CanWrite)
-				return $"Setting '{propertyInfo.Name}' for plugin '{pluginDescription!.ID}' is read-only.";
+				throw new ArgumentException($"Setting '{propertyInfo.Name}' for plugin '{pluginDescription!.ID}' is read-only.");
 
-			if(!this.TryConvertSettingValue(settingValue, propertyInfo.PropertyType, out Object? convertedValue, out errorMessage))
-				return errorMessage;
+			var convertedValue = PluginSettingsHelper.ConvertSettingValue(valueJson, propertyInfo.PropertyType);
 
 			propertyInfo.SetValue(settingsInstance, convertedValue, null);
 			return this.ReadPluginSetting(pluginId, propertyInfo.Name);
 		}
 
-		private Boolean TryGetPluginSettingsInstance(String pluginId, out IPluginDescription? pluginDescription, out Object? settingsInstance, out String errorMessage)
+		private Object GetPluginSettingsInstance(String pluginId, out IPluginDescription? pluginDescription)
 		{
 			pluginDescription = this._host.Plugins[pluginId];
 			if(pluginDescription == null)
-			{
-				settingsInstance = null;
-				errorMessage = $"Plugin '{pluginId}' was not found.";
-				return false;
-			}
+				throw new ArgumentException($"Plugin '{pluginId}' was not found.");
 
 			if(pluginDescription.Instance is IPluginSettings settings)
-			{
-				settingsInstance = settings.Settings;
-				errorMessage = String.Empty;
-				return true;
-			} else
-			{
-				settingsInstance = null;
-				errorMessage = $"Plugin '{pluginDescription.ID}' does not expose settings through {nameof(IPluginSettings)}.";
-				return false;
-			}
+				return settings.Settings;
+
+			throw new ArgumentException($"Plugin '{pluginDescription.ID}' does not expose settings through {nameof(IPluginSettings)}.");
 		}
 
 		private PropertyInfo? FindSettingsProperty(Object settingsInstance, String settingName)
@@ -179,42 +156,35 @@ namespace Plugin.McpBridge.Helpers
 			return targetType.Name;
 		}
 
-		private Boolean TryConvertSettingValue(String rawValue, Type targetType, out Object? convertedValue, out String errorMessage)
+		private static Object? ConvertSettingValue(String valueJson, Type targetType)
 		{
-			Type nonNullableType = Nullable.GetUnderlyingType(targetType) ?? targetType;
+			_ = targetType ?? throw new ArgumentNullException(nameof(targetType));
+
+			// 1. Handle Nullable types and null/empty strings
+			Type underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
 			Boolean isNullable = !targetType.IsValueType || Nullable.GetUnderlyingType(targetType) != null;
 
-			if(String.IsNullOrWhiteSpace(rawValue) && isNullable)
-			{
-				convertedValue = null;
-				errorMessage = String.Empty;
-				return true;
-			}
+			if(String.IsNullOrWhiteSpace(valueJson))
+				return isNullable ? null : Activator.CreateInstance(underlyingType);
 
+			// 2. Special case for Enums (TypeConverter can be picky with casing)
+			if(underlyingType.IsEnum)
+				return Enum.Parse(underlyingType, valueJson, true);
+
+			// 3. Try JSON deserialization (handles arrays, objects, and JSON-encoded primitives)
 			try
 			{
-				if(nonNullableType == typeof(String))
-					convertedValue = rawValue;
-				else if(nonNullableType.IsEnum)
-					convertedValue = Enum.Parse(nonNullableType, rawValue, true);
-				else if(nonNullableType == typeof(Boolean))
-					convertedValue = Boolean.Parse(rawValue);
-				else if(nonNullableType == typeof(Guid))
-					convertedValue = Guid.Parse(rawValue);
-				else if(nonNullableType == typeof(TimeSpan))
-					convertedValue = TimeSpan.Parse(rawValue, CultureInfo.InvariantCulture);
-				else
-					convertedValue = Convert.ChangeType(rawValue, nonNullableType, CultureInfo.InvariantCulture);
+				return JsonSerializer.Deserialize(valueJson, targetType);
+			}
+			catch(JsonException) { }
 
-				errorMessage = String.Empty;
-				return true;
-			}
-			catch(Exception exception)
-			{
-				convertedValue = null;
-				errorMessage = $"Unable to convert value '{rawValue}' to {this.GetFriendlyTypeName(targetType)}: {exception.Message}";
-				return false;
-			}
+			// 4. Use TypeConverter (The "Universal" way)
+			TypeConverter converter = TypeDescriptor.GetConverter(underlyingType);
+			if(converter != null && converter.CanConvertFrom(typeof(String)))
+				return converter.ConvertFromString(null, CultureInfo.InvariantCulture, valueJson);
+
+			// 5. Fallback to Convert.ChangeType for primitives
+			return Convert.ChangeType(valueJson, underlyingType, CultureInfo.InvariantCulture);
 		}
 	}
 }

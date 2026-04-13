@@ -148,7 +148,7 @@ namespace Plugin.McpBridge
 			//Plugin settings management
 			yield return McpServerTool.Create(new Func<String, String>(this._settingsHelper.ListPluginSettings), new McpServerToolCreateOptions() { Description = "Lists all settings exposed by a specific SAL plugin, including each setting's name, current value, type, and description. Requires the plugin ID." });
 			yield return McpServerTool.Create(new Func<String, String, String>(this._settingsHelper.ReadPluginSetting), new McpServerToolCreateOptions() { Description = "Reads the current value of a single setting from a specific SAL plugin. Requires the plugin ID and the setting name (property name or display name)." });
-			yield return McpServerTool.Create(new Func<String, String, String, String>(this._settingsHelper.UpdatePluginSetting), new McpServerToolCreateOptions() { Description = "Updates the value of a single setting on a specific SAL plugin and returns the new value. Requires the plugin ID, the setting name, and the new value as a string." });
+			yield return McpServerTool.Create(new Func<String, String, String, String>(this._settingsHelper.UpdatePluginSetting), new McpServerToolCreateOptions() { Description = "Updates the value of a single setting on a specific SAL plugin and returns the new value. Requires the plugin ID, the setting name, and the new value as a JSON string." });
 			//Plugin method management
 			yield return McpServerTool.Create(new Func<String, String>(this._methodsHelper.ListPluginMethods), new McpServerToolCreateOptions() { Description = "Lists all callable methods exposed by a specific SAL plugin, including each method's name and its parameters with their types. Requires the plugin ID." });
 			yield return McpServerTool.Create(new Func<String, String, String, String>(this._methodsHelper.InvokePluginMethodPlaceholder), new McpServerToolCreateOptions() { Description = "Invokes a named method on a specific SAL plugin with the provided arguments serialized as JSON. Requires the plugin ID, the method name, and a JSON string of arguments." });
@@ -225,37 +225,6 @@ namespace Plugin.McpBridge
 				this._inner.Write(buffer, offset, count);
 			}
 
-			/*public override async ValueTask<Int32> ReadAsync(Memory<Byte> buffer, CancellationToken cancellationToken = default)
-			{
-				Int32 bytesRead = await this._inner.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
-				if(this._traceReads && bytesRead > 0)
-				{
-					Byte[] copy = buffer.Slice(0, bytesRead).ToArray();
-					this.Trace("READ", copy, 0, copy.Length);
-				}
-
-				return bytesRead;
-			}
-
-			public override async Task WriteAsync(Byte[] buffer, Int32 offset, Int32 count, CancellationToken cancellationToken)
-			{
-				if(this._traceWrites && count > 0)
-					this.Trace("WRITE", buffer, offset, count);
-
-				await this._inner.WriteAsync(buffer, offset, count, cancellationToken).ConfigureAwait(false);
-			}
-
-			public override async ValueTask WriteAsync(ReadOnlyMemory<Byte> buffer, CancellationToken cancellationToken = default)
-			{
-				if(this._traceWrites && !buffer.IsEmpty)
-				{
-					Byte[] copy = buffer.ToArray();
-					this.Trace("WRITE", copy, 0, copy.Length);
-				}
-
-				await this._inner.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
-			}*/
-
 			protected override void Dispose(Boolean disposing)
 			{
 				if(disposing)
@@ -263,12 +232,6 @@ namespace Plugin.McpBridge
 
 				base.Dispose(disposing);
 			}
-
-			/*public override async ValueTask DisposeAsync()
-			{
-				await this._inner.DisposeAsync().ConfigureAwait(false);
-				await base.DisposeAsync().ConfigureAwait(false);
-			}*/
 
 			private void Trace(String action, Byte[] buffer, Int32 offset, Int32 count)
 			{
