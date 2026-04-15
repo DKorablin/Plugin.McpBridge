@@ -93,7 +93,8 @@ public partial class PanelChat : UserControl
 			return;
 
 		this.EnsureConnected();
-		this.HandleConfirmation(false);
+		this._pendingConfirmation = null;
+		this._pnlConfirmation.Visible = false;
 		bnSend.Enabled = false;
 
 		AssistantAgent agent = this._agent!;
@@ -101,7 +102,7 @@ public partial class PanelChat : UserControl
 		{
 			try
 			{
-				await agent.InvokeMessageAsync(message, this.Plugin.Settings, CancellationToken.None);
+				await agent.InvokeMessageAsync(message, CancellationToken.None);
 			} catch(Exception ex)
 			{
 				this.Invoke(() =>
@@ -146,7 +147,7 @@ public partial class PanelChat : UserControl
 		this._pendingConfirmation = null;
 		this._pnlConfirmation.Visible = false;
 		bnSend.Enabled = true;
-		pending?.Confirm(allowed);
+		pending.Confirm(allowed);
 	}
 
 	private void bnSend_Click(Object sender, EventArgs e)

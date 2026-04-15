@@ -22,7 +22,6 @@ namespace Plugin.McpBridge
 			public const AiProviderType ProviderType = AiProviderType.OpenAI;
 			public const String ModelId = "gpt-4o-mini";
 			public const String AssistantSystemPrompt = "You are a SAL automation assistant. Use available MCP tools when useful. Return clear user-facing responses, or a command payload only when automation is required.";
-			public const Int32 AgentLoopCap = 3;
 			public static readonly TimeSpan ConnectionTimeout = TimeSpan.FromSeconds(100);
 		}
 
@@ -34,7 +33,6 @@ namespace Plugin.McpBridge
 		private String? _assistantSystemPrompt = Defaults.AssistantSystemPrompt;
 		private Double? _temperature;
 		private Int32? _maxTokens;
-		private Int32 _agentLoopCap = Defaults.AgentLoopCap;
 		private TimeSpan _connectionTimeout = Defaults.ConnectionTimeout;
 
 		/// <summary>Selects the provider profile used to initialize the AI client.</summary>
@@ -142,21 +140,6 @@ namespace Plugin.McpBridge
 					value = null;
 
 				this.SetField(ref this._maxTokens, value, nameof(this.MaxTokens));
-			}
-		}
-
-		/// <summary>The maximum number of agentic tool-call iterations before forcing a final response.</summary>
-		[Category("Prompt Settings")]
-		[DefaultValue(Defaults.AgentLoopCap)]
-		[Description("The maximum number of agentic tool-call iterations before forcing a final response.")]
-		public Int32 AgentLoopCap
-		{
-			get => this._agentLoopCap;
-			set
-			{
-				if(value <= 0)
-					value = Defaults.AgentLoopCap;
-				this.SetField(ref this._agentLoopCap, value, nameof(this.AgentLoopCap));
 			}
 		}
 

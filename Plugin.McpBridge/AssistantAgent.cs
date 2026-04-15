@@ -1,20 +1,28 @@
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel.Connectors.OpenAI;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using Azure.AI.OpenAI;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+using OpenAI;
 using Plugin.McpBridge.Helpers;
+using System.ClientModel;
+using System.ClientModel.Primitives;
 
 namespace Plugin.McpBridge
 {
-	/// <summary>Manages the Semantic Kernel instance and drives the multi-turn agent loop.</summary>
+	/// <summary>Manages the MAF AIAgent instance and drives the multi-turn agent loop.</summary>
 	internal sealed class AssistantAgent
 	{
 		private readonly TraceSource _trace;
 		private readonly McpBridge _mcpBridge;
 		private readonly PluginSettingsHelper _settingsHelper;
 		private readonly PluginMethodsHelper _methodsHelper;
-		private Kernel? _kernel;
-		private ChatHistory? _chatHistory;
+		private ChatClientAgent? _agent;
+		private AgentSession? _session;
 
 		public event EventHandler<AgentResponseEventArgs>? AiResponseReceived;
 		public event EventHandler<AgentConfirmationEventArgs>? ConfirmationRequired;
@@ -29,48 +37,41 @@ namespace Plugin.McpBridge
 
 		public void Initialize(Settings settings)
 		{
+			this._session = null;
+
 			Boolean requiresApiKey = settings.ProviderType != AiProviderType.LocalOpenAICompatible;
 			if(requiresApiKey && String.IsNullOrWhiteSpace(settings.ApiKey))
 			{
-				this._kernel = null;
+				this._agent = null;
 				return;
 			}
 
-			IKernelBuilder kernelBuilder = Kernel.CreateBuilder();
 			HttpClient httpClient = new HttpClient { Timeout = settings.ConnectionTimeout };
-			switch(settings.ProviderType)
-			{
-			case AiProviderType.AzureOpenAI:
-				kernelBuilder.AddAzureOpenAIChatCompletion(
-					deploymentName: settings.DeploymentName,
-					endpoint: settings.ModelEndpointUrl,
-					apiKey: settings.ApiKey,
-					modelId: settings.ModelId,
-					httpClient: httpClient);
-				break;
-			default:
-				if(settings.ModelEndpointUrl == null)
-					kernelBuilder.AddOpenAIChatCompletion(
-						modelId: settings.ModelId,
-						apiKey: "local-no-key",
-						orgId: settings.DeploymentName,
-						serviceId: null,
-						httpClient: httpClient);
-				else
-					kernelBuilder.AddOpenAIChatCompletion(
-						modelId: settings.ModelId,
-						endpoint: new Uri(settings.ModelEndpointUrl),
-						apiKey: settings.ApiKey,
-						orgId: settings.DeploymentName,
-						serviceId: null,
-						httpClient: httpClient);
-				break;
-			}
+			IChatClient chatClient = this.BuildChatClient(settings, httpClient);
 
-			this._kernel = kernelBuilder.Build();
+			IChatClient configuredClient = new ChatClientBuilder(chatClient)
+				.ConfigureOptions(options =>
+				{
+					if(settings.MaxTokens.HasValue)
+						options.MaxOutputTokens = settings.MaxTokens.Value;
+					if(settings.Temperature.HasValue)
+						options.Temperature = (Single)settings.Temperature.Value;
+				})
+				.Build();
+
+			this._agent = (ChatClientAgent)configuredClient.AsAIAgent(
+				instructions: settings.AssistantSystemPrompt,
+				tools:
+				[
+					AIFunctionFactory.Create(this.SettingsList,   "SettingsList",   "List all available settings for a plugin"),
+					AIFunctionFactory.Create(this.SettingsGet,    "SettingsGet",    "Get the current value of a specific plugin setting"),
+					AIFunctionFactory.Create(this.SettingsSet,    "SettingsSet",    "Update a plugin setting value; requires user confirmation"),
+					AIFunctionFactory.Create(this.MethodsList,    "MethodsList",    "List all available methods for a plugin"),
+					AIFunctionFactory.Create(this.MethodsInvoke,  "MethodsInvoke",  "Invoke a plugin method; requires user confirmation"),
+				]);
 		}
 
-		public async Task InvokeMessageAsync(String message, Settings settings, CancellationToken cancellationToken = default)
+		public async Task InvokeMessageAsync(String message, CancellationToken cancellationToken = default)
 		{
 			if(String.IsNullOrWhiteSpace(message))
 			{
@@ -80,29 +81,33 @@ namespace Plugin.McpBridge
 
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, "< " + message);
 
-			ChatHistory chatHistory = this.CreateChatHistory(message, settings);
-			Int32 loopCap = Math.Max(settings.AgentLoopCap, 1);
-
-			for(Int32 loopIndex = 0; loopIndex < loopCap; loopIndex++)
+			if(this._agent == null)
 			{
-				String aiResponse = await this.GetAssistantResponseAsync(chatHistory, settings, cancellationToken);
-				chatHistory.AddAssistantMessage(aiResponse);
-				this._trace.TraceEvent(TraceEventType.Verbose, 0, "> " + aiResponse);
-
-				AgentCommand command = AgentCommand.Parse(aiResponse);
-				if(command.IsCommand)
-				{
-					String commandResult = await this.ExecuteAsync(command);
-					this._trace.TraceEvent(TraceEventType.Verbose, 0, "< " + commandResult);
-					chatHistory.AddSystemMessage(AssistantAgent.BuildCommandResultPrompt(commandResult, loopIndex + 1, loopCap));
-				} else
-				{
-					this.OnAiResponseReceived(new AgentResponseEventArgs(aiResponse, true));
-					return;
-				}
+				this.OnAiResponseReceived(new AgentResponseEventArgs("AI is not configured. Set ApiKey and ModelId in plugin settings.", true));
+				return;
 			}
 
-			this.OnAiResponseReceived(new AgentResponseEventArgs("Assistant reached the configured agent loop cap before returning a final user response.", true));
+			if(this._session == null)
+				this._session = await this._agent.CreateSessionAsync(cancellationToken);
+
+			try
+			{
+				AgentResponse response = await this._agent.RunAsync(this.BuildAiPrompt(message), this._session, null, cancellationToken);
+				this.HandleResponse(response);
+			}
+			catch(HttpRequestException exc)
+			{
+				this._trace.TraceData(TraceEventType.Error, 0, exc);
+				this.OnAiResponseReceived(new AgentResponseEventArgs($"AI request failed: {exc.Message}", true));
+			}
+			catch(OperationCanceledException)
+			{
+				this.OnAiResponseReceived(new AgentResponseEventArgs("Operation was cancelled.", true));
+			}catch(Exception exc)
+			{
+				this._trace.TraceData(TraceEventType.Error, 0, exc);
+				throw;
+			}
 		}
 
 		private void OnAiResponseReceived(AgentResponseEventArgs e)
@@ -111,69 +116,11 @@ namespace Plugin.McpBridge
 		private void OnConfirmationRequired(AgentConfirmationEventArgs e)
 			=> this.ConfirmationRequired?.Invoke(this, e);
 
-		private ChatHistory CreateChatHistory(String message, Settings settings)
+		private void HandleResponse(AgentResponse response)
 		{
-			if(this._chatHistory == null)
-			{
-				this._chatHistory = new ChatHistory();
-				if(!String.IsNullOrWhiteSpace(settings.AssistantSystemPrompt))
-					this._chatHistory.AddSystemMessage(settings.AssistantSystemPrompt);
-			}
-
-			this._chatHistory.AddUserMessage(this.BuildAiPrompt(message));
-			return this._chatHistory;
-		}
-
-		private String BuildAiPrompt(String userMessage)
-		{
-			String pluginInventory = this._mcpBridge.ListLoadedPluginsFromHost();
-			String mcpTools = this._mcpBridge.ListLoadedToolsFromMcpClient();
-			return $@"User message: {userMessage}
-
-Loaded SAL plugins:
-{pluginInventory}
-
-MCP tools discovered by MCP client:
-{mcpTools}
-
-Supported command payloads:
-COMMAND: SETTINGS LIST <plugin>
-COMMAND: SETTINGS GET <plugin> <setting>
-COMMAND: SETTINGS SET <plugin> <setting>=<valueJson>
-COMMAND: METHODS LIST <plugin>
-COMMAND: METHODS INVOKE <plugin> <method> <argsJson>
-
-If automation command is required, return a supported payload prefixed with COMMAND:. Otherwise return the final user-facing response only.";
-		}
-
-		private static String BuildCommandResultPrompt(String commandResult, Int32 loopIndex, Int32 loopCap)
-			=> $@"System command result {loopIndex}/{loopCap}:
-{commandResult}
-
-If additional automation is required, return another payload prefixed with COMMAND:. Otherwise return the final user-facing response only.";
-
-		private async Task<String> GetAssistantResponseAsync(ChatHistory chatHistory, Settings settings, CancellationToken cancellationToken)
-		{
-			if(this._kernel == null)
-				return "AI is not configured. Set ApiKey and ModelId in plugin settings.";
-
-			IChatCompletionService chatCompletionService = this._kernel.GetRequiredService<IChatCompletionService>();
-			OpenAIPromptExecutionSettings executionSettings = new OpenAIPromptExecutionSettings();
-
-			if(settings.MaxTokens.HasValue)
-				executionSettings.MaxTokens = settings.MaxTokens.Value;
-			if(settings.Temperature.HasValue)
-				executionSettings.Temperature = settings.Temperature.Value;
-
-			try
-			{
-				ChatMessageContent response = await chatCompletionService.GetChatMessageContentAsync(chatHistory, executionSettings, this._kernel, cancellationToken);
-				return String.IsNullOrWhiteSpace(response.Content) ? "Model returned an empty response." : response.Content ?? String.Empty;
-			} catch(HttpOperationException exc)
-			{
-				this._trace.TraceData(TraceEventType.Error, 0, exc);
-				return $"AI request failed with status code {exc.StatusCode}: {exc.Message}";
-			}
+			String aiResponse = response.ToString();
+			this._trace.TraceEvent(TraceEventType.Verbose, 0, "> " + aiResponse);
+			this.OnAiResponseReceived(new AgentResponseEventArgs(aiResponse, true));
 		}
 
 		private Task<Boolean> RequestConfirmationAsync(String actionDescription)
@@ -186,76 +133,99 @@ If additional automation is required, return another payload prefixed with COMMA
 			return confirmArgs.ConfirmationTask;
 		}
 
-		private async Task<String> ExecuteAsync(AgentCommand command)
+		private String BuildAiPrompt(String userMessage)
 		{
-			try
+			String pluginInventory = this._mcpBridge.ListLoadedPluginsFromHost();
+			String mcpTools = this._mcpBridge.ListLoadedToolsFromMcpClient();
+			return $@"{userMessage}
+
+Loaded SAL plugins:
+{pluginInventory}
+
+MCP tools discovered by MCP client:
+{mcpTools}";
+		}
+
+		private IChatClient BuildChatClient(Settings settings, HttpClient httpClient)
+		{
+			HttpClientPipelineTransport transport = new HttpClientPipelineTransport(httpClient);
+			switch(settings.ProviderType)
 			{
-				switch(command.CommandGroup)
+			case AiProviderType.AzureOpenAI:
+				return new AzureOpenAIClient(
+					new Uri(settings.ModelEndpointUrl!),
+					new ApiKeyCredential(settings.ApiKey!),
+					new AzureOpenAIClientOptions { Transport = transport })
+					.GetChatClient(settings.DeploymentName ?? settings.ModelId)
+				.AsIChatClient();
+			default:
+				OpenAIClientOptions clientOptions = new OpenAIClientOptions
 				{
-				case "SETTINGS":
-					return await this.ExecuteSettingsCommandAsync(command);
-				case "METHODS":
-					return await this.ExecuteMethodsCommandAsync(command);
-				default:
-					return String.IsNullOrWhiteSpace(command.CommandGroup)
-						? "Command payload is empty."
-						: $"Command interception placeholder: {command.CommandGroup}";
-				}
-			}catch(ArgumentException exc)
-			{
-				this._trace.TraceData(TraceEventType.Warning, 0, exc);
-				return exc.Message;
-			}catch(OperationCanceledException exc)
-			{
-				this._trace.TraceData(TraceEventType.Stop, 0, exc);
-				return "Operation was cancelled.";
+					Transport = transport
+				};
+				if(settings.ModelEndpointUrl != null)
+					clientOptions.Endpoint = new Uri(settings.ModelEndpointUrl);
+
+				return new OpenAIClient(
+					new ApiKeyCredential(settings.ApiKey ?? "local-no-key"),
+					clientOptions)
+					.GetChatClient(settings.ModelId)
+				.AsIChatClient();
 			}
 		}
 
-		private async Task<String> ExecuteSettingsCommandAsync(AgentCommand command)
+		private String SettingsList([Description("Plugin identifier")] String pluginId)
 		{
-			switch(command.Command)
-			{
-			case "LIST":
-				return String.IsNullOrWhiteSpace(command.PluginId)
-					? throw new ArgumentException("SETTINGS LIST syntax: COMMAND: SETTINGS LIST <plugin>")
-					: this._settingsHelper.ListPluginSettings(command.PluginId);
-			case "GET":
-				return String.IsNullOrWhiteSpace(command.PluginId) || String.IsNullOrWhiteSpace(command.MemberName)
-					? throw new ArgumentException("SETTINGS GET syntax: COMMAND: SETTINGS GET <plugin> <setting>")
-					: this._settingsHelper.ReadPluginSetting(command.PluginId, command.MemberName);
-			case "SET":
-				if(String.IsNullOrWhiteSpace(command.PluginId) || String.IsNullOrWhiteSpace(command.MemberName))
-					throw new ArgumentException("SETTINGS SET syntax: COMMAND: SETTINGS SET <plugin> <setting>=<valueJson>");
-
-				Boolean setConfirmed = await this.RequestConfirmationAsync($"SETTINGS SET {command.PluginId} {command.MemberName}={command.Arguments}");
-				return setConfirmed
-					? this._settingsHelper.UpdatePluginSetting(command.PluginId, command.MemberName, command.Arguments)
-					: throw new OperationCanceledException();
-			default:
-				throw new ArgumentException("Supported settings commands: SETTINGS LIST <plugin>, SETTINGS GET <plugin> <setting>, SETTINGS SET <plugin> <setting>=<value>");
-			}
+			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] SettingsList plugin={pluginId}");
+			String result = this._settingsHelper.ListPluginSettings(pluginId);
+			this._trace.TraceEvent(TraceEventType.Verbose, 0, "[tool result] " + result);
+			return result;
 		}
 
-		private async Task<String> ExecuteMethodsCommandAsync(AgentCommand command)
+		private String SettingsGet(
+			[Description("Plugin identifier")] String pluginId,
+			[Description("Setting name")] String settingName)
 		{
-			switch(command.Command)
-			{
-			case "LIST":
-				return String.IsNullOrWhiteSpace(command.PluginId)
-					? throw new ArgumentException("METHODS LIST syntax: COMMAND: METHODS LIST <plugin>")
-					: this._methodsHelper.ListPluginMethods(command.PluginId);
-			case "INVOKE":
-				if(String.IsNullOrWhiteSpace(command.PluginId) || String.IsNullOrWhiteSpace(command.MemberName))
-					throw new ArgumentException("METHODS INVOKE syntax: COMMAND: METHODS INVOKE <plugin> <method> <argsJson>");
+			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] SettingsGet plugin={pluginId} setting={settingName}");
+			String result = this._settingsHelper.ReadPluginSetting(pluginId, settingName);
+			this._trace.TraceEvent(TraceEventType.Verbose, 0, "[tool result] " + result);
+			return result;
+		}
 
-				Boolean invokeConfirmed = await this.RequestConfirmationAsync($"METHODS INVOKE {command.PluginId} {command.MemberName} {command.Arguments}");
-				return invokeConfirmed
-					? this._methodsHelper.InvokePluginMethodPlaceholder(command.PluginId, command.MemberName, command.Arguments)
-					: throw new OperationCanceledException();
-			default:
-				throw new ArgumentException("Supported methods commands: METHODS LIST <plugin>, METHODS INVOKE <plugin> <method> <argsJson>");
-			}
+		private async Task<String> SettingsSet(
+			[Description("Plugin identifier")] String pluginId,
+			[Description("Setting name")] String settingName,
+			[Description("New value as JSON")] String valueJson)
+		{
+			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] SettingsSet plugin={pluginId} setting={settingName} value={valueJson}");
+			Boolean confirmed = await this.RequestConfirmationAsync($"SETTINGS SET {pluginId} {settingName}={valueJson}");
+			String result = confirmed
+				? this._settingsHelper.UpdatePluginSetting(pluginId, settingName, valueJson)
+				: "Operation declined by user.";
+			this._trace.TraceEvent(TraceEventType.Verbose, 0, "[tool result] " + result);
+			return result;
+		}
+
+		private String MethodsList([Description("Plugin identifier")] String pluginId)
+		{
+			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] MethodsList plugin={pluginId}");
+			String result = this._methodsHelper.ListPluginMethods(pluginId);
+			this._trace.TraceEvent(TraceEventType.Verbose, 0, "[tool result] " + result);
+			return result;
+		}
+
+		private async Task<String> MethodsInvoke(
+			[Description("Plugin identifier")] String pluginId,
+			[Description("Method name")] String methodName,
+			[Description("Arguments as JSON")] String argsJson)
+		{
+			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] MethodsInvoke plugin={pluginId} method={methodName} args={argsJson}");
+			Boolean confirmed = await this.RequestConfirmationAsync($"METHODS INVOKE {pluginId} {methodName} {argsJson}");
+			String result = confirmed
+				? this._methodsHelper.InvokePluginMethodPlaceholder(pluginId, methodName, argsJson)
+				: "Operation declined by user.";
+			this._trace.TraceEvent(TraceEventType.Verbose, 0, "[tool result] " + result);
+			return result;
 		}
 	}
 }

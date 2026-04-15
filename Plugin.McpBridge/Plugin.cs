@@ -74,7 +74,7 @@ namespace Plugin.McpBridge
 
 			try
 			{
-				Task.Run(() => agent.InvokeMessageAsync(message, this.Settings, CancellationToken.None))
+				Task.Run(() => agent.InvokeMessageAsync(message, CancellationToken.None))
 					.GetAwaiter().GetResult();
 			} finally
 			{

@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFrameworks>net48;net8.0-windows</TargetFrameworks>
+		<TargetFrameworks>net8.0-windows</TargetFrameworks>
 		<UseWindowsForms>true</UseWindowsForms>
 		<LangVersion>latest</LangVersion>
 		<ImplicitUsings>enable</ImplicitUsings>
@@ -33,8 +33,9 @@
 
 	<ItemGroup>
 		<PackageReference Include="SAL.Windows" />
-		<PackageReference Include="Microsoft.SemanticKernel" />
-		<PackageReference Include="Microsoft.SemanticKernel.Connectors.OpenAI" />
+		<PackageReference Include="Microsoft.Agents.AI" />
+		<PackageReference Include="Azure.AI.OpenAI" />
+		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
 		<PackageReference Include="Microsoft.Extensions.Hosting" />
 		<PackageReference Include="ModelContextProtocol" />
 	</ItemGroup>

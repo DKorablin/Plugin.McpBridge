@@ -6,8 +6,9 @@
 		<PackageVersion Include="SAL.Windows" Version="1.2.11">
 			<ExcludeAssets>runtime</ExcludeAssets>
 		</PackageVersion>
-		<PackageVersion Include="Microsoft.SemanticKernel" Version="1.74.0" />
-		<PackageVersion Include="Microsoft.SemanticKernel.Connectors.OpenAI" Version="1.74.0" />
+		<PackageVersion Include="Microsoft.Agents.AI" Version="1.1.0" />
+		<PackageVersion Include="Azure.AI.OpenAI" Version="2.1.0" />
+		<PackageVersion Include="Microsoft.Extensions.AI.OpenAI" Version="10.4.0" />
 		<PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
 		<PackageVersion Include="ModelContextProtocol" Version="1.1.0" />
 		<!--Tests-->
