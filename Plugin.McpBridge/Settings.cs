@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using Microsoft.Extensions.AI;
 
 namespace Plugin.McpBridge
 {
@@ -23,6 +24,7 @@ namespace Plugin.McpBridge
 			public const String ModelId = "gpt-4o-mini";
 			public const String AssistantSystemPrompt = "You are a SAL automation assistant. Use available MCP tools when useful. Return clear user-facing responses, or a command payload only when automation is required.";
 			public static readonly TimeSpan ConnectionTimeout = TimeSpan.FromSeconds(100);
+			public const Int32 MaxToolResultLength = 8000;
 		}
 
 		private AiProviderType _providerType = Defaults.ProviderType;
@@ -34,6 +36,10 @@ namespace Plugin.McpBridge
 		private Double? _temperature;
 		private Int32? _maxTokens;
 		private TimeSpan _connectionTimeout = Defaults.ConnectionTimeout;
+		private Int32 _maxToolResultLength = Defaults.MaxToolResultLength;
+
+		private ReasoningOutput? _reasoningOutput = null;
+		private ReasoningEffort? _reasoningEffort = null;
 
 		/// <summary>Selects the provider profile used to initialize the AI client.</summary>
 		[Category("AI Provider")]
@@ -140,6 +146,48 @@ namespace Plugin.McpBridge
 					value = null;
 
 				this.SetField(ref this._maxTokens, value, nameof(this.MaxTokens));
+			}
+		}
+
+		/// <summary>The maximum number of characters returned by a single tool invocation result.</summary>
+		[Category("Prompt Settings")]
+		[DefaultValue(Defaults.MaxToolResultLength)]
+		[Description("The maximum number of characters returned by a single tool invocation result. Prevents large plugin responses from exceeding the model context limit.")]
+		public Int32 MaxToolResultLength
+		{
+			get => this._maxToolResultLength;
+			set
+			{
+				if(value <= 0)
+					value = Defaults.MaxToolResultLength;
+				this.SetField(ref this._maxToolResultLength, value, nameof(this.MaxToolResultLength));
+			}
+		}
+
+		[Category("Debugging")]
+		[Description("When enabled, the plugin will include the reasoning steps taken by the assistant in the response. This can be useful for debugging and understanding how the assistant arrived at its conclusions.")]
+		public ReasoningOutput? ReasoningOutput
+		{
+			get => this._reasoningOutput;
+			set
+			{
+				if(value == Microsoft.Extensions.AI.ReasoningOutput.None)
+					value = null;
+
+				this.SetField(ref this._reasoningOutput, value, nameof(this.ReasoningOutput));
+			}
+		}
+
+		[Category("Debugging")]
+		[Description("Controls the level of effort the assistant should use when reasoning through a problem.")]
+		public ReasoningEffort? ReasoningEffort
+		{
+			get => this._reasoningEffort;
+			set
+			{
+				if(value == Microsoft.Extensions.AI.ReasoningEffort.None)
+					value = null;
+				this.SetField(ref this._reasoningEffort, value, nameof(this.ReasoningEffort));
 			}
 		}
 

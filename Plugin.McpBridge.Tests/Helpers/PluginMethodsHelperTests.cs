@@ -132,7 +132,7 @@ namespace Plugin.McpBridge.Tests.Helpers
 		{
 			PluginMethodsHelper sut = CreateSut(null);
 
-			Action act = () => _ = sut.InvokePluginMethodPlaceholder("missing-plugin", "Run", "{}");
+			Action act = () => _ = sut.InvokePluginMethod("missing-plugin", "Run", "{}");
 
 			act.Should().Throw<ArgumentException>().WithMessage("Plugin 'missing-plugin' was not found.");
 		}
@@ -146,7 +146,7 @@ namespace Plugin.McpBridge.Tests.Helpers
 
 			PluginMethodsHelper sut = CreateSut(pluginDescription.Object, "plugin-id");
 
-			Action act = () => _ = sut.InvokePluginMethodPlaceholder("plugin-id", "MissingMethod", "{}");
+			Action act = () => _ = sut.InvokePluginMethod("plugin-id", "MissingMethod", "{}");
 
 			act.Should().Throw<ArgumentException>().WithMessage("Method 'MissingMethod' was not found in plugin 'plugin-id'.");
 		}
@@ -181,7 +181,7 @@ namespace Plugin.McpBridge.Tests.Helpers
 
 			PluginMethodsHelper sut = CreateSut(pluginDescription.Object, "plugin-id");
 
-			String result = sut.InvokePluginMethodPlaceholder("plugin-id", "Execute", "{\"levels\":[\"Warning\",\"Information\"],\"from\":\"2026-04-05T00:00:00\",\"to\":\"2026-04-05T23:59:59\"}");
+			String result = sut.InvokePluginMethod("plugin-id", "Execute", "{\"levels\":[\"Warning\",\"Information\"],\"from\":\"2026-04-05T00:00:00\",\"to\":\"2026-04-05T23:59:59\"}");
 
 			invokedArguments.Should().NotBeNull();
 			invokedArguments[0].Should().BeEquivalentTo(new String[] { "Warning", "Information" });

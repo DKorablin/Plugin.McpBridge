@@ -6,7 +6,6 @@ namespace Plugin.McpBridge;
 
 public partial class PanelChat : UserControl
 {
-	private McpBridge? _mcpBridge;
 	private AssistantAgent? _agent;
 	private AgentConfirmationEventArgs? _pendingConfirmation;
 
@@ -72,16 +71,14 @@ public partial class PanelChat : UserControl
 			this._agent.AiResponseReceived -= this.Agent_AiResponseReceived;
 			this._agent.ConfirmationRequired -= this.Agent_ConfirmationRequired;
 		}
-		this._mcpBridge?.Dispose();
-		this._mcpBridge = null;
 		this._agent = null;
 	}
 
 	private void EnsureConnected()
 	{
-		if(this._mcpBridge == null || this._agent == null)
+		if(this._agent == null)
 		{
-			this.Plugin.InitializeMcpBridge(out this._mcpBridge, out this._agent);
+			this.Plugin.InitializeAgent(out this._agent);
 			this._agent.AiResponseReceived += this.Agent_AiResponseReceived;
 			this._agent.ConfirmationRequired += this.Agent_ConfirmationRequired;
 		}

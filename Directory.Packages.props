@@ -7,10 +7,8 @@
 			<ExcludeAssets>runtime</ExcludeAssets>
 		</PackageVersion>
 		<PackageVersion Include="Microsoft.Agents.AI" Version="1.1.0" />
-		<PackageVersion Include="Azure.AI.OpenAI" Version="2.1.0" />
+		<PackageVersion Include="Azure.AI.OpenAI" Version="2.9.0-beta.1" />
 		<PackageVersion Include="Microsoft.Extensions.AI.OpenAI" Version="10.4.0" />
-		<PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
-		<PackageVersion Include="ModelContextProtocol" Version="1.1.0" />
 		<!--Tests-->
 		<PackageVersion Include="Moq" Version="4.20.72" />
 		<PackageVersion Include="Moq.AutoMock" Version="3.5.0" />

@@ -61,7 +61,7 @@ namespace Plugin.McpBridge.Helpers
 			return builder.ToString();
 		}
 
-		public String InvokePluginMethodPlaceholder(String pluginId, String methodName, String argumentsJson)
+		public String InvokePluginMethod(String pluginId, String methodName, String argumentsJson)
 		{
 			var pluginDescription = this._host.Plugins[pluginId]
 				?? throw new ArgumentException($"Plugin '{pluginId}' was not found.");
@@ -77,9 +77,12 @@ namespace Plugin.McpBridge.Helpers
 
 				return JsonSerializer.Serialize(result);
 			}
-			//TODO: Implement actual method invocation on the specified plugin using reflection, parsing argumentsJson as needed to match the method signature. This is a placeholder to demonstrate the concept.
-			//TODO: Consider adding check for recursion or loops if the invoked method can call back into MCP tools, to avoid infinite loops.
-			return $"Plugin invocation placeholder. Plugin='{pluginId}', Method='{methodName}', Args='{argumentsJson}'";
+
+			var exc = new ArgumentException($"Unsupported member type '{member.MemberType}' for method invocation. Only methods are supported.");
+			exc.Data.Add(nameof(pluginId), pluginId);
+			exc.Data.Add(nameof(methodName), methodName);
+			exc.Data.Add(nameof(argumentsJson), argumentsJson);
+			throw exc;
 		}
 
 		public static Boolean HasCallableMembers(IPluginDescription pluginDescription)

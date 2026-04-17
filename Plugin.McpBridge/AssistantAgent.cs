@@ -9,6 +9,8 @@ using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using OpenAI;
 using Plugin.McpBridge.Helpers;
+using SAL.Flatbed;
+using System.Text;
 using System.ClientModel;
 using System.ClientModel.Primitives;
 
@@ -18,19 +20,20 @@ namespace Plugin.McpBridge
 	internal sealed class AssistantAgent
 	{
 		private readonly TraceSource _trace;
-		private readonly McpBridge _mcpBridge;
+		private readonly IHost _host;
 		private readonly PluginSettingsHelper _settingsHelper;
 		private readonly PluginMethodsHelper _methodsHelper;
 		private ChatClientAgent? _agent;
 		private AgentSession? _session;
+		private Int32 _maxToolResultLength;
 
 		public event EventHandler<AgentResponseEventArgs>? AiResponseReceived;
 		public event EventHandler<AgentConfirmationEventArgs>? ConfirmationRequired;
 
-		public AssistantAgent(TraceSource trace, McpBridge mcpBridge, PluginSettingsHelper settingsHelper, PluginMethodsHelper methodsHelper)
+		public AssistantAgent(TraceSource trace, IHost host, PluginSettingsHelper settingsHelper, PluginMethodsHelper methodsHelper)
 		{
 			this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
-			this._mcpBridge = mcpBridge ?? throw new ArgumentNullException(nameof(mcpBridge));
+			this._host = host ?? throw new ArgumentNullException(nameof(host));
 			this._settingsHelper = settingsHelper ?? throw new ArgumentNullException(nameof(settingsHelper));
 			this._methodsHelper = methodsHelper ?? throw new ArgumentNullException(nameof(methodsHelper));
 		}
@@ -38,6 +41,7 @@ namespace Plugin.McpBridge
 		public void Initialize(Settings settings)
 		{
 			this._session = null;
+			this._maxToolResultLength = settings.MaxToolResultLength;
 
 			Boolean requiresApiKey = settings.ProviderType != AiProviderType.LocalOpenAICompatible;
 			if(requiresApiKey && String.IsNullOrWhiteSpace(settings.ApiKey))
@@ -56,18 +60,26 @@ namespace Plugin.McpBridge
 						options.MaxOutputTokens = settings.MaxTokens.Value;
 					if(settings.Temperature.HasValue)
 						options.Temperature = (Single)settings.Temperature.Value;
+					if(settings.ReasoningOutput.HasValue || settings.ReasoningEffort.HasValue)
+					{
+						options.Reasoning = new ReasoningOptions
+						{
+							Output = settings.ReasoningOutput ?? ReasoningOutput.None,
+							Effort = settings.ReasoningEffort ?? ReasoningEffort.Medium
+						};
+					}
 				})
 				.Build();
 
-			this._agent = (ChatClientAgent)configuredClient.AsAIAgent(
+			this._agent = configuredClient.AsAIAgent(
 				instructions: settings.AssistantSystemPrompt,
 				tools:
 				[
-					AIFunctionFactory.Create(this.SettingsList,   "SettingsList",   "List all available settings for a plugin"),
-					AIFunctionFactory.Create(this.SettingsGet,    "SettingsGet",    "Get the current value of a specific plugin setting"),
-					AIFunctionFactory.Create(this.SettingsSet,    "SettingsSet",    "Update a plugin setting value; requires user confirmation"),
-					AIFunctionFactory.Create(this.MethodsList,    "MethodsList",    "List all available methods for a plugin"),
-					AIFunctionFactory.Create(this.MethodsInvoke,  "MethodsInvoke",  "Invoke a plugin method; requires user confirmation"),
+					AIFunctionFactory.Create(this.SettingsList,   nameof(this.SettingsList),   "List all available settings for a plugin"),
+					AIFunctionFactory.Create(this.SettingsGet,    nameof(this.SettingsGet),    "Get the current value of a specific plugin setting"),
+					AIFunctionFactory.Create(this.SettingsSet,    nameof(this.SettingsSet),    "Update a plugin setting value; requires user confirmation"),
+					AIFunctionFactory.Create(this.MethodsList,    nameof(this.MethodsList),    "List all available methods for a plugin"),
+					AIFunctionFactory.Create(this.MethodsInvoke,  nameof(this.MethodsInvoke),  "Invoke a plugin method; requires user confirmation"),
 				]);
 		}
 
@@ -135,15 +147,41 @@ namespace Plugin.McpBridge
 
 		private String BuildAiPrompt(String userMessage)
 		{
-			String pluginInventory = this._mcpBridge.ListLoadedPluginsFromHost();
-			String mcpTools = this._mcpBridge.ListLoadedToolsFromMcpClient();
+			String pluginInventory = this.ListPluginInventory();
 			return $@"{userMessage}
 
 Loaded SAL plugins:
 {pluginInventory}
 
-MCP tools discovered by MCP client:
-{mcpTools}";
+Available AI tools:
+- {nameof(this.SettingsList)} : List all available settings for a plugin
+- {nameof(this.SettingsGet)} : Get the current value of a specific plugin setting
+- {nameof(this.SettingsSet)} : Update a plugin setting value; requires user confirmation
+- {nameof(this.MethodsList)} : List all available methods for a plugin
+- {nameof(this.MethodsInvoke)} : Invoke a plugin method; requires user confirmation";
+		}
+
+		private String ListPluginInventory()
+		{
+			if(this._host.Plugins.Count <= 0)
+				return "No plugins loaded.";
+
+			StringBuilder pluginsText = new StringBuilder();
+			foreach(IPluginDescription pluginDescription in this._host.Plugins)
+			{
+				pluginsText.Append("- ");
+				pluginsText.Append(pluginDescription.ID);
+				pluginsText.Append(" | ");
+				pluginsText.Append(pluginDescription.Name);
+				pluginsText.Append(" | ");
+				pluginsText.Append(pluginDescription.Version?.ToString());
+				pluginsText.Append(" | Settings: ");
+				pluginsText.Append(PluginSettingsHelper.HasPluginSettings(pluginDescription) ? "yes" : "no");
+				pluginsText.Append(" | Members: ");
+				pluginsText.Append(PluginMethodsHelper.HasCallableMembers(pluginDescription) ? "yes" : "no");
+				pluginsText.AppendLine();
+			}
+			return pluginsText.ToString().Trim();
 		}
 
 		private IChatClient BuildChatClient(Settings settings, HttpClient httpClient)
@@ -221,9 +259,33 @@ MCP tools discovered by MCP client:
 		{
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] MethodsInvoke plugin={pluginId} method={methodName} args={argsJson}");
 			Boolean confirmed = await this.RequestConfirmationAsync($"METHODS INVOKE {pluginId} {methodName} {argsJson}");
-			String result = confirmed
-				? this._methodsHelper.InvokePluginMethodPlaceholder(pluginId, methodName, argsJson)
-				: "Operation declined by user.";
+			String result = String.Empty;
+
+			if(confirmed)
+				this._methodsHelper.InvokePluginMethod(pluginId, methodName, argsJson);
+			else
+			{
+				var exc = new ArgumentException("Operation declined by user.");
+				exc.Data.Add(nameof(pluginId), pluginId);
+				exc.Data.Add(nameof(methodName), methodName);
+				throw exc;
+			}
+
+			if(result.Length > this._maxToolResultLength)
+			{
+				confirmed = await this.RequestConfirmationAsync($"The result is {result.Length} characters long, which exceeds the configured limit of {this._maxToolResultLength}. Do you want to send a truncated result?");
+				if(confirmed)
+					result = result.Substring(0, this._maxToolResultLength) + $"\n[Result truncated: {result.Length} chars total, limit is {this._maxToolResultLength}]";
+				else
+				{
+					var exc = new ArgumentException("Operation declined by user due to result length.");
+					exc.Data.Add("ResultLength", result.Length);
+					exc.Data.Add(nameof(this._maxToolResultLength), this._maxToolResultLength);
+					exc.Data.Add(nameof(pluginId), pluginId);
+					exc.Data.Add(nameof(methodName), methodName);
+					throw exc;
+				}
+			}
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, "[tool result] " + result);
 			return result;
 		}

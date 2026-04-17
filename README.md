@@ -1,34 +1,39 @@
 # Plugin.McpBridge
 
-A [SAL](https://github.com/DKorablin/SystemApplicationLoader) plugin that bridges the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) with AI assistants powered by [Microsoft Semantic Kernel](https://github.com/microsoft/semantic-kernel).
+A plugin for the SAL host application that connects an AI assistant to the SAL host using [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) and native AI function calling.
 
 ## Overview
 
-Plugin.McpBridge embeds a fully in-process MCP server and MCP client connected over named-pipe transport. The MCP server exposes all loaded SAL plugins as callable MCP tools. A Semantic Kernel–backed assistant uses those tools to answer user questions and automate plugin settings — all driven from an interactive chat panel docked inside the SAL host window.
+Plugin.McpBridge is a SAL plugin that gives an AI assistant live access to every plugin loaded in the SAL host.
+`Microsoft.Agents.AI` (backed by `Azure.AI.OpenAI` / `Microsoft.Extensions.AI`) powers the assistant, which uses registered AI tools to inspect and automate loaded SAL plugins — all driven from an interactive chat panel docked inside the SAL host window.
 
 ```
-User ──► PanelChat ──► AssistantAgent (Semantic Kernel)
+User ──► PanelChat ──► AssistantAgent (Microsoft.Agents.AI)
                               │
-                    ┌─────────▼─────────┐
-                    │    McpBridge      │
-                    │  ┌─────────────┐  │
-                    │  │  MCP Server │  │  ← SAL plugins as tools
-                    │  └──────┬──────┘  │
-                    │  Named Pipes      │
-                    │  ┌──────▼──────┐  │
-                    │  │  MCP Client │  │
-                    │  └─────────────┘  │
-                    └───────────────────┘
+                    ┌─────────▼──────────────────────────┐
+                    │  ChatClientAgent + AgentSession    │
+                    │  ┌───────────────────────────────┐ │
+                    │  │  AI tools (function calling)  │ │
+                    │  │  - SettingsList               │ │
+                    │  │  - SettingsGet                │ │
+                    │  │  - SettingsSet  ← confirmed   │ │
+                    │  │  - MethodsList                │ │
+                    │  │  - MethodsInvoke ← confirmed  │ │
+                    │  └───────────────────────────────┘ │
+                    └────────────────────────────────────┘
 ```
 
 ## Features
 
-- **In-process MCP server/client** — zero external processes; server and client communicate over anonymous named pipes in the same application.
-- **SAL plugin exposure** — every loaded SAL plugin is automatically registered as an MCP tool the AI can invoke.
+- **Native AI function calling** — the assistant invokes plugin tools directly through the model’s function-calling API; no custom text-parsing commands.
+- **SAL plugin exposure** — every loaded SAL plugin is automatically discoverable by the assistant.
 - **Plugin settings automation** — the assistant can list, read, and write settings of any loaded plugin on behalf of the user.
-- **Multi-turn agent loop** — the assistant iterates up to a configurable cap, issuing `COMMAND:` payloads and incorporating results before delivering the final response.
+- **Plugin method invocation** — the assistant can enumerate and invoke methods exposed by any loaded SAL plugin.
+- **User-confirmation gate** — any action that mutates state (`SettingsSet`, `MethodsInvoke`) requires explicit user approval via an inline confirmation strip in the chat panel before execution. Oversized tool results also prompt a second confirmation before truncation.
+- **Persistent session** — `AgentSession` maintains the full conversation context across turns without a manual loop or iteration cap.
 - **WinForms chat panel** — a dockable chat panel accessible from *Tools → OpenAI Chat*.
 - **Multiple AI providers** — OpenAI, Azure OpenAI, and any OpenAI-compatible endpoint (Qwen, Grok, Gemini, custom).
+- **Reasoning model support** — optional `ReasoningOutput` and `ReasoningEffort` controls for models that expose chain-of-thought steps.
 
 ## Supported AI Providers
 
@@ -52,48 +57,50 @@ Settings are managed through the standard SAL plugin settings mechanism (right-c
 | `ProviderType` | `OpenAI` | Selects the AI provider profile. |
 | `ModelId` | `gpt-4o-mini` | Model identifier or Azure deployment name. |
 | `ApiKey` | *(none)* | API key for the selected provider. Not required for `LocalOpenAICompatible`. |
-| `ModelEndpointUrl` | *(none)* | Custom base URL for OpenAI-compatible providers. |
-| `OrganizationId` | *(none)* | Optional OpenAI organization identifier. |
-| `DeploymentName` | *(none)* | Azure OpenAI deployment name. |
-| `AzureApiVersion` | `2024-10-21` | Azure OpenAI REST API version. |
+| `ModelEndpointUrl` | *(none)* | Custom base URL for OpenAI-compatible providers. Required for Azure OpenAI. |
+| `DeploymentName` | *(none)* | Azure OpenAI deployment name, or organization identifier for OpenAI-compatible providers. |
 | `AssistantSystemPrompt` | *(see below)* | System-level instruction injected at the start of every chat session. |
 | `Temperature` | *(provider default)* | Sampling temperature (0.0 – 2.0). |
 | `MaxTokens` | *(provider default)* | Maximum completion tokens per request. |
-| `AgentLoopCap` | `3` | Maximum number of automated command/result iterations before giving up. |
+| `MaxToolResultLength` | `8000` | Maximum characters of a single tool result forwarded to the model. If a result exceeds this limit the user is asked to confirm sending a truncated version. |
+| `ReasoningOutput` | *(none)* | When set, includes the model’s reasoning trace in the response. Useful for debugging. |
+| `ReasoningEffort` | *(none)* | Controls how much effort the model spends on chain-of-thought reasoning (`Low`, `Medium`, `High`). |
 | `ConnectionTimeout` | `100` | Request timeout in seconds. |
 
 **Default system prompt:**
 > *You are a SAL automation assistant. Use available MCP tools when useful. Return clear user-facing responses, or a command payload only when automation is required.*
 
-## Agent Commands
+## AI Tools
 
-The assistant can automate plugin settings using structured commands:
+The assistant interacts with SAL plugins through five AI tools registered via `AIFunctionFactory.Create()`. The model invokes them directly through the API’s function-calling mechanism — no custom text parsing.
 
-```
-COMMAND: SETTINGS LIST <plugin>
-COMMAND: SETTINGS GET <plugin> <setting>
-COMMAND: SETTINGS SET <plugin> <setting>=<value>
-```
+| Tool | Description |
+|---|---|
+| `SettingsList` | List all settings exposed by a plugin. |
+| `SettingsGet` | Read the current value of a specific setting. |
+| `SettingsSet` | Update a setting value ← requires user confirmation |
+| `MethodsList` | List all callable methods exposed by a plugin. |
+| `MethodsInvoke` | Invoke a plugin method ← requires user confirmation |
 
-When the model returns one of these payloads, `AssistantAgent` executes it via `PluginSettingsHelper`, feeds the result back into the chat history, and loops until a final user-facing response is produced or `AgentLoopCap` is reached.
+Any tool that mutates state (`SettingsSet`, `MethodsInvoke`) is held until the user approves or denies it via the inline confirmation strip. If the result of a `MethodsInvoke` call exceeds `MaxToolResultLength` characters, a second confirmation is shown before sending a truncated version to the model.
 
 ## Architecture
 
 | Class | Responsibility |
 |---|---|
 | `Plugin` | SAL entry point; registers the *Tools → OpenAI Chat* menu item and owns the component lifecycle. |
-| `McpBridge` | Creates the named-pipe transport, hosts the `Microsoft.Extensions.Hosting` MCP server, and manages the `McpClient`. Implements `IDisposable`. |
-| `AssistantAgent` | Builds the Semantic Kernel `Kernel`, runs the multi-turn chat loop, and dispatches automation commands. |
-| `PanelChat` | WinForms `UserControl` — the dockable chat UI. |
+| `AssistantAgent` | Builds the `ChatClientAgent` (Microsoft.Agents.AI), manages the `AgentSession`, and exposes AI tool functions via `AIFunctionFactory`. |
+| `PanelChat` | WinForms `UserControl` — the dockable chat UI including the inline user-confirmation strip. |
 | `PluginSettingsHelper` | Reflection-based helper to enumerate, read, and write settings on any loaded SAL plugin. |
+| `PluginMethodsHelper` | Reflection-based helper to enumerate and invoke methods on any loaded SAL plugin. |
 | `Settings` | Strongly-typed, `INotifyPropertyChanged` settings bag persisted by the SAL settings infrastructure. |
 
-## Requirements
+## Installation
 
-- .NET Framework 4.8 or .NET 8.0 (Windows)
-- SAL host with `SAL.Windows` support
-- NuGet packages: `Microsoft.SemanticKernel`, `Microsoft.SemanticKernel.Connectors.OpenAI`, `Microsoft.Extensions.Hosting`, `ModelContextProtocol`
-
-## License
-
-MIT — see [LICENSE](LICENSE) for details.
+1. Download the release archive (.zip or .nupkg).
+2. Place the plugin assembly into the host application plugin directory (SAL / host supporting Windows environment):
+	- [Flatbed.Dialog](https://dkorablin.github.io/Flatbed-Dialog/)
+	- [Flatbed.Dialog (Lite)](https://dkorablin.github.io/Flatbed-Dialog-Lite)
+	- [Flatbed.MDI](https://dkorablin.github.io/Flatbed-MDI)
+	- [Flatbed.MDI (WPF)](https://dkorablin.github.io/Flatbed-MDI-Avalon)
+3. Restart the host application; Plugin.McpBridge should appear in the plugin list (Tools -> OpenAI Chat).

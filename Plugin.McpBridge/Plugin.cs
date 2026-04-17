@@ -11,7 +11,6 @@ namespace Plugin.McpBridge
 		private Settings? _settings;
 		private TraceSource? _trace;
 
-		private McpBridge? _mcpBridge;
 		private AssistantAgent? _agent;
 
 		private IMenuItem? _menuChat;
@@ -36,8 +35,6 @@ namespace Plugin.McpBridge
 
 		private void _settings_PropertyChanged(Object? sender, PropertyChangedEventArgs e)
 		{
-			this._mcpBridge?.Dispose();
-			this._mcpBridge = null;
 			this._agent = null;
 		}
 
@@ -86,24 +83,20 @@ namespace Plugin.McpBridge
 
 		private void EnsureConnected()
 		{
-			if(this._mcpBridge == null || this._agent == null)
-				this.InitializeMcpBridge(out this._mcpBridge, out this._agent);
+			if(this._agent == null)
+				this.InitializeAgent(out this._agent);
 		}
 
-		internal void InitializeMcpBridge(out McpBridge bridge, out AssistantAgent agent)
+		internal void InitializeAgent(out AssistantAgent agent)
 		{
 			try
 			{
 				PluginSettingsHelper settingsHelper = new PluginSettingsHelper(this.Host);
 				PluginMethodsHelper methodsHelper = new PluginMethodsHelper(this.Host);
-				bridge = new McpBridge(this.Trace, this.Host, settingsHelper, methodsHelper);
-				agent = new AssistantAgent(this.Trace, bridge, settingsHelper, methodsHelper);
-
+				agent = new AssistantAgent(this.Trace, this.Host, settingsHelper, methodsHelper);
 				agent.Initialize(this.Settings);
-				bridge.Start();
 			} catch(Exception)
 			{
-				bridge = null!;
 				agent = null!;
 				throw;
 			}
@@ -128,8 +121,6 @@ namespace Plugin.McpBridge
 
 		Boolean IPlugin.OnDisconnection(DisconnectMode mode)
 		{
-			this._mcpBridge?.Stop();
-
 			if(this._menuChat != null)
 				this.HostWindows.MainMenu.Items.Remove(this._menuChat);
 			return true;
