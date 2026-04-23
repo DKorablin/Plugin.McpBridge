@@ -2,7 +2,6 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Reflection;
 using System.Text;
-using System.Text.Json;
 using SAL.Flatbed;
 
 namespace Plugin.McpBridge.Helpers
@@ -10,9 +9,9 @@ namespace Plugin.McpBridge.Helpers
 	/// <summary>Reflection-based helpers for inspecting and mutating SAL plugin settings.</summary>
 	internal sealed class PluginSettingsHelper
 	{
-		private readonly SAL.Flatbed.IHost _host;
+		private readonly IHost _host;
 
-		public PluginSettingsHelper(SAL.Flatbed.IHost host)
+		public PluginSettingsHelper(IHost host)
 		{
 			this._host = host ?? throw new ArgumentNullException(nameof(host));
 		}
@@ -40,8 +39,8 @@ namespace Plugin.McpBridge.Helpers
 				if(!propertyInfo.CanRead)
 					continue;
 
-				String displayName = this.GetSettingDisplayName(propertyInfo);
-				String propertyDescription = this.GetSettingDescription(propertyInfo);
+				String displayName = GetSettingDisplayName(propertyInfo);
+				String propertyDescription = GetSettingDescription(propertyInfo);
 				Object? currentValue = propertyInfo.GetValue(settingsInstance, null);
 
 				builder.Append("- ");
@@ -51,7 +50,7 @@ namespace Plugin.McpBridge.Helpers
 				builder.Append("] = ");
 				builder.Append(this.FormatSettingValue(currentValue));
 				builder.Append(" (");
-				builder.Append(this.GetFriendlyTypeName(propertyInfo.PropertyType));
+				builder.Append(GetFriendlyTypeName(propertyInfo.PropertyType));
 				builder.Append(')');
 
 				if(!String.IsNullOrWhiteSpace(propertyDescription))
@@ -75,13 +74,13 @@ namespace Plugin.McpBridge.Helpers
 				throw new ArgumentException($"Setting '{settingName}' was not found for plugin '{pluginDescription!.ID}'.");
 
 			Object? currentValue = propertyInfo.GetValue(settingsInstance, null);
-			String displayName = this.GetSettingDisplayName(propertyInfo);
-			String propertyDescription = this.GetSettingDescription(propertyInfo);
+			String displayName = GetSettingDisplayName(propertyInfo);
+			String propertyDescription = GetSettingDescription(propertyInfo);
 
 			StringBuilder builder = new StringBuilder();
 			builder.Append($"Plugin '{pluginDescription!.ID}' setting {displayName}");
 			builder.Append($" [{propertyInfo.Name}] = {this.FormatSettingValue(currentValue)}");
-			builder.Append($" ({this.GetFriendlyTypeName(propertyInfo.PropertyType)})");
+			builder.Append($" ({GetFriendlyTypeName(propertyInfo.PropertyType)})");
 
 			if(!String.IsNullOrWhiteSpace(propertyDescription))
 			{
@@ -102,7 +101,7 @@ namespace Plugin.McpBridge.Helpers
 			if(!propertyInfo.CanWrite)
 				throw new ArgumentException($"Setting '{propertyInfo.Name}' for plugin '{pluginDescription!.ID}' is read-only.");
 
-			var convertedValue = PluginSettingsHelper.ConvertSettingValue(valueJson, propertyInfo.PropertyType);
+			var convertedValue = JsonUtils.ConvertValue(valueJson, propertyInfo.PropertyType);
 
 			propertyInfo.SetValue(settingsInstance, convertedValue, null);
 			return this.ReadPluginSetting(pluginId, propertyInfo.Name);
@@ -124,19 +123,19 @@ namespace Plugin.McpBridge.Helpers
 		{
 			foreach(PropertyInfo propertyInfo in settingsInstance.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public))
 				if(String.Equals(propertyInfo.Name, settingName, StringComparison.OrdinalIgnoreCase) ||
-					String.Equals(this.GetSettingDisplayName(propertyInfo), settingName, StringComparison.OrdinalIgnoreCase))
+					String.Equals(GetSettingDisplayName(propertyInfo), settingName, StringComparison.OrdinalIgnoreCase))
 					return propertyInfo;
 
 			return null;
 		}
 
-		private String GetSettingDisplayName(PropertyInfo propertyInfo)
+		private static String GetSettingDisplayName(PropertyInfo propertyInfo)
 		{
 			DisplayNameAttribute? attribute = propertyInfo.GetCustomAttribute<DisplayNameAttribute>();
 			return attribute != null && !String.IsNullOrWhiteSpace(attribute.DisplayName) ? attribute.DisplayName : propertyInfo.Name;
 		}
 
-		private String GetSettingDescription(PropertyInfo propertyInfo)
+		private static String GetSettingDescription(PropertyInfo propertyInfo)
 		{
 			DescriptionAttribute? attribute = propertyInfo.GetCustomAttribute<DescriptionAttribute>();
 			return attribute != null ? attribute.Description : String.Empty;
@@ -150,41 +149,10 @@ namespace Plugin.McpBridge.Helpers
 			return Convert.ToString(value, CultureInfo.InvariantCulture) ?? String.Empty;
 		}
 
-		private String GetFriendlyTypeName(Type propertyType)
+		private static String GetFriendlyTypeName(Type propertyType)
 		{
 			Type targetType = Nullable.GetUnderlyingType(propertyType) ?? propertyType;
 			return targetType.Name;
-		}
-
-		private static Object? ConvertSettingValue(String valueJson, Type targetType)
-		{
-			_ = targetType ?? throw new ArgumentNullException(nameof(targetType));
-
-			// 1. Handle Nullable types and null/empty strings
-			Type underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
-			Boolean isNullable = !targetType.IsValueType || Nullable.GetUnderlyingType(targetType) != null;
-
-			if(String.IsNullOrWhiteSpace(valueJson))
-				return isNullable ? null : Activator.CreateInstance(underlyingType);
-
-			// 2. Special case for Enums (TypeConverter can be picky with casing)
-			if(underlyingType.IsEnum)
-				return Enum.Parse(underlyingType, valueJson, true);
-
-			// 3. Try JSON deserialization (handles arrays, objects, and JSON-encoded primitives)
-			try
-			{
-				return JsonSerializer.Deserialize(valueJson, targetType);
-			}
-			catch(JsonException) { }
-
-			// 4. Use TypeConverter (The "Universal" way)
-			TypeConverter converter = TypeDescriptor.GetConverter(underlyingType);
-			if(converter != null && converter.CanConvertFrom(typeof(String)))
-				return converter.ConvertFromString(null, CultureInfo.InvariantCulture, valueJson);
-
-			// 5. Fallback to Convert.ChangeType for primitives
-			return Convert.ChangeType(valueJson, underlyingType, CultureInfo.InvariantCulture);
 		}
 	}
 }

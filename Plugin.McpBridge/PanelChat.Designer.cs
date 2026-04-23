@@ -35,7 +35,7 @@ partial class PanelChat
 	private void InitializeComponent()
 	{
 		SplitContainer splitMain;
-		this.txtResponse = new TextBox();
+		this.rtfResponse = new RichTextBox();
 		this.bnSend = new Button();
 		this.txtRequest = new TextBox();
 		this.toolStrip1 = new ToolStrip();
@@ -56,7 +56,7 @@ partial class PanelChat
 		// 
 		// splitMain.Panel1
 		// 
-		splitMain.Panel1.Controls.Add(this.txtResponse);
+		splitMain.Panel1.Controls.Add(this.rtfResponse);
 		// 
 		// splitMain.Panel2
 		// 
@@ -66,15 +66,18 @@ partial class PanelChat
 		splitMain.SplitterDistance = 70;
 		splitMain.TabIndex = 3;
 		// 
-		// txtResponse
+		// rtfResponse
 		// 
-		this.txtResponse.Dock = DockStyle.Fill;
-		this.txtResponse.Location = new Point(0, 0);
-		this.txtResponse.Multiline = true;
-		this.txtResponse.Name = "txtResponse";
-		this.txtResponse.ScrollBars = ScrollBars.Vertical;
-		this.txtResponse.Size = new Size(175, 70);
-		this.txtResponse.TabIndex = 2;
+		this.rtfResponse.BackColor = SystemColors.Window;
+		this.rtfResponse.BorderStyle = BorderStyle.None;
+		this.rtfResponse.DetectUrls = true;
+		this.rtfResponse.Dock = DockStyle.Fill;
+		this.rtfResponse.Location = new Point(0, 0);
+		this.rtfResponse.Name = "rtfResponse";
+		this.rtfResponse.ReadOnly = true;
+		this.rtfResponse.ScrollBars = RichTextBoxScrollBars.Vertical;
+		this.rtfResponse.Size = new Size(175, 70);
+		this.rtfResponse.TabIndex = 2;
 		// 
 		// bnSend
 		// 
@@ -130,5 +133,5 @@ partial class PanelChat
 	private ToolStrip toolStrip1;
 	private Button bnSend;
 	private TextBox txtRequest;
-	private TextBox txtResponse;
+	private RichTextBox rtfResponse;
 }

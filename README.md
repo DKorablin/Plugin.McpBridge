@@ -2,6 +2,10 @@
 
 A plugin for the SAL host application that connects an AI assistant to the SAL host using [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) and native AI function calling.
 
+[![UI Screenshot](.github/assets/UI-1-200.png)](.github/assets/UI-1.png)
+[![UI Screenshot](.github/assets/UI-2-200.png)](.github/assets/UI-2.png)
+[![UI Screenshot](.github/assets/UI-3-200.png)](.github/assets/UI-3.png)
+
 ## Overview
 
 Plugin.McpBridge is a SAL plugin that gives an AI assistant live access to every plugin loaded in the SAL host.

@@ -1,7 +1,8 @@
 ﻿using System.Reflection;
 using System.Text;
-using SAL.Flatbed;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using SAL.Flatbed;
 
 namespace Plugin.McpBridge.Helpers
 {
@@ -72,7 +73,7 @@ namespace Plugin.McpBridge.Helpers
 			if(member.MemberType == MemberTypes.Method)
 			{
 				var method = (IPluginMethodInfo)member;
-				var arguments = ConvertArgumentsValue(method, argumentsJson);
+				var arguments = JsonUtils.ConvertArgumentsValue(method, argumentsJson);
 				var result = method.Invoke(arguments);
 
 				return JsonSerializer.Serialize(result);
@@ -94,45 +95,6 @@ namespace Plugin.McpBridge.Helpers
 				foreach(IPluginMemberInfo pluginMember in pluginDescription.Type.Members)
 					if(pluginMember != null && pluginMember.MemberType == System.Reflection.MemberTypes.Method)
 						yield return pluginMember;
-		}
-
-		private static Object?[] ConvertArgumentsValue(IPluginMethodInfo method, String argumentsJson)
-		{
-			using(JsonDocument doc = JsonDocument.Parse(argumentsJson))
-			{
-				JsonElement root = doc.RootElement;
-
-				var arguments = method.GetParameters().ToArray();
-				var result = new Object?[arguments.Length];
-
-				for(var loop = 0; loop < arguments.Length; loop++)
-				{
-					var argument = arguments[loop];
-
-					// 1. Find the property in the JSON
-					if(root.TryGetProperty(argument.Name, out JsonElement element))
-					{
-						// 2. Resolve the string type name to a System.Type
-						Type targetType = ResolveType(argument.TypeName);
-
-						// 3. Convert the specific JsonElement to the target type
-						result[loop] = JsonSerializer.Deserialize(element.GetRawText(), targetType);
-					} else
-						result[loop] = null; // Or handle missing arguments as needed
-				}
-
-				return result;
-
-				Type ResolveType(String typeName)
-				{
-					// Type.GetType requires assembly-qualified names for non-primitive types
-					// (e.g., "System.DateTime" or "System.String[]")
-					var t = Type.GetType(typeName)
-						?? throw new ArgumentException($"Could not resolve type: {typeName}");
-
-					return t;
-				}
-			}
 		}
 	}
 }

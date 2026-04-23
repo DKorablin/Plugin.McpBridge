@@ -1,7 +1,11 @@
+using System.ClientModel;
+using System.ClientModel.Primitives;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Net.Http;
+using System.Reflection;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Azure.AI.OpenAI;
@@ -10,9 +14,6 @@ using Microsoft.Extensions.AI;
 using OpenAI;
 using Plugin.McpBridge.Helpers;
 using SAL.Flatbed;
-using System.Text;
-using System.ClientModel;
-using System.ClientModel.Primitives;
 
 namespace Plugin.McpBridge
 {
@@ -220,12 +221,28 @@ Available AI tools:
 			return result;
 		}
 
-		private String SettingsGet(
+		private async Task<String> SettingsGet(
 			[Description("Plugin identifier")] String pluginId,
 			[Description("Setting name")] String settingName)
 		{
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] SettingsGet plugin={pluginId} setting={settingName}");
 			String result = this._settingsHelper.ReadPluginSetting(pluginId, settingName);
+			if(result.Length > this._maxToolResultLength)
+			{
+				Boolean confirmed = await this.RequestConfirmationAsync($"The result is {result.Length} characters long, which exceeds the configured limit of {this._maxToolResultLength}. Do you want to send a truncated result?");
+				if(confirmed)
+					result = result.Substring(0, this._maxToolResultLength) + $"\n[Result truncated: {result.Length} chars total, limit is {this._maxToolResultLength}]";
+				else
+				{
+					var exc = new ArgumentException("Operation declined by user due to result length.");
+					exc.Data.Add("ResultLength", result.Length);
+					exc.Data.Add(nameof(this._maxToolResultLength), this._maxToolResultLength);
+					exc.Data.Add(nameof(pluginId), pluginId);
+					exc.Data.Add(nameof(settingName), settingName);
+					throw exc;
+				}
+			}
+
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, "[tool result] " + result);
 			return result;
 		}
@@ -237,9 +254,16 @@ Available AI tools:
 		{
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] SettingsSet plugin={pluginId} setting={settingName} value={valueJson}");
 			Boolean confirmed = await this.RequestConfirmationAsync($"SETTINGS SET {pluginId} {settingName}={valueJson}");
-			String result = confirmed
-				? this._settingsHelper.UpdatePluginSetting(pluginId, settingName, valueJson)
-				: "Operation declined by user.";
+			String result = String.Empty;
+			if(confirmed)
+				result = this._settingsHelper.UpdatePluginSetting(pluginId, settingName, valueJson);
+			else
+			{
+				var exc = new ArgumentException("Operation declined by user.");
+				exc.Data.Add(nameof(pluginId), pluginId);
+				exc.Data.Add(nameof(settingName), settingName);
+				throw exc;
+			}
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, "[tool result] " + result);
 			return result;
 		}
@@ -262,7 +286,7 @@ Available AI tools:
 			String result = String.Empty;
 
 			if(confirmed)
-				this._methodsHelper.InvokePluginMethod(pluginId, methodName, argsJson);
+				result = this._methodsHelper.InvokePluginMethod(pluginId, methodName, argsJson);
 			else
 			{
 				var exc = new ArgumentException("Operation declined by user.");
