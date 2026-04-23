@@ -213,10 +213,24 @@ Available AI tools:
 			}
 		}
 
-		private String SettingsList([Description("Plugin identifier")] String pluginId)
+		private async Task<String> SettingsList([Description("Plugin identifier")] String pluginId)
 		{
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] SettingsList plugin={pluginId}");
 			String result = this._settingsHelper.ListPluginSettings(pluginId);
+			if(result.Length > this._maxToolResultLength)
+			{
+				Boolean confirmed = await this.RequestConfirmationAsync($"The result is {result.Length} characters long, which exceeds the configured limit of {this._maxToolResultLength}. Do you want to send a truncated result?");
+				if(confirmed)
+					result = result.Substring(0, this._maxToolResultLength) + $"\n[Result truncated: {result.Length} chars total, limit is {this._maxToolResultLength}]";
+				else
+				{
+					var exc = new ArgumentException("Operation declined by user due to result length.");
+					exc.Data.Add("ResultLength", result.Length);
+					exc.Data.Add(nameof(this._maxToolResultLength), this._maxToolResultLength);
+					exc.Data.Add(nameof(pluginId), pluginId);
+					throw exc;
+				}
+			}
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, "[tool result] " + result);
 			return result;
 		}
@@ -268,10 +282,24 @@ Available AI tools:
 			return result;
 		}
 
-		private String MethodsList([Description("Plugin identifier")] String pluginId)
+		private async Task<String> MethodsList([Description("Plugin identifier")] String pluginId)
 		{
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] MethodsList plugin={pluginId}");
 			String result = this._methodsHelper.ListPluginMethods(pluginId);
+			if(result.Length > this._maxToolResultLength)
+			{
+				Boolean confirmed = await this.RequestConfirmationAsync($"The result is {result.Length} characters long, which exceeds the configured limit of {this._maxToolResultLength}. Do you want to send a truncated result?");
+				if(confirmed)
+					result = result.Substring(0, this._maxToolResultLength) + $"\n[Result truncated: {result.Length} chars total, limit is {this._maxToolResultLength}]";
+				else
+				{
+					var exc = new ArgumentException("Operation declined by user due to result length.");
+					exc.Data.Add("ResultLength", result.Length);
+					exc.Data.Add(nameof(this._maxToolResultLength), this._maxToolResultLength);
+					exc.Data.Add(nameof(pluginId), pluginId);
+					throw exc;
+				}
+			}
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, "[tool result] " + result);
 			return result;
 		}
