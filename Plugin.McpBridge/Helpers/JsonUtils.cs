@@ -1,4 +1,6 @@
-﻿using System.Text.Json;
+﻿using System.ComponentModel;
+using System.Globalization;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using SAL.Flatbed;
 
@@ -37,19 +39,33 @@ internal static class JsonUtils
 	{
 		_ = targetType ?? throw new ArgumentNullException(nameof(targetType));
 
+		// 1. Handle Nullable types and null/empty strings
 		Type underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
 		Boolean isNullable = !targetType.IsValueType || Nullable.GetUnderlyingType(targetType) != null;
 
 		if(String.IsNullOrWhiteSpace(valueJson))
 			return isNullable ? null : Activator.CreateInstance(underlyingType);
 
+		// 2. Special case for Enums
 		if(underlyingType.IsEnum)
 			return Enum.Parse(underlyingType, valueJson, true);
 
-		var options = new JsonSerializerOptions
+		// 3. Try JSON deserialization
+		try
 		{
-			Converters = { new JsonStringEnumConverter() }
-		};
-		return JsonSerializer.Deserialize(valueJson, targetType, options);
+			var options = new JsonSerializerOptions
+			{
+				Converters = { new JsonStringEnumConverter() }
+			};
+			return JsonSerializer.Deserialize(valueJson, targetType, options);
+		} catch(JsonException) { }
+
+		// 4. Use TypeConverter
+		TypeConverter converter = TypeDescriptor.GetConverter(underlyingType);
+		if(converter != null && converter.CanConvertFrom(typeof(String)))
+			return converter.ConvertFromString(null, CultureInfo.InvariantCulture, valueJson);
+
+		// 5. Fallback to Convert.ChangeType for primitives
+		return Convert.ChangeType(valueJson, underlyingType, CultureInfo.InvariantCulture);
 	}
 }

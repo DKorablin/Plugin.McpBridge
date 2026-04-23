@@ -12,6 +12,7 @@ partial class PanelChat
 	/// Required designer variable.
 	/// </summary>
 	private System.ComponentModel.IContainer components = null;
+	private SplitContainer splitMain = null!;
 
 	/// <summary> 
 	/// Clean up any resources being used.
@@ -34,12 +35,11 @@ partial class PanelChat
 	/// </summary>
 	private void InitializeComponent()
 	{
-		SplitContainer splitMain;
 		this.rtfResponse = new RichTextBox();
 		this.bnSend = new Button();
 		this.txtRequest = new TextBox();
 		this.toolStrip1 = new ToolStrip();
-		splitMain = new SplitContainer();
+		this.splitMain = new SplitContainer();
 		((System.ComponentModel.ISupportInitialize)splitMain).BeginInit();
 		splitMain.Panel1.SuspendLayout();
 		splitMain.Panel2.SuspendLayout();

@@ -22,7 +22,10 @@ namespace Plugin.McpBridge
 		{
 			public const AiProviderType ProviderType = AiProviderType.OpenAI;
 			public const String ModelId = "gpt-4o-mini";
-			public const String AssistantSystemPrompt = "You are a SAL automation assistant. Use available MCP tools when useful. Return clear user-facing responses, or a command payload only when automation is required.";
+			public const String AssistantSystemPrompt = @"You are a SAL automation assistant.
+Use available MCP tools when useful.
+Return clear user-facing responses, or a command payload only when automation is required.
+Before using relative dates (today, yesterday, last hour), obtain the current system time from the host environment.";
 			public static readonly TimeSpan ConnectionTimeout = TimeSpan.FromSeconds(100);
 			public const Int32 MaxToolResultLength = 8000;
 		}

@@ -2,6 +2,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
 using Plugin.McpBridge.Helpers;
+using Plugin.McpBridge.UI;
 using SAL.Windows;
 
 namespace Plugin.McpBridge;
@@ -9,7 +10,6 @@ namespace Plugin.McpBridge;
 public partial class PanelChat : UserControl
 {
 	private AssistantAgent? _agent;
-	private AgentConfirmationEventArgs? _pendingConfirmation;
 	private Boolean _streamingActive;
 	private StringBuilder? _streamingBuffer;
 
@@ -17,10 +17,7 @@ public partial class PanelChat : UserControl
 		@"(\*\*[^*\n]+\*\*|\*[^*\n]+\*|`[^`\n]+`)",
 		RegexOptions.Compiled);
 
-	private Panel _pnlConfirmation = null!;
-	private Label _lblConfirmationText = null!;
-	private Button _bnConfirmAllow = null!;
-	private Button _bnConfirmDeny = null!;
+	private ConfirmationPanel _confirmationPanel = null!;
 
 	private Plugin Plugin => (Plugin)this.Window.Plugin;
 
@@ -36,42 +33,21 @@ public partial class PanelChat : UserControl
 		this.Window.Caption = "OpenAI Chat";
 		this.Plugin.Settings.PropertyChanged += this.Settings_PropertyChanged;
 		this.Window.Closed += this.Window_Closed;
-		this.InitializeConfirmationPanel();
+		this._confirmationPanel = new ConfirmationPanel();
+		this._confirmationPanel.ConfirmationHandled += (Object? s, EventArgs e) => this.Invoke(() => bnSend.Enabled = true);
+		this.splitMain.Panel1.Controls.Add(this._confirmationPanel);
 		base.OnCreateControl();
 	}
 
 	private void Window_Closed(Object? sender, EventArgs e)
 	{
-		this.HandleConfirmation(false);
+		this._confirmationPanel.Dismiss();
 		this.Plugin.Settings.PropertyChanged -= this.Settings_PropertyChanged;
-	}
-
-	private void InitializeConfirmationPanel()
-	{
-		this._lblConfirmationText = new Label
-		{
-			Dock = DockStyle.Fill,
-			TextAlign = ContentAlignment.MiddleLeft,
-			AutoEllipsis = true,
-		};
-		this._bnConfirmAllow = new Button { Text = "Allow", Dock = DockStyle.Right, Width = 75 };
-		this._bnConfirmDeny = new Button { Text = "Deny", Dock = DockStyle.Right, Width = 75 };
-		this._bnConfirmAllow.Click += (Object? s, EventArgs e) => this.HandleConfirmation(true);
-		this._bnConfirmDeny.Click += (Object? s, EventArgs e) => this.HandleConfirmation(false);
-
-		this._pnlConfirmation = new Panel { Dock = DockStyle.Bottom, Height = 30, Visible = false, Padding = new Padding(2) };
-		this._pnlConfirmation.Controls.Add(this._lblConfirmationText);
-		this._pnlConfirmation.Controls.Add(this._bnConfirmAllow);
-		this._pnlConfirmation.Controls.Add(this._bnConfirmDeny);
-		this.Controls.Add(this._pnlConfirmation);
 	}
 
 	private void Settings_PropertyChanged(Object? sender, PropertyChangedEventArgs e)
 	{
-		AgentConfirmationEventArgs? pending = this._pendingConfirmation;
-		this._pendingConfirmation = null;
-		pending?.Cancel();
-		this._pnlConfirmation.Visible = false;
+		this._confirmationPanel.Dismiss();
 		bnSend.Enabled = true;
 
 		if(this._agent != null)
@@ -100,10 +76,9 @@ public partial class PanelChat : UserControl
 			return;
 
 		this.EnsureConnected();
-		this._pendingConfirmation = null;
+		this._confirmationPanel.Dismiss();
 		this._streamingActive = false;
 		this._streamingBuffer = null;
-		this._pnlConfirmation.Visible = false;
 		bnSend.Enabled = false;
 
 		AssistantAgent agent = this._agent!;
@@ -146,23 +121,9 @@ public partial class PanelChat : UserControl
 	{
 		this.BeginInvoke(() =>
 		{
-			this._pendingConfirmation = e;
-			this._lblConfirmationText.Text = e.ActionDescription;
-			this._pnlConfirmation.Visible = true;
+			this._confirmationPanel.Request(e);
 			bnSend.Enabled = false;
 		});
-	}
-
-	private void HandleConfirmation(Boolean allowed)
-	{
-		AgentConfirmationEventArgs? pending = this._pendingConfirmation;
-		if(pending == null)
-			return;
-
-		this._pendingConfirmation = null;
-		this._pnlConfirmation.Visible = false;
-		bnSend.Enabled = true;
-		pending.Confirm(allowed);
 	}
 
 	private void bnSend_Click(Object sender, EventArgs e)

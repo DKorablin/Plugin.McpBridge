@@ -23,6 +23,7 @@ User ──► PanelChat ──► AssistantAgent (Microsoft.Agents.AI)
                     │  │  - SettingsSet  ← confirmed   │ │
                     │  │  - MethodsList                │ │
                     │  │  - MethodsInvoke ← confirmed  │ │
+                    |  |  - SystemInformation          | |
                     │  └───────────────────────────────┘ │
                     └────────────────────────────────────┘
 ```
@@ -72,7 +73,10 @@ Settings are managed through the standard SAL plugin settings mechanism (right-c
 | `ConnectionTimeout` | `100` | Request timeout in seconds. |
 
 **Default system prompt:**
-> *You are a SAL automation assistant. Use available MCP tools when useful. Return clear user-facing responses, or a command payload only when automation is required.*
+> *You are a SAL automation assistant.
+Use available MCP tools when useful.
+Return clear user-facing responses, or a command payload only when automation is required.
+Before using relative dates (today, yesterday, last hour), obtain the current system time from the host environment..*
 
 ## AI Tools
 
@@ -85,6 +89,7 @@ The assistant interacts with SAL plugins through five AI tools registered via `A
 | `SettingsSet` | Update a setting value ← requires user confirmation |
 | `MethodsList` | List all callable methods exposed by a plugin. |
 | `MethodsInvoke` | Invoke a plugin method ← requires user confirmation |
+| `SystemInformation` | Used to clarify OS, DateTime format and UTC |
 
 Any tool that mutates state (`SettingsSet`, `MethodsInvoke`) is held until the user approves or denies it via the inline confirmation strip. If the result of a `MethodsInvoke` call exceeds `MaxToolResultLength` characters, a second confirmation is shown before sending a truncated version to the model.
 
@@ -107,4 +112,5 @@ Any tool that mutates state (`SettingsSet`, `MethodsInvoke`) is held until the u
 	- [Flatbed.Dialog (Lite)](https://dkorablin.github.io/Flatbed-Dialog-Lite)
 	- [Flatbed.MDI](https://dkorablin.github.io/Flatbed-MDI)
 	- [Flatbed.MDI (WPF)](https://dkorablin.github.io/Flatbed-MDI-Avalon)
+	- [Flatbed.MDI (AvaloniaUI)](https://dkorablin.github.io/Flatbed-MDI-AvaloniaUI)
 3. Restart the host application; Plugin.McpBridge should appear in the plugin list (Tools -> OpenAI Chat).

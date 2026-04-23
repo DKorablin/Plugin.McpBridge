@@ -3,6 +3,7 @@ using System.ClientModel.Primitives;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Net.Http;
 using System.Reflection;
 using System.Text;
@@ -76,11 +77,12 @@ namespace Plugin.McpBridge
 				instructions: settings.AssistantSystemPrompt,
 				tools:
 				[
-					AIFunctionFactory.Create(this.SettingsList,   nameof(this.SettingsList),   "List all available settings for a plugin"),
-					AIFunctionFactory.Create(this.SettingsGet,    nameof(this.SettingsGet),    "Get the current value of a specific plugin setting"),
-					AIFunctionFactory.Create(this.SettingsSet,    nameof(this.SettingsSet),    "Update a plugin setting value; requires user confirmation"),
-					AIFunctionFactory.Create(this.MethodsList,    nameof(this.MethodsList),    "List all available methods for a plugin"),
-					AIFunctionFactory.Create(this.MethodsInvoke,  nameof(this.MethodsInvoke),  "Invoke a plugin method; requires user confirmation"),
+					AIFunctionFactory.Create(this.SystemInformation,	nameof(this.SystemInformation),	"Get the current host environment system information including OS version, DateTime format and UTC"),
+					AIFunctionFactory.Create(this.SettingsList,			nameof(this.SettingsList),		"List all available settings for a plugin"),
+					AIFunctionFactory.Create(this.SettingsGet,			nameof(this.SettingsGet),		"Get the current value of a specific plugin setting"),
+					AIFunctionFactory.Create(this.SettingsSet,			nameof(this.SettingsSet),		"Update a plugin setting value; requires user confirmation"),
+					AIFunctionFactory.Create(this.MethodsList,			nameof(this.MethodsList),		"List all available methods for a plugin"),
+					AIFunctionFactory.Create(this.MethodsInvoke,		nameof(this.MethodsInvoke),		"Invoke a plugin method; requires user confirmation"),
 				]);
 		}
 
@@ -213,24 +215,37 @@ Available AI tools:
 			}
 		}
 
+		private async Task ConfirmOrThrowAsync(String actionDescription)
+		{
+			if(!await this.RequestConfirmationAsync(actionDescription))
+			{
+				ArgumentException exc = new ArgumentException("Operation declined by user.");
+				exc.Data.Add(nameof(actionDescription), actionDescription);
+				throw exc;
+			}
+		}
+
+		private async Task<String> EnforceResultLengthAsync(String result)
+		{
+			if(result.Length <= this._maxToolResultLength)
+				return result;
+
+			Boolean confirmed = await this.RequestConfirmationAsync($"The result is {result.Length} characters long, which exceeds the configured limit of {this._maxToolResultLength}. Do you want to send a truncated result?");
+			if(confirmed)
+				return result.Substring(0, this._maxToolResultLength) + $"\n[Result truncated: {result.Length} chars total, limit is {this._maxToolResultLength}]";
+
+			ArgumentException exc = new ArgumentException("Operation declined by user due to result length.");
+			exc.Data.Add("ResultLength", result.Length);
+			exc.Data.Add(nameof(this._maxToolResultLength), this._maxToolResultLength);
+			throw exc;
+		}
+
 		private async Task<String> SettingsList([Description("Plugin identifier")] String pluginId)
 		{
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] SettingsList plugin={pluginId}");
 			String result = this._settingsHelper.ListPluginSettings(pluginId);
-			if(result.Length > this._maxToolResultLength)
-			{
-				Boolean confirmed = await this.RequestConfirmationAsync($"The result is {result.Length} characters long, which exceeds the configured limit of {this._maxToolResultLength}. Do you want to send a truncated result?");
-				if(confirmed)
-					result = result.Substring(0, this._maxToolResultLength) + $"\n[Result truncated: {result.Length} chars total, limit is {this._maxToolResultLength}]";
-				else
-				{
-					var exc = new ArgumentException("Operation declined by user due to result length.");
-					exc.Data.Add("ResultLength", result.Length);
-					exc.Data.Add(nameof(this._maxToolResultLength), this._maxToolResultLength);
-					exc.Data.Add(nameof(pluginId), pluginId);
-					throw exc;
-				}
-			}
+
+			result = await this.EnforceResultLengthAsync(result);
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, "[tool result] " + result);
 			return result;
 		}
@@ -241,22 +256,8 @@ Available AI tools:
 		{
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] SettingsGet plugin={pluginId} setting={settingName}");
 			String result = this._settingsHelper.ReadPluginSetting(pluginId, settingName);
-			if(result.Length > this._maxToolResultLength)
-			{
-				Boolean confirmed = await this.RequestConfirmationAsync($"The result is {result.Length} characters long, which exceeds the configured limit of {this._maxToolResultLength}. Do you want to send a truncated result?");
-				if(confirmed)
-					result = result.Substring(0, this._maxToolResultLength) + $"\n[Result truncated: {result.Length} chars total, limit is {this._maxToolResultLength}]";
-				else
-				{
-					var exc = new ArgumentException("Operation declined by user due to result length.");
-					exc.Data.Add("ResultLength", result.Length);
-					exc.Data.Add(nameof(this._maxToolResultLength), this._maxToolResultLength);
-					exc.Data.Add(nameof(pluginId), pluginId);
-					exc.Data.Add(nameof(settingName), settingName);
-					throw exc;
-				}
-			}
 
+			result = await this.EnforceResultLengthAsync(result);
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, "[tool result] " + result);
 			return result;
 		}
@@ -267,17 +268,11 @@ Available AI tools:
 			[Description("New value as JSON")] String valueJson)
 		{
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] SettingsSet plugin={pluginId} setting={settingName} value={valueJson}");
-			Boolean confirmed = await this.RequestConfirmationAsync($"SETTINGS SET {pluginId} {settingName}={valueJson}");
-			String result = String.Empty;
-			if(confirmed)
-				result = this._settingsHelper.UpdatePluginSetting(pluginId, settingName, valueJson);
-			else
-			{
-				var exc = new ArgumentException("Operation declined by user.");
-				exc.Data.Add(nameof(pluginId), pluginId);
-				exc.Data.Add(nameof(settingName), settingName);
-				throw exc;
-			}
+
+			await this.ConfirmOrThrowAsync($"SETTINGS SET {pluginId} {settingName}={valueJson}");
+			String result = this._settingsHelper.UpdatePluginSetting(pluginId, settingName, valueJson);
+
+			result = await this.EnforceResultLengthAsync(result);
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, "[tool result] " + result);
 			return result;
 		}
@@ -286,20 +281,8 @@ Available AI tools:
 		{
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] MethodsList plugin={pluginId}");
 			String result = this._methodsHelper.ListPluginMethods(pluginId);
-			if(result.Length > this._maxToolResultLength)
-			{
-				Boolean confirmed = await this.RequestConfirmationAsync($"The result is {result.Length} characters long, which exceeds the configured limit of {this._maxToolResultLength}. Do you want to send a truncated result?");
-				if(confirmed)
-					result = result.Substring(0, this._maxToolResultLength) + $"\n[Result truncated: {result.Length} chars total, limit is {this._maxToolResultLength}]";
-				else
-				{
-					var exc = new ArgumentException("Operation declined by user due to result length.");
-					exc.Data.Add("ResultLength", result.Length);
-					exc.Data.Add(nameof(this._maxToolResultLength), this._maxToolResultLength);
-					exc.Data.Add(nameof(pluginId), pluginId);
-					throw exc;
-				}
-			}
+
+			result = await this.EnforceResultLengthAsync(result);
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, "[tool result] " + result);
 			return result;
 		}
@@ -310,35 +293,26 @@ Available AI tools:
 			[Description("Arguments as JSON")] String argsJson)
 		{
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] MethodsInvoke plugin={pluginId} method={methodName} args={argsJson}");
-			Boolean confirmed = await this.RequestConfirmationAsync($"METHODS INVOKE {pluginId} {methodName} {argsJson}");
-			String result = String.Empty;
 
-			if(confirmed)
-				result = this._methodsHelper.InvokePluginMethod(pluginId, methodName, argsJson);
-			else
-			{
-				var exc = new ArgumentException("Operation declined by user.");
-				exc.Data.Add(nameof(pluginId), pluginId);
-				exc.Data.Add(nameof(methodName), methodName);
-				throw exc;
-			}
+			await this.ConfirmOrThrowAsync($"METHODS INVOKE {pluginId} {methodName} {argsJson}");
+			String result = this._methodsHelper.InvokePluginMethod(pluginId, methodName, argsJson);
 
-			if(result.Length > this._maxToolResultLength)
-			{
-				confirmed = await this.RequestConfirmationAsync($"The result is {result.Length} characters long, which exceeds the configured limit of {this._maxToolResultLength}. Do you want to send a truncated result?");
-				if(confirmed)
-					result = result.Substring(0, this._maxToolResultLength) + $"\n[Result truncated: {result.Length} chars total, limit is {this._maxToolResultLength}]";
-				else
-				{
-					var exc = new ArgumentException("Operation declined by user due to result length.");
-					exc.Data.Add("ResultLength", result.Length);
-					exc.Data.Add(nameof(this._maxToolResultLength), this._maxToolResultLength);
-					exc.Data.Add(nameof(pluginId), pluginId);
-					exc.Data.Add(nameof(methodName), methodName);
-					throw exc;
-				}
-			}
+			result = await this.EnforceResultLengthAsync(result);
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, "[tool result] " + result);
+			return result;
+		}
+
+		private async Task<String> SystemInformation()
+		{
+			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] SystemInformation");
+
+			DateTimeFormatInfo formatPreferences = CultureInfo.CurrentCulture.DateTimeFormat;
+			String result = @$"
+Short date pattern: {formatPreferences.ShortDatePattern}
+Long date pattern; {formatPreferences.LongTimePattern}
+Current time: {DateTime.Now}
+OS Version: {Environment.OSVersion}";
+
 			return result;
 		}
 	}

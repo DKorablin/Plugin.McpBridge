@@ -47,7 +47,7 @@ namespace Plugin.McpBridge.Helpers
 							builder.Append(", ");
 						if(argument.IsOut)
 							builder.Append("out ");
-						builder.Append($"{argument.Name}: {argument.TypeName}");
+						builder.Append($"{argument.Name}: {argument.AssemblyQualifiedName}");
 						String[] defaultValues = argument.GetDefaultValues();
 						if(defaultValues?.Length > 0)
 							builder.Append($" [{String.Join("|", defaultValues)}]");

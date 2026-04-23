@@ -220,7 +220,7 @@ namespace Plugin.McpBridge.Tests.Helpers
 		{
 			Mock<IPluginParameterInfo> parameter = new Mock<IPluginParameterInfo>();
 			parameter.SetupGet(x => x.Name).Returns(name);
-			parameter.SetupGet(x => x.TypeName).Returns(typeName);
+			parameter.SetupGet(x => x.AssemblyQualifiedName).Returns(typeName);
 			parameter.SetupGet(x => x.MemberType).Returns(MemberTypes.Custom);
 			parameter.SetupGet(x => x.IsOut).Returns(isOut);
 
