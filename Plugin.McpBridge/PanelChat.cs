@@ -64,7 +64,7 @@ public partial class PanelChat : UserControl
 	{
 		if(this._agent == null)
 		{
-			this.Plugin.InitializeAgent(out this._agent);
+			this._agent = this.Plugin.InitializeAgent();
 			this._agent.AiResponseReceived += this.Agent_AiResponseReceived;
 			this._agent.ConfirmationRequired += this.Agent_ConfirmationRequired;
 		}

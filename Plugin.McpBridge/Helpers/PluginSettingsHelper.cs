@@ -101,7 +101,7 @@ namespace Plugin.McpBridge.Helpers
 			if(!propertyInfo.CanWrite)
 				throw new ArgumentException($"Setting '{propertyInfo.Name}' for plugin '{pluginDescription!.ID}' is read-only.");
 
-			var convertedValue = JsonUtils.ConvertValue(valueJson, propertyInfo.PropertyType);
+			var convertedValue = Utils.ConvertValue(valueJson, propertyInfo.PropertyType);
 
 			propertyInfo.SetValue(settingsInstance, convertedValue, null);
 			return this.ReadPluginSetting(pluginId, propertyInfo.Name);

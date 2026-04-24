@@ -1,14 +1,9 @@
-using System.ClientModel;
+﻿using System.ClientModel;
 using System.ClientModel.Primitives;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
-using System.Net.Http;
-using System.Reflection;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using Azure.AI.OpenAI;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
@@ -25,19 +20,31 @@ namespace Plugin.McpBridge
 		private readonly IHost _host;
 		private readonly PluginSettingsHelper _settingsHelper;
 		private readonly PluginMethodsHelper _methodsHelper;
+		private readonly Func<Settings, HttpClient, IChatClient> _chatClientFactory;
+		private readonly TimeProvider _timeProvider;
 		private ChatClientAgent? _agent;
 		private AgentSession? _session;
 		private Int32 _maxToolResultLength;
+		private IReadOnlyList<AITool> _tools = [];
+
 
 		public event EventHandler<AgentResponseEventArgs>? AiResponseReceived;
 		public event EventHandler<AgentConfirmationEventArgs>? ConfirmationRequired;
 
-		public AssistantAgent(TraceSource trace, IHost host, PluginSettingsHelper settingsHelper, PluginMethodsHelper methodsHelper)
+		public AssistantAgent(
+			TraceSource trace,
+			IHost host,
+			PluginSettingsHelper settingsHelper,
+			PluginMethodsHelper methodsHelper,
+			Func<Settings, HttpClient, IChatClient>? chatClientFactory = null,
+			TimeProvider? timeProvider = null)
 		{
 			this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
 			this._host = host ?? throw new ArgumentNullException(nameof(host));
 			this._settingsHelper = settingsHelper ?? throw new ArgumentNullException(nameof(settingsHelper));
 			this._methodsHelper = methodsHelper ?? throw new ArgumentNullException(nameof(methodsHelper));
+			this._chatClientFactory = chatClientFactory ?? this.BuildChatClient;
+			this._timeProvider = timeProvider ?? TimeProvider.System;
 		}
 
 		public void Initialize(Settings settings)
@@ -53,7 +60,7 @@ namespace Plugin.McpBridge
 			}
 
 			HttpClient httpClient = new HttpClient { Timeout = settings.ConnectionTimeout };
-			IChatClient chatClient = this.BuildChatClient(settings, httpClient);
+			IChatClient chatClient = this._chatClientFactory(settings, httpClient);
 
 			IChatClient configuredClient = new ChatClientBuilder(chatClient)
 				.ConfigureOptions(options =>
@@ -73,17 +80,33 @@ namespace Plugin.McpBridge
 				})
 				.Build();
 
+			List<AITool> tools = GetTools().ToList();
+			this._tools = tools;
 			this._agent = configuredClient.AsAIAgent(
 				instructions: settings.AssistantSystemPrompt,
-				tools:
-				[
-					AIFunctionFactory.Create(this.SystemInformation,	nameof(this.SystemInformation),	"Get the current host environment system information including OS version, DateTime format and UTC"),
-					AIFunctionFactory.Create(this.SettingsList,			nameof(this.SettingsList),		"List all available settings for a plugin"),
-					AIFunctionFactory.Create(this.SettingsGet,			nameof(this.SettingsGet),		"Get the current value of a specific plugin setting"),
-					AIFunctionFactory.Create(this.SettingsSet,			nameof(this.SettingsSet),		"Update a plugin setting value; requires user confirmation"),
-					AIFunctionFactory.Create(this.MethodsList,			nameof(this.MethodsList),		"List all available methods for a plugin"),
-					AIFunctionFactory.Create(this.MethodsInvoke,		nameof(this.MethodsInvoke),		"Invoke a plugin method; requires user confirmation"),
-				]);
+				tools: tools);
+
+			IEnumerable<AITool> GetTools()
+			{
+				var permissions = settings.ToolsPermission;
+				if(permissions.HasFlag(Settings.Tools.SystemInformation))
+					yield return AIFunctionFactory.Create(this.SystemInformation, nameof(this.SystemInformation), "Get the current host environment system information including OS version, DateTime format and UTC");
+
+				if(permissions.HasFlag(Settings.Tools.SettingsList))
+					yield return AIFunctionFactory.Create(this.SettingsList, nameof(this.SettingsList), "List all available settings for a plugin");
+
+				if(permissions.HasFlag(Settings.Tools.SettingsGet))
+					yield return AIFunctionFactory.Create(this.SettingsGet, nameof(this.SettingsGet), "Get the current value of a specific plugin setting");
+
+				if(permissions.HasFlag(Settings.Tools.SettingsSet))
+					yield return AIFunctionFactory.Create(this.SettingsSet, nameof(this.SettingsSet), "Update a plugin setting value; requires user confirmation");
+
+				if(permissions.HasFlag(Settings.Tools.MethodsList))
+					yield return AIFunctionFactory.Create(this.MethodsList, nameof(this.MethodsList), "List all available methods for a plugin");
+
+				if(permissions.HasFlag(Settings.Tools.MethodsInvoke))
+					yield return AIFunctionFactory.Create(this.MethodsInvoke, nameof(this.MethodsInvoke), "Invoke a plugin method; requires user confirmation");
+			}
 		}
 
 		public async Task InvokeMessageAsync(String message, CancellationToken cancellationToken = default)
@@ -151,17 +174,18 @@ namespace Plugin.McpBridge
 		private String BuildAiPrompt(String userMessage)
 		{
 			String pluginInventory = this.ListPluginInventory();
+
+			StringBuilder toolList = new StringBuilder();
+			foreach(AIFunction tool in this._tools.OfType<AIFunction>())
+				toolList.AppendLine($"- {tool.Name} : {tool.Description}");
+
 			return $@"{userMessage}
 
 Loaded SAL plugins:
 {pluginInventory}
 
 Available AI tools:
-- {nameof(this.SettingsList)} : List all available settings for a plugin
-- {nameof(this.SettingsGet)} : Get the current value of a specific plugin setting
-- {nameof(this.SettingsSet)} : Update a plugin setting value; requires user confirmation
-- {nameof(this.MethodsList)} : List all available methods for a plugin
-- {nameof(this.MethodsInvoke)} : Invoke a plugin method; requires user confirmation";
+{toolList.ToString().TrimEnd()}";
 		}
 
 		private String ListPluginInventory()
@@ -240,7 +264,7 @@ Available AI tools:
 			throw exc;
 		}
 
-		private async Task<String> SettingsList([Description("Plugin identifier")] String pluginId)
+		internal async Task<String> SettingsList([Description("Plugin identifier")] String pluginId)
 		{
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] SettingsList plugin={pluginId}");
 			String result = this._settingsHelper.ListPluginSettings(pluginId);
@@ -250,7 +274,7 @@ Available AI tools:
 			return result;
 		}
 
-		private async Task<String> SettingsGet(
+		internal async Task<String> SettingsGet(
 			[Description("Plugin identifier")] String pluginId,
 			[Description("Setting name")] String settingName)
 		{
@@ -262,7 +286,7 @@ Available AI tools:
 			return result;
 		}
 
-		private async Task<String> SettingsSet(
+		internal async Task<String> SettingsSet(
 			[Description("Plugin identifier")] String pluginId,
 			[Description("Setting name")] String settingName,
 			[Description("New value as JSON")] String valueJson)
@@ -277,7 +301,7 @@ Available AI tools:
 			return result;
 		}
 
-		private async Task<String> MethodsList([Description("Plugin identifier")] String pluginId)
+		internal async Task<String> MethodsList([Description("Plugin identifier")] String pluginId)
 		{
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] MethodsList plugin={pluginId}");
 			String result = this._methodsHelper.ListPluginMethods(pluginId);
@@ -287,7 +311,7 @@ Available AI tools:
 			return result;
 		}
 
-		private async Task<String> MethodsInvoke(
+		internal async Task<String> MethodsInvoke(
 			[Description("Plugin identifier")] String pluginId,
 			[Description("Method name")] String methodName,
 			[Description("Arguments as JSON")] String argsJson)
@@ -302,7 +326,7 @@ Available AI tools:
 			return result;
 		}
 
-		private async Task<String> SystemInformation()
+		internal async Task<String> SystemInformation()
 		{
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] SystemInformation");
 
@@ -310,7 +334,7 @@ Available AI tools:
 			String result = @$"
 Short date pattern: {formatPreferences.ShortDatePattern}
 Long date pattern; {formatPreferences.LongTimePattern}
-Current time: {DateTime.Now}
+Current time: {this._timeProvider.GetLocalNow()}
 OS Version: {Environment.OSVersion}";
 
 			return result;

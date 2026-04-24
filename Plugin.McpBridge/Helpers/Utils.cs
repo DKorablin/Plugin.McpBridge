@@ -6,7 +6,7 @@ using SAL.Flatbed;
 
 namespace Plugin.McpBridge.Helpers;
 
-internal static class JsonUtils
+internal static class Utils
 {
 	public static Object?[] ConvertArgumentsValue(IPluginMethodInfo method, String argumentsJson)
 	{
@@ -26,7 +26,7 @@ internal static class JsonUtils
 					Type targetType = Type.GetType(argument.AssemblyQualifiedName, true)
 						?? throw new InvalidOperationException($"Could not resolve type '{argument.TypeName}' for argument '{argument.Name}'.");
 
-					result[loop] = JsonUtils.ConvertValue(element.GetRawText(), targetType);
+					result[loop] = Utils.ConvertValue(element.GetRawText(), targetType);
 				} else
 					result[loop] = null; // Or handle missing arguments as needed
 			}
@@ -67,5 +67,29 @@ internal static class JsonUtils
 
 		// 5. Fallback to Convert.ChangeType for primitives
 		return Convert.ChangeType(valueJson, underlyingType, CultureInfo.InvariantCulture);
+	}
+
+	public static Boolean IsBitSet(UInt32 flags, Int32 bit)
+		=> (flags & (1U << bit)) != 0;
+
+	public static UInt32[] BitToInt(params Boolean[] bits)
+	{
+		UInt32[] result = new UInt32[] { };
+		Int32 counter = 0;
+		for(Int32 loop = 0; loop < bits.Length; loop++)
+		{
+			if(result.Length <= loop)//Increase the array by one if the value does not fit
+				Array.Resize<UInt32>(ref result, result.Length + 1);
+
+			for(Int32 innerLoop = 0; innerLoop < 32; innerLoop++)
+			{
+				result[loop] |= Convert.ToUInt32(bits[counter++]) << innerLoop;
+				if(counter >= bits.Length)
+					break;
+			}
+			if(counter >= bits.Length)
+				break;
+		}
+		return result;
 	}
 }

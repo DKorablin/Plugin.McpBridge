@@ -1,7 +1,6 @@
 ﻿using System.Reflection;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using SAL.Flatbed;
 
 namespace Plugin.McpBridge.Helpers
@@ -73,7 +72,7 @@ namespace Plugin.McpBridge.Helpers
 			if(member.MemberType == MemberTypes.Method)
 			{
 				var method = (IPluginMethodInfo)member;
-				var arguments = JsonUtils.ConvertArgumentsValue(method, argumentsJson);
+				var arguments = Utils.ConvertArgumentsValue(method, argumentsJson);
 				var result = method.Invoke(arguments);
 
 				return JsonSerializer.Serialize(result);

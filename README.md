@@ -14,18 +14,18 @@ Plugin.McpBridge is a SAL plugin that gives an AI assistant live access to every
 ```
 User ──► PanelChat ──► AssistantAgent (Microsoft.Agents.AI)
                               │
-                    ┌─────────▼──────────────────────────┐
-                    │  ChatClientAgent + AgentSession    │
-                    │  ┌───────────────────────────────┐ │
-                    │  │  AI tools (function calling)  │ │
-                    │  │  - SettingsList               │ │
-                    │  │  - SettingsGet                │ │
-                    │  │  - SettingsSet  ← confirmed   │ │
-                    │  │  - MethodsList                │ │
-                    │  │  - MethodsInvoke ← confirmed  │ │
-                    |  |  - SystemInformation          | |
-                    │  └───────────────────────────────┘ │
-                    └────────────────────────────────────┘
+                    ┌─────────▼─────────────────────────────┐
+                    │  ChatClientAgent + AgentSession       │
+                    │  ┌──────────────────────────────────┐ │
+                    │  │  AI tools (function calling)     │ │
+                    │  │  - SettingsList                  │ │
+                    │  │  - SettingsGet                   │ │
+                    │  │  - SettingsSet  ← confirmation   │ │
+                    │  │  - MethodsList                   │ │
+                    │  │  - MethodsInvoke ← confirmation  │ │
+                    |  |  - SystemInformation             | |
+                    │  └──────────────────────────────-─-─┘ │
+                    └───────────────────────────────────────┘
 ```
 
 ## Features
@@ -71,6 +71,7 @@ Settings are managed through the standard SAL plugin settings mechanism (right-c
 | `ReasoningOutput` | *(none)* | When set, includes the model’s reasoning trace in the response. Useful for debugging. |
 | `ReasoningEffort` | *(none)* | Controls how much effort the model spends on chain-of-thought reasoning (`Low`, `Medium`, `High`). |
 | `ConnectionTimeout` | `100` | Request timeout in seconds. |
+| `ToolsPermission` | `RequireConfirmation` | Controls when the assistant can use tools: `AlwaysAllow`, `RequireConfirmation`, `AlwaysDeny`. |
 
 **Default system prompt:**
 > *You are a SAL automation assistant.

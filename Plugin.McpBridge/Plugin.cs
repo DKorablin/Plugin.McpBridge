@@ -84,22 +84,17 @@ namespace Plugin.McpBridge
 		private void EnsureConnected()
 		{
 			if(this._agent == null)
-				this.InitializeAgent(out this._agent);
+				this._agent = this.InitializeAgent();
 		}
 
-		internal void InitializeAgent(out AssistantAgent agent)
+		internal AssistantAgent InitializeAgent()
 		{
-			try
-			{
-				PluginSettingsHelper settingsHelper = new PluginSettingsHelper(this.Host);
-				PluginMethodsHelper methodsHelper = new PluginMethodsHelper(this.Host);
-				agent = new AssistantAgent(this.Trace, this.Host, settingsHelper, methodsHelper);
-				agent.Initialize(this.Settings);
-			} catch(Exception)
-			{
-				agent = null!;
-				throw;
-			}
+			PluginSettingsHelper settingsHelper = new PluginSettingsHelper(this.Host);
+			PluginMethodsHelper methodsHelper = new PluginMethodsHelper(this.Host);
+			var result = new AssistantAgent(this.Trace, this.Host, settingsHelper, methodsHelper);
+			result.Initialize(this.Settings);
+
+			return result;
 		}
 
 		Boolean IPlugin.OnConnection(ConnectMode mode)
