@@ -1,7 +1,5 @@
 ﻿using System.ComponentModel;
-using System.Text;
 using System.Text.RegularExpressions;
-using Plugin.McpBridge.Helpers;
 using Plugin.McpBridge.UI;
 using SAL.Windows;
 
@@ -11,7 +9,6 @@ public partial class PanelChat : UserControl
 {
 	private AssistantAgent? _agent;
 	private Boolean _streamingActive;
-	private StringBuilder? _streamingBuffer;
 
 	private static readonly Regex _inlineMarkdown = new Regex(
 		@"(\*\*[^*\n]+\*\*|\*[^*\n]+\*|`[^`\n]+`)",
@@ -47,8 +44,7 @@ public partial class PanelChat : UserControl
 
 	private void Settings_PropertyChanged(Object? sender, PropertyChangedEventArgs e)
 	{
-		this._confirmationPanel.Dismiss();
-		bnSend.Enabled = true;
+		rtfResponse.Clear();
 
 		if(this._agent != null)
 		{
@@ -56,11 +52,13 @@ public partial class PanelChat : UserControl
 			this._agent.ConfirmationRequired -= this.Agent_ConfirmationRequired;
 		}
 		this._agent = null;
+
+		this._confirmationPanel.Dismiss();
 		this._streamingActive = false;
-		this._streamingBuffer = null;
+		bnSend.Enabled = true;
 	}
 
-	private void EnsureConnected()
+	private AssistantAgent GetAgent()
 	{
 		if(this._agent == null)
 		{
@@ -68,6 +66,7 @@ public partial class PanelChat : UserControl
 			this._agent.AiResponseReceived += this.Agent_AiResponseReceived;
 			this._agent.ConfirmationRequired += this.Agent_ConfirmationRequired;
 		}
+		return this._agent;
 	}
 
 	private void InvokeMessage(String message)
@@ -75,13 +74,11 @@ public partial class PanelChat : UserControl
 		if(String.IsNullOrWhiteSpace(message))
 			return;
 
-		this.EnsureConnected();
 		this._confirmationPanel.Dismiss();
 		this._streamingActive = false;
-		this._streamingBuffer = null;
 		bnSend.Enabled = false;
 
-		AssistantAgent agent = this._agent!;
+		AssistantAgent agent = this.GetAgent();
 		Task.Run(async () =>
 		{
 			try
@@ -102,18 +99,13 @@ public partial class PanelChat : UserControl
 		this.Invoke(() =>
 		{
 			if(!this._streamingActive)
-			{
-				this._streamingBuffer = new StringBuilder();
 				this._streamingActive = true;
-			}
-			this._streamingBuffer!.Append(e.Response);
+
+			this.AppendMarkdown(e.Response);
+			rtfResponse.ScrollToCaret();
+
 			if(e.IsFinal)
-			{
-				this.AppendMarkdown(this._streamingBuffer.ToString());
-				rtfResponse.ScrollToCaret();
 				this._streamingActive = false;
-				this._streamingBuffer = null;
-			}
 		});
 	}
 
@@ -129,6 +121,8 @@ public partial class PanelChat : UserControl
 	private void bnSend_Click(Object sender, EventArgs e)
 	{
 		String request = txtRequest.Text.Trim();
+		if(String.IsNullOrWhiteSpace(request))
+			return;
 
 		txtRequest.Clear();
 		this.AppendMessage(request, MessageKind.User);
@@ -139,7 +133,10 @@ public partial class PanelChat : UserControl
 	private void txtRequest_KeyDown(Object sender, KeyEventArgs e)
 	{
 		if(e.KeyCode == Keys.Enter && !e.Shift)
+		{
 			this.bnSend_Click(sender, e);
+			e.SuppressKeyPress = true;
+		}
 	}
 
 	private enum MessageKind { User, Error }

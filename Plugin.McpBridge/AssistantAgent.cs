@@ -25,7 +25,6 @@ namespace Plugin.McpBridge
 		private ChatClientAgent? _agent;
 		private AgentSession? _session;
 		private Int32 _maxToolResultLength;
-		private IReadOnlyList<AITool> _tools = [];
 
 
 		public event EventHandler<AgentResponseEventArgs>? AiResponseReceived;
@@ -52,7 +51,8 @@ namespace Plugin.McpBridge
 			this._session = null;
 			this._maxToolResultLength = settings.MaxToolResultLength;
 
-			Boolean requiresApiKey = settings.ProviderType != AiProviderType.LocalOpenAICompatible;
+			Boolean requiresApiKey = settings.ProviderType != AiProviderType.LocalOpenAICompatible
+				&& settings.ProviderType != AiProviderType.Stub;
 			if(requiresApiKey && String.IsNullOrWhiteSpace(settings.ApiKey))
 			{
 				this._agent = null;
@@ -81,9 +81,9 @@ namespace Plugin.McpBridge
 				.Build();
 
 			List<AITool> tools = GetTools().ToList();
-			this._tools = tools;
+			String instructions = this.BuildSystemInstructions(settings, tools);
 			this._agent = configuredClient.AsAIAgent(
-				instructions: settings.AssistantSystemPrompt,
+				instructions: instructions,
 				tools: tools);
 
 			IEnumerable<AITool> GetTools()
@@ -130,7 +130,7 @@ namespace Plugin.McpBridge
 
 			try
 			{
-				AgentResponse response = await this._agent.RunAsync(this.BuildAiPrompt(message), this._session, null, cancellationToken);
+				AgentResponse response = await this._agent.RunAsync(message, this._session, null, cancellationToken);
 				this.HandleResponse(response);
 			}
 			catch(HttpRequestException exc)
@@ -171,21 +171,25 @@ namespace Plugin.McpBridge
 			return confirmArgs.ConfirmationTask;
 		}
 
-		private String BuildAiPrompt(String userMessage)
+		private String BuildSystemInstructions(Settings settings, IReadOnlyList<AITool> tools)
 		{
+			StringBuilder sb = new StringBuilder(settings.AssistantSystemPrompt);
+
 			String pluginInventory = this.ListPluginInventory();
+			sb.AppendLine();
+			sb.AppendLine();
+			sb.AppendLine("Loaded SAL plugins:");
+			sb.AppendLine(pluginInventory);
 
-			StringBuilder toolList = new StringBuilder();
-			foreach(AIFunction tool in this._tools.OfType<AIFunction>())
-				toolList.AppendLine($"- {tool.Name} : {tool.Description}");
+			if(tools.Count > 0)
+			{
+				sb.AppendLine();
+				sb.AppendLine("Available AI tools:");
+				foreach(AIFunction tool in tools.OfType<AIFunction>())
+					sb.AppendLine($"- {tool.Name} : {tool.Description}");
+			}
 
-			return $@"{userMessage}
-
-Loaded SAL plugins:
-{pluginInventory}
-
-Available AI tools:
-{toolList.ToString().TrimEnd()}";
+			return sb.ToString().TrimEnd();
 		}
 
 		private String ListPluginInventory()
@@ -213,6 +217,9 @@ Available AI tools:
 
 		private IChatClient BuildChatClient(Settings settings, HttpClient httpClient)
 		{
+			if(settings.ProviderType == AiProviderType.Stub)
+				return new StubChatClient();
+
 			HttpClientPipelineTransport transport = new HttpClientPipelineTransport(httpClient);
 			switch(settings.ProviderType)
 			{
@@ -254,7 +261,7 @@ Available AI tools:
 			if(result.Length <= this._maxToolResultLength)
 				return result;
 
-			Boolean confirmed = await this.RequestConfirmationAsync($"The result is {result.Length} characters long, which exceeds the configured limit of {this._maxToolResultLength}. Do you want to send a truncated result?");
+			Boolean confirmed = await this.RequestConfirmationAsync($"The result is {result.Length:N0} characters long, which exceeds the configured limit of {this._maxToolResultLength:N0}. Do you want to send a truncated result?");
 			if(confirmed)
 				return result.Substring(0, this._maxToolResultLength) + $"\n[Result truncated: {result.Length} chars total, limit is {this._maxToolResultLength}]";
 

@@ -15,6 +15,10 @@ namespace Plugin.McpBridge
 		GrokCompatible,
 		GeminiCompatible,
 		CustomCompatible,
+#if DEBUG
+		/// <summary>Returns scripted responses locally. No credentials or network required. Intended for UI testing.</summary>
+		Stub,
+#endif
 	}
 
 	/// <summary>Configuration settings for the MCP Bridge plugin.</summary>
@@ -266,7 +270,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		}
 
 		#region INotifyPropertyChanged
-		public event PropertyChangedEventHandler PropertyChanged;
+		public event PropertyChangedEventHandler? PropertyChanged;
 		private Boolean SetField<T>(ref T field, T value, String propertyName)
 		{
 			if(EqualityComparer<T>.Default.Equals(field, value))
