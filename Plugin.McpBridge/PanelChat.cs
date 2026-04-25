@@ -9,11 +9,8 @@ public partial class PanelChat : UserControl
 {
 	private AssistantAgent? _agent;
 	private Boolean _streamingActive;
+	private CancellationTokenSource? _cts;
 	private const String Caption = "OpenAI Chat";
-
-	private static readonly Regex _inlineMarkdown = new Regex(
-		@"(\*\*[^*\n]+\*\*|\*[^*\n]+\*|`[^`\n]+`)",
-		RegexOptions.Compiled);
 
 	private ConfirmationPanel _confirmationPanel = null!;
 
@@ -61,8 +58,13 @@ public partial class PanelChat : UserControl
 		}
 		this._agent = null;
 
+		this._cts?.Cancel();
+		this._cts?.Dispose();
+		this._cts = null;
+
 		this._confirmationPanel.Dismiss();
 		this._streamingActive = false;
+		bnSend.Text = "&Send";
 		bnSend.Enabled = true;
 	}
 
@@ -84,20 +86,28 @@ public partial class PanelChat : UserControl
 
 		this._confirmationPanel.Dismiss();
 		this._streamingActive = false;
-		bnSend.Enabled = false;
+		this._cts?.Dispose();
+		this._cts = new CancellationTokenSource();
+		bnSend.Text = "&Cancel";
 
+		CancellationToken token = this._cts.Token;
 		AssistantAgent agent = this.GetAgent();
 		Task.Run(async () =>
 		{
 			try
 			{
-				await agent.InvokeMessageAsync(message, CancellationToken.None);
+				await agent.InvokeMessageAsync(message, token);
 			} catch(Exception ex)
 			{
-				this.Invoke(() => this.AppendMessage(ex.Message, MessageKind.Error));
+				this.Invoke(() => rtfResponse.AppendMessage(ex.Message, RichEditBoxExtension.MessageKind.Error));
 			} finally
 			{
-				this.Invoke(() => bnSend.Enabled = true);
+				this.Invoke(() =>
+					{
+						bnSend.Text = "&Send";
+						this._cts?.Dispose();
+						this._cts = null;
+					});
 			}
 		});
 	}
@@ -109,11 +119,15 @@ public partial class PanelChat : UserControl
 			if(!this._streamingActive)
 				this._streamingActive = true;
 
-			this.AppendMarkdown(e.Response);
+			rtfResponse.AppendMarkdown(e.Response);
 			rtfResponse.ScrollToCaret();
 
 			if(e.IsFinal)
+			{
 				this._streamingActive = false;
+				this._cts?.Dispose();
+				this._cts = null;
+			}
 		});
 	}
 
@@ -132,12 +146,20 @@ public partial class PanelChat : UserControl
 
 	private void bnSend_Click(Object sender, EventArgs e)
 	{
+		if(this._cts != null)
+		{
+			if(!this._cts.IsCancellationRequested)
+				this._cts.Cancel();
+
+			return;
+		}
+
 		String request = txtRequest.Text.Trim();
 		if(String.IsNullOrWhiteSpace(request))
 			return;
 
 		txtRequest.Clear();
-		this.AppendMessage(request, MessageKind.User);
+		rtfResponse.AppendMessage(request, RichEditBoxExtension.MessageKind.User);
 
 		this.InvokeMessage(request);
 	}
@@ -149,96 +171,5 @@ public partial class PanelChat : UserControl
 			this.bnSend_Click(sender, e);
 			e.SuppressKeyPress = true;
 		}
-	}
-
-	private enum MessageKind { User, Error }
-
-	private void AppendMessage(String text, MessageKind kind)
-	{
-		Color color = kind == MessageKind.User ? Color.FromArgb(0, 102, 204) : Color.FromArgb(185, 43, 39);
-		FontStyle style = kind == MessageKind.User ? FontStyle.Bold : FontStyle.Italic;
-		String prefix = kind == MessageKind.User ? "You: " : "Error: ";
-
-		rtfResponse.SelectionStart = rtfResponse.TextLength;
-		rtfResponse.SelectionLength = 0;
-		rtfResponse.SelectionColor = color;
-		rtfResponse.SelectionFont = new Font(rtfResponse.Font, style);
-		rtfResponse.AppendText(prefix);
-
-		rtfResponse.SelectionStart = rtfResponse.TextLength;
-		rtfResponse.SelectionLength = 0;
-		rtfResponse.SelectionColor = Color.FromArgb(33, 37, 41);
-		rtfResponse.SelectionFont = rtfResponse.Font;
-		rtfResponse.AppendText(text + Environment.NewLine);
-		rtfResponse.ScrollToCaret();
-	}
-
-	private void AppendMarkdown(String markdown)
-	{
-		Boolean inCodeBlock = false;
-		Font baseFont = rtfResponse.Font;
-		Color defaultColor = Color.FromArgb(33, 37, 41);
-		Color codeColor = Color.FromArgb(180, 60, 120);
-		using Font boldFont = new Font(baseFont, FontStyle.Bold);
-		using Font italicFont = new Font(baseFont, FontStyle.Italic);
-		using Font codeFont = new Font("Consolas", baseFont.Size);
-		using Font h1Font = new Font(baseFont.FontFamily, baseFont.Size + 4, FontStyle.Bold);
-		using Font h2Font = new Font(baseFont.FontFamily, baseFont.Size + 2, FontStyle.Bold);
-		using Font h3Font = new Font(baseFont.FontFamily, baseFont.Size + 1, FontStyle.Bold);
-
-		foreach(String rawLine in markdown.Replace("\r\n", "\n").Split('\n'))
-		{
-			String line = rawLine.TrimEnd('\r');
-
-			if(line.StartsWith("```"))
-			{
-				inCodeBlock = !inCodeBlock;
-				continue;
-			}
-
-			if(inCodeBlock)
-			{
-				this.AppendRun(line + Environment.NewLine, codeFont, codeColor);
-				continue;
-			}
-
-			if(line.StartsWith("### "))
-				this.AppendRun(line.Substring(4) + Environment.NewLine, h3Font, defaultColor);
-			else if(line.StartsWith("## "))
-				this.AppendRun(line.Substring(3) + Environment.NewLine, h2Font, defaultColor);
-			else if(line.StartsWith("# "))
-				this.AppendRun(line.Substring(2) + Environment.NewLine, h1Font, defaultColor);
-			else
-			{
-				Boolean isList = line.Length >= 2 && (line[0] == '-' || line[0] == '+') && line[1] == ' ';
-				if(isList)
-					this.AppendRun("• ", boldFont, defaultColor);
-				this.AppendInline((isList ? line.Substring(2) : line) + Environment.NewLine, baseFont, boldFont, italicFont, codeFont, defaultColor, codeColor);
-			}
-		}
-	}
-
-	private void AppendInline(String text, Font baseFont, Font boldFont, Font italicFont, Font codeFont, Color defaultColor, Color codeColor)
-	{
-		foreach(String part in _inlineMarkdown.Split(text))
-		{
-			if(part.Length >= 4 && part.StartsWith("**") && part.EndsWith("**"))
-				this.AppendRun(part.Substring(2, part.Length - 4), boldFont, defaultColor);
-			else if(part.Length >= 2 && part.StartsWith("*") && part.EndsWith("*"))
-				this.AppendRun(part.Substring(1, part.Length - 2), italicFont, defaultColor);
-			else if(part.Length >= 2 && part.StartsWith("`") && part.EndsWith("`"))
-				this.AppendRun(part.Substring(1, part.Length - 2), codeFont, codeColor);
-			else
-				this.AppendRun(part, baseFont, defaultColor);
-		}
-	}
-
-	private void AppendRun(String text, Font font, Color color)
-	{
-		rtfResponse.SelectionStart = rtfResponse.TextLength;
-		rtfResponse.SelectionLength = 0;
-		rtfResponse.SelectionFont = font;
-		rtfResponse.SelectionColor = color;
-		rtfResponse.AppendText(text);
 	}
 }
