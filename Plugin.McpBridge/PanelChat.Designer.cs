@@ -39,6 +39,7 @@ partial class PanelChat
 		this.bnSend = new Button();
 		this.txtRequest = new TextBox();
 		this.toolStrip1 = new ToolStrip();
+		this.bnNewConversation = new ToolStripButton();
 		this.splitMain = new SplitContainer();
 		((System.ComponentModel.ISupportInitialize)splitMain).BeginInit();
 		splitMain.Panel1.SuspendLayout();
@@ -100,8 +101,17 @@ partial class PanelChat
 		this.txtRequest.TabIndex = 0;
 		this.txtRequest.KeyDown += this.txtRequest_KeyDown;
 		// 
+		// bnNewConversation
+		// 
+		this.bnNewConversation.DisplayStyle = ToolStripItemDisplayStyle.Text;
+		this.bnNewConversation.Name = "bnNewConversation";
+		this.bnNewConversation.Text = "New";
+		this.bnNewConversation.ToolTipText = "Start a new conversation";
+		this.bnNewConversation.Click += this.bnNewConversation_Click;
+		// 
 		// toolStrip1
 		// 
+		this.toolStrip1.Items.AddRange(new ToolStripItem[] { this.bnNewConversation });
 		this.toolStrip1.Location = new Point(0, 0);
 		this.toolStrip1.Name = "toolStrip1";
 		this.toolStrip1.Size = new Size(175, 25);
@@ -131,6 +141,7 @@ partial class PanelChat
 	#endregion
 
 	private ToolStrip toolStrip1;
+	private ToolStripButton bnNewConversation;
 	private Button bnSend;
 	private TextBox txtRequest;
 	private RichTextBox rtfResponse;

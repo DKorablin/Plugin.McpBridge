@@ -9,6 +9,7 @@ public partial class PanelChat : UserControl
 {
 	private AssistantAgent? _agent;
 	private Boolean _streamingActive;
+	private const String Caption = "OpenAI Chat";
 
 	private static readonly Regex _inlineMarkdown = new Regex(
 		@"(\*\*[^*\n]+\*\*|\*[^*\n]+\*|`[^`\n]+`)",
@@ -27,11 +28,15 @@ public partial class PanelChat : UserControl
 
 	protected override void OnCreateControl()
 	{
-		this.Window.Caption = "OpenAI Chat";
+		this.Window.Caption = Caption;
 		this.Plugin.Settings.PropertyChanged += this.Settings_PropertyChanged;
 		this.Window.Closed += this.Window_Closed;
 		this._confirmationPanel = new ConfirmationPanel();
-		this._confirmationPanel.ConfirmationHandled += (Object? s, EventArgs e) => this.Invoke(() => bnSend.Enabled = true);
+		this._confirmationPanel.ConfirmationHandled += (Object? s, EventArgs e) => this.Invoke(() =>
+		{
+			bnSend.Enabled = true;
+			this.Window.Caption = Caption;
+		});
 		this.splitMain.Panel1.Controls.Add(this._confirmationPanel);
 		base.OnCreateControl();
 	}
@@ -43,6 +48,9 @@ public partial class PanelChat : UserControl
 	}
 
 	private void Settings_PropertyChanged(Object? sender, PropertyChangedEventArgs e)
+		=> this.ResetAgent();
+
+	private void ResetAgent()
 	{
 		rtfResponse.Clear();
 
@@ -115,8 +123,12 @@ public partial class PanelChat : UserControl
 		{
 			this._confirmationPanel.Request(e);
 			bnSend.Enabled = false;
+			this.Window.Caption = Caption + " (!)";
 		});
 	}
+
+	private void bnNewConversation_Click(Object sender, EventArgs e)
+		=> this.ResetAgent();
 
 	private void bnSend_Click(Object sender, EventArgs e)
 	{
