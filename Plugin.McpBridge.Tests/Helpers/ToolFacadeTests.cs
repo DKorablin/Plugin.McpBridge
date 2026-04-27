@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Plugin.McpBridge.Helpers;
@@ -28,7 +29,7 @@ namespace Plugin.McpBridge.Tests.Helpers
 		public async Task ConfirmationDeclined_ReturnsDeclinedMessage()
 		{
 			(IHost _, PluginSettingsTools _, PluginMethodsTools methods, ShellTools _) = TestUtils.CreateDependencies();
-			ToolFacade wrapper = new ToolFacade(TestUtils.Trace, (Func<String, String, String, Task<Object?>>)methods.MethodsInvoke);
+			ToolFacade wrapper = new ToolFacade(TestUtils.Trace, (Func<String, String, String, CancellationToken, Task<Object?>>)methods.MethodsInvoke);
 			wrapper.ConfirmationRequired += (s, e) => e.Confirm(false);
 
 			Object? result = await wrapper.InvokeAsync();

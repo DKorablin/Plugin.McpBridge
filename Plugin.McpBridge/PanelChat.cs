@@ -11,6 +11,7 @@ public partial class PanelChat : UserControl
 	private Boolean _streamingActive;
 	private CancellationTokenSource? _cts;
 	private const String Caption = "OpenAI Chat";
+	private readonly List<(Image Image, Panel AttachPanel)> _attachments = new List<(Image Image, Panel AttachPanel)>();
 
 	private Plugin Plugin => (Plugin)this.Window.Plugin;
 
@@ -65,6 +66,7 @@ public partial class PanelChat : UserControl
 		tsbnSend.Text = "&Send";
 		tsbnSend.Image = this._imgSend;
 		tsbnSend.Enabled = true;
+		this.ClearAttachments();
 	}
 
 	private AssistantAgent GetAgent()
@@ -163,16 +165,102 @@ public partial class PanelChat : UserControl
 
 		txtRequest.Clear();
 		rtfResponse.AppendMessage(request, RichEditBoxExtension.MessageKind.User);
+		this.ClearAttachments();
 
 		this.InvokeMessage(request);
 	}
 
 	private void txtRequest_KeyDown(Object sender, KeyEventArgs e)
 	{
+		if(e.KeyCode == Keys.V && e.Control && Clipboard.ContainsImage())
+		{
+			Image? img = Clipboard.GetImage();
+			if(img != null)
+			{
+				this.AddImageAttachment(img);
+				e.SuppressKeyPress = true;
+				return;
+			}
+		}
+
 		if(e.KeyCode == Keys.Enter && !e.Shift)
 		{
 			this.tsbnSend_Click(sender, e);
 			e.SuppressKeyPress = true;
 		}
+	}
+
+	private void AddImageAttachment(Image image)
+	{
+		Panel attachPanel = new Panel()
+		{
+			Size = new Size(56, 56),
+			BorderStyle = BorderStyle.FixedSingle,
+			Margin = new Padding(2),
+		};
+		PictureBox pb = new PictureBox()
+		{
+			Image = image,
+			SizeMode = PictureBoxSizeMode.Zoom,
+			Dock = DockStyle.Fill,
+		};
+		Button btnRemove = new Button()
+		{
+			Text = "✕",
+			Size = new Size(17, 17),
+			Location = new Point(39, 0),
+			FlatStyle = FlatStyle.Flat,
+			BackColor = Color.FromArgb(180, 60, 60),
+			ForeColor = Color.White,
+			Padding = new Padding(0),
+			Font = new Font(SystemFonts.DefaultFont.FontFamily, 6f),
+			TabStop = false,
+		};
+		btnRemove.Click += (Object? s, EventArgs ev) => this.RemoveAttachment(attachPanel, image);
+		attachPanel.Controls.Add(pb);
+		attachPanel.Controls.Add(btnRemove);
+		btnRemove.BringToFront();
+		pnlAttachments.Controls.Add(attachPanel);
+		this._attachments.Add((image, attachPanel));
+		if(this._attachments.Count == 1)
+			this.ExpandAttachmentsPanel();
+	}
+
+	private void RemoveAttachment(Panel attachPanel, Image image)
+	{
+		this._attachments.RemoveAll(a => a.AttachPanel == attachPanel);
+		pnlAttachments.Controls.Remove(attachPanel);
+		attachPanel.Dispose();
+		image.Dispose();
+		if(this._attachments.Count == 0)
+			this.CollapseAttachmentsPanel();
+	}
+
+	private void ClearAttachments()
+	{
+		foreach((Image img, Panel panel) in this._attachments)
+		{
+			panel.Dispose();
+			img.Dispose();
+		}
+		this._attachments.Clear();
+		pnlAttachments.Controls.Clear();
+		this.CollapseAttachmentsPanel();
+	}
+
+	private void ExpandAttachmentsPanel()
+	{
+		if(pnlAttachments.Visible)
+			return;
+		splitMain.SplitterDistance = Math.Max(splitMain.Panel1MinSize, splitMain.SplitterDistance - pnlAttachments.Height);
+		pnlAttachments.Visible = true;
+	}
+
+	private void CollapseAttachmentsPanel()
+	{
+		if(!pnlAttachments.Visible)
+			return;
+		splitMain.SplitterDistance = Math.Min(splitMain.Height - splitMain.Panel2MinSize - splitMain.SplitterWidth, splitMain.SplitterDistance + pnlAttachments.Height);
+		pnlAttachments.Visible = false;
 	}
 }

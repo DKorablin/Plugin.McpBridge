@@ -43,12 +43,15 @@ partial class PanelChat
 		this.bnNewConversation = new ToolStripButton();
 		this.splitMain = new SplitContainer();
 		this.pnlConfirmation = new ConfirmationPanel();
+		this.pnlInput = new Panel();
+		this.pnlAttachments = new FlowLayoutPanel();
 		this.tsBottom.SuspendLayout();
 		this.tsTop.SuspendLayout();
 		((System.ComponentModel.ISupportInitialize)this.splitMain).BeginInit();
 		this.splitMain.Panel1.SuspendLayout();
 		this.splitMain.Panel2.SuspendLayout();
 		this.splitMain.SuspendLayout();
+		this.pnlInput.SuspendLayout();
 		this.SuspendLayout();
 		// 
 		// rtfResponse
@@ -90,13 +93,28 @@ partial class PanelChat
 		// 
 		// txtRequest
 		// 
-		this.txtRequest.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-		this.txtRequest.Location = new Point(0, 3);
+		this.txtRequest.Dock = DockStyle.Fill;
 		this.txtRequest.Multiline = true;
 		this.txtRequest.Name = "txtRequest";
-		this.txtRequest.Size = new Size(172, 45);
 		this.txtRequest.TabIndex = 0;
 		this.txtRequest.KeyDown += this.txtRequest_KeyDown;
+		// 
+		// pnlAttachments
+		// 
+		this.pnlAttachments.AutoScroll = true;
+		this.pnlAttachments.Dock = DockStyle.Bottom;
+		this.pnlAttachments.FlowDirection = FlowDirection.LeftToRight;
+		this.pnlAttachments.Height = 62;
+		this.pnlAttachments.Name = "pnlAttachments";
+		this.pnlAttachments.Visible = false;
+		this.pnlAttachments.WrapContents = false;
+		// 
+		// pnlInput
+		// 
+		this.pnlInput.Controls.Add(this.txtRequest);
+		this.pnlInput.Controls.Add(this.pnlAttachments);
+		this.pnlInput.Dock = DockStyle.Fill;
+		this.pnlInput.Name = "pnlInput";
 		// 
 		// tsTop
 		// 
@@ -135,8 +153,8 @@ partial class PanelChat
 		// 
 		// splitMain.Panel2
 		// 
+		this.splitMain.Panel2.Controls.Add(this.pnlInput);
 		this.splitMain.Panel2.Controls.Add(this.tsBottom);
-		this.splitMain.Panel2.Controls.Add(this.txtRequest);
 		this.splitMain.Size = new Size(175, 148);
 		this.splitMain.SplitterDistance = 70;
 		this.splitMain.TabIndex = 3;
@@ -150,6 +168,8 @@ partial class PanelChat
 		this.Margin = new Padding(4, 3, 4, 3);
 		this.Name = "PanelChat";
 		this.Size = new Size(175, 173);
+		this.pnlInput.ResumeLayout(false);
+		this.pnlInput.PerformLayout();
 		this.tsBottom.ResumeLayout(false);
 		this.tsBottom.PerformLayout();
 		this.tsTop.ResumeLayout(false);
@@ -174,6 +194,8 @@ partial class PanelChat
 	private ToolStrip tsBottom;
 	private ToolStripButton tsbnSend;
 	private ConfirmationPanel pnlConfirmation;
+	private Panel pnlInput;
+	private FlowLayoutPanel pnlAttachments;
 	private Image _imgSend;
 	private Image _imgCancel;
 
