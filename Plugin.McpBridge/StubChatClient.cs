@@ -54,6 +54,11 @@ Console.WriteLine(x);
 Lorem ipsum dolor sit amet, consectetur adipiscing elit. 
 Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."));
 
+		private static readonly String ImageResponse = @"Here is an image:
+data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAPoAAAD6CAYAAACI7Fo9AAAACXBIWXMAAAsSAAALEgHS3X78AAACGUlEQVR4nO3TMQEAIAzAsIF/z0NGHjQKej07s/OxqwO4y7kA4G8EAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAgQIECBAgAABAvwB0vQCBX0T2WQAAAAASUVORK5CYII=
+
+And some extra text";
+
 		public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
 		{
 			ChatMessage lastMessage = messages.LastOrDefault() ?? new ChatMessage(ChatRole.User, String.Empty);
@@ -106,6 +111,8 @@ Result:
 					return Task.FromResult(BuildText(HelpResponse));
 				case "long":
 					return Task.FromResult(BuildText(LongResponse));
+				case "image":
+					return Task.FromResult(BuildText(ImageResponse));
 				default:
 					return Task.FromResult(BuildText(DefaultResponse));
 				}

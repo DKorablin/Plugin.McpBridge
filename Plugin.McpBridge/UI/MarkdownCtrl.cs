@@ -5,6 +5,7 @@ namespace Plugin.McpBridge.UI;
 internal class MarkdownCtrl : RichTextBox
 {
 	private static readonly Regex _inlineMarkdown = new Regex(@"(\*\*[^*\n]+\*\*|\*[^*\n]+\*|`[^`\n]+`)", RegexOptions.Compiled);
+	private static readonly Regex _inlineImage = new Regex(@"data:image/[a-zA-Z]+;base64,([A-Za-z0-9+/=]+)", RegexOptions.Compiled);
 
 	public enum MessageKind { User, Error }
 
@@ -57,6 +58,13 @@ internal class MarkdownCtrl : RichTextBox
 				continue;
 			}
 
+			Match imageMatch = _inlineImage.Match(line);
+			if(imageMatch.Success)
+			{
+				this.AppendImage(imageMatch.Groups[1].Value);
+				continue;
+			}
+
 			if(line.StartsWith("### "))
 				this.AppendRun(line.Substring(4) + Environment.NewLine, h3Font, defaultColor);
 			else if(line.StartsWith("## "))
@@ -86,6 +94,21 @@ internal class MarkdownCtrl : RichTextBox
 			else
 				this.AppendRun(part, baseFont, defaultColor);
 		}
+	}
+
+	public void AppendImage(String base64)
+	{
+		Byte[] bytes = Convert.FromBase64String(base64);
+		using MemoryStream ms = new MemoryStream(bytes);
+		Image img = Image.FromStream(ms);
+
+		this.SelectionStart = this.TextLength;
+		this.SelectionLength = 0;
+		Clipboard.SetImage(img);
+		this.ReadOnly = false;
+		this.Paste();
+		this.ReadOnly = true;
+		this.AppendText(Environment.NewLine);
 	}
 
 	private void AppendRun(String text, Font font, Color color)
