@@ -4,6 +4,7 @@
 internal sealed class AttachmentsPanel : FlowLayoutPanel
 {
 	private readonly List<(Image Image, Panel AttachPanel)> _attachments = new List<(Image Image, Panel AttachPanel)>();
+	private readonly ToolTip _toolTip = new ToolTip();
 
 	public AttachmentsPanel()
 	{
@@ -43,10 +44,13 @@ internal sealed class AttachmentsPanel : FlowLayoutPanel
 			TabStop = false,
 		};
 		btnRemove.Click += (Object? s, EventArgs e) => this.RemoveAttachment(attachPanel, image);
+		this._toolTip.SetToolTip(btnRemove, "Remove attachment");
+
 		attachPanel.Controls.Add(pb);
 		attachPanel.Controls.Add(btnRemove);
 		btnRemove.BringToFront();
 		this.Controls.Add(attachPanel);
+
 		this._attachments.Add((image, attachPanel));
 		if(this._attachments.Count == 1)
 			this.Visible = true;
