@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
 using Plugin.McpBridge.Helpers;
+using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
 using SAL.Windows;
 
@@ -88,9 +89,11 @@ namespace Plugin.McpBridge
 
 		internal AssistantAgent InitializeAgent()
 		{
-			PluginSettingsHelper settingsHelper = new PluginSettingsHelper(this.Host);
-			PluginMethodsHelper methodsHelper = new PluginMethodsHelper(this.Host);
-			var result = new AssistantAgent(this.Trace, this.Host, settingsHelper, methodsHelper);
+			PluginSettingsTools settingsTools = new PluginSettingsTools(this.Host);
+			PluginMethodsTools methodsTools = new PluginMethodsTools(this.Host);
+			ShellTools shellTools = new ShellTools();
+			ToolFactory toolsFactory = new ToolFactory(this.Trace, settingsTools, methodsTools, shellTools);
+			var result = new AssistantAgent(this.Trace, this.Host, toolsFactory);
 			result.Initialize(this.Settings);
 
 			return result;

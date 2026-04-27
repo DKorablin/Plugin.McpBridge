@@ -1,8 +1,13 @@
 using System;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Microsoft.Extensions.AI;
 using Moq;
 using Plugin.McpBridge.Helpers;
+using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
 using Xunit;
 
@@ -15,9 +20,10 @@ namespace Plugin.McpBridge.Tests
 		[Fact]
 		public void Ctor_TraceIsNull_ThrowsArgumentNullException()
 		{
-			(IHost host, PluginSettingsHelper settingsHelper, PluginMethodsHelper methodsHelper) = TestHelpers.CreateDependencies();
+			(IHost host, PluginSettingsTools _, PluginMethodsTools _, ShellTools _) = TestUtils.CreateDependencies();
+			ToolFactory factory = TestUtils.CreateToolFactory();
 
-			Action act = () => _ = new AssistantAgent(null!, host, settingsHelper, methodsHelper);
+			Action act = () => _ = new AssistantAgent(null!, host, factory);
 
 			act.Should().Throw<ArgumentNullException>().WithParameterName("trace");
 		}
@@ -25,142 +31,179 @@ namespace Plugin.McpBridge.Tests
 		[Fact]
 		public void Ctor_HostIsNull_ThrowsArgumentNullException()
 		{
-			(IHost _, PluginSettingsHelper settingsHelper, PluginMethodsHelper methodsHelper) = TestHelpers.CreateDependencies();
+			ToolFactory factory = TestUtils.CreateToolFactory();
 
-			Action act = () => _ = new AssistantAgent(TestHelpers.Trace, null!, settingsHelper, methodsHelper);
+			Action act = () => _ = new AssistantAgent(TestUtils.Trace, null!, factory);
 
 			act.Should().Throw<ArgumentNullException>().WithParameterName("host");
 		}
 
 		[Fact]
-		public void Ctor_SettingsHelperIsNull_ThrowsArgumentNullException()
+		public void Ctor_ToolsFactoryIsNull_ThrowsArgumentNullException()
 		{
-			(IHost host, PluginSettingsHelper _, PluginMethodsHelper methodsHelper) = TestHelpers.CreateDependencies();
+			(IHost host, PluginSettingsTools _, PluginMethodsTools _, ShellTools _) = TestUtils.CreateDependencies();
 
-			Action act = () => _ = new AssistantAgent(TestHelpers.Trace, host, null!, methodsHelper);
+			Action act = () => _ = new AssistantAgent(TestUtils.Trace, host, null!);
 
-			act.Should().Throw<ArgumentNullException>().WithParameterName("settingsHelper");
-		}
-
-		[Fact]
-		public void Ctor_MethodsHelperIsNull_ThrowsArgumentNullException()
-		{
-			(IHost host, PluginSettingsHelper settingsHelper, PluginMethodsHelper _) = TestHelpers.CreateDependencies();
-
-			Action act = () => _ = new AssistantAgent(TestHelpers.Trace, host, settingsHelper, null!);
-
-			act.Should().Throw<ArgumentNullException>().WithParameterName("methodsHelper");
+			act.Should().Throw<ArgumentNullException>().WithParameterName("toolsFactory");
 		}
 
 		#endregion
 
-		#region SystemInformation
+		#region Initialize
 
 		[Fact]
-		public async Task SystemInformation_ReturnsCurrentTimeFromProvider()
+		public void Initialize_KeyRequiredProviderWithNoApiKey_SubsequentMessageReportsNotConfigured()
 		{
-			DateTimeOffset fixedTime = new DateTimeOffset(2025, 6, 15, 12, 0, 0, TimeSpan.Zero);
-			FakeTimeProvider timeProvider = new FakeTimeProvider(fixedTime);
-			AssistantAgent sut = TestHelpers.CreateInitializedSut(timeProvider: timeProvider);
+			AssistantAgent sut = TestUtils.CreateSut();
+			sut.Initialize(new Settings { ProviderType = AiProviderType.OpenAI, ApiKey = null });
+			AgentResponseEventArgs? received = null;
+			sut.AiResponseReceived += (s, e) => received = e;
 
-			String result = await sut.SystemInformation();
+			sut.InvokeMessageAsync("hello").GetAwaiter().GetResult();
 
-			result.Should().Contain(timeProvider.GetLocalNow().ToString());
+			received.Should().NotBeNull();
+			received!.Response.Should().Contain("not configured");
+		}
+
+		[Fact]
+		public void Initialize_CalledTwice_ResetsSession()
+		{
+			Mock<IChatClient> mockClient = new Mock<IChatClient>();
+			mockClient.Setup(x => x.GetResponseAsync(It.IsAny<IEnumerable<ChatMessage>>(), It.IsAny<ChatOptions?>(), It.IsAny<CancellationToken>()))
+				.ReturnsAsync(new ChatResponse(new ChatMessage(ChatRole.Assistant, "ok")));
+
+			(IHost host, PluginSettingsTools settings, PluginMethodsTools methods, ShellTools shell) = TestUtils.CreateDependencies();
+			ToolFactory factory = new ToolFactory(TestUtils.Trace, shell, settings, methods);
+			AssistantAgent sut = new AssistantAgent(TestUtils.Trace, host, factory, (s, h) => mockClient.Object);
+			Settings agentSettings = new Settings { ProviderType = AiProviderType.LocalOpenAICompatible };
+
+			sut.Initialize(agentSettings);
+			sut.Initialize(agentSettings);
+
+			Action act = () => sut.InvokeMessageAsync("hello").GetAwaiter().GetResult();
+			act.Should().NotThrow();
 		}
 
 		#endregion
 
-		#region MethodsList
+		#region InvokeMessageAsync
 
 		[Fact]
-		public async Task MethodsList_PluginNotFound_ReturnsNotFoundMessage()
+		public async Task InvokeMessageAsync_EmptyMessage_FiresErrorResponse()
 		{
-			AssistantAgent sut = TestHelpers.CreateInitializedSut();
+			AssistantAgent sut = TestUtils.CreateSut();
+			AgentResponseEventArgs? received = null;
+			sut.AiResponseReceived += (s, e) => received = e;
 
-			String result = await sut.MethodsList(TestHelpers.PluginId);
+			await sut.InvokeMessageAsync(String.Empty);
 
-			result.Should().Be($"Plugin with ID '{TestHelpers.PluginId}' was not found.");
-		}
-		#endregion
-
-		#region SettingsGet
-
-		[Fact]
-		public async Task SettingsGet_ExistingSetting_ReturnsFormattedValue()
-		{
-			SimpleSettings settings = new SimpleSettings { Value = "hello" };
-			AssistantAgent sut = TestHelpers.CreateInitializedSut(TestHelpers.CreateSettingsPlugin(settings));
-
-			Object? result = await sut.SettingsGet(TestHelpers.PluginId, nameof(SimpleSettings.Value));
-
-			result.Should().BeOfType<String>();
-			result.Should().Be("hello");
+			received.Should().NotBeNull();
+			received!.Response.Should().Contain("empty");
+			received.IsFinal.Should().BeTrue();
 		}
 
-		#endregion
-
-		#region SettingsList
-
 		[Fact]
-		public async Task SettingsList_ExistingPlugin_ReturnsFormattedSettingsList()
+		public async Task InvokeMessageAsync_WhitespaceMessage_FiresErrorResponse()
 		{
-			SimpleSettings settings = new SimpleSettings { Value = "world" };
-			AssistantAgent sut = TestHelpers.CreateInitializedSut(TestHelpers.CreateSettingsPlugin(settings));
+			AssistantAgent sut = TestUtils.CreateSut();
+			AgentResponseEventArgs? received = null;
+			sut.AiResponseReceived += (s, e) => received = e;
 
-			String result = await sut.SettingsList(TestHelpers.PluginId);
+			await sut.InvokeMessageAsync("   ");
 
-			result.Should().Contain($"Settings for plugin '{TestHelpers.PluginId}'");
-			result.Should().Contain("[Value] = world");
+			received.Should().NotBeNull();
+			received!.Response.Should().Contain("empty");
 		}
 
-		#endregion
-
-		#region SettingsSet
-
 		[Fact]
-		public async Task SettingsSet_ConfirmationApproved_UpdatesSettingAndReturnsResult()
+		public async Task InvokeMessageAsync_AgentNotConfigured_FiresNotConfiguredResponse()
 		{
-			SimpleSettings settings = new SimpleSettings { Value = "old" };
-			AssistantAgent sut = TestHelpers.CreateInitializedSut(TestHelpers.CreateSettingsPlugin(settings));
-			sut.ConfirmationRequired += (s, e) => e.Confirm(true);
+			AssistantAgent sut = TestUtils.CreateSut();
+			AgentResponseEventArgs? received = null;
+			sut.AiResponseReceived += (s, e) => received = e;
 
-			Object? result = await sut.SettingsSet(TestHelpers.PluginId, nameof(SimpleSettings.Value), "new-value");
+			await sut.InvokeMessageAsync("hello");
 
-			settings.Value.Should().Be("new-value");
-			result.Should().BeOfType<String>();
-			result.Should().Be("new-value");
+			received.Should().NotBeNull();
+			received!.Response.Should().Contain("not configured");
+			received.IsFinal.Should().BeTrue();
 		}
 
-		#endregion
+		[Fact]
+		public async Task InvokeMessageAsync_HttpRequestException_FiresErrorResponse()
+		{
+			Mock<IChatClient> mockClient = new Mock<IChatClient>();
+			mockClient.Setup(x => x.GetResponseAsync(It.IsAny<IEnumerable<ChatMessage>>(), It.IsAny<ChatOptions?>(), It.IsAny<CancellationToken>()))
+				.ThrowsAsync(new HttpRequestException("network failure"));
 
-		#region MethodsInvoke
+			AssistantAgent sut = TestUtils.CreateInitializedSut(mockChatClient: mockClient);
+			AgentResponseEventArgs? received = null;
+			sut.AiResponseReceived += (s, e) => received = e;
+
+			await sut.InvokeMessageAsync("hello");
+
+			received.Should().NotBeNull();
+			received!.Response.Should().Contain("network failure");
+			received.IsFinal.Should().BeTrue();
+		}
 
 		[Fact]
-		public async Task MethodsInvoke_ConfirmationApproved_InvokesMethodAndReturnsResult()
+		public async Task InvokeMessageAsync_OperationCancelled_FiresCancelledResponse()
 		{
-			Mock<IPluginMethodInfo> method = TestHelpers.CreateMethod("Run", Array.Empty<IPluginParameterInfo>());
-			method.Setup(x => x.Invoke(It.IsAny<Object[]>())).Returns(new { status = "ok" });
-			AssistantAgent sut = TestHelpers.CreateInitializedSut(TestHelpers.CreateMethodPlugin(method.Object));
-			sut.ConfirmationRequired += (s, e) => e.Confirm(true);
+			Mock<IChatClient> mockClient = new Mock<IChatClient>();
+			mockClient.Setup(x => x.GetResponseAsync(It.IsAny<IEnumerable<ChatMessage>>(), It.IsAny<ChatOptions?>(), It.IsAny<CancellationToken>()))
+				.ThrowsAsync(new OperationCanceledException());
 
-			Object? result = await sut.MethodsInvoke(TestHelpers.PluginId, "Run", "{}");
+			AssistantAgent sut = TestUtils.CreateInitializedSut(mockChatClient: mockClient);
+			AgentResponseEventArgs? received = null;
+			sut.AiResponseReceived += (s, e) => received = e;
 
-			result.ToString().Should().Contain("ok");
-			method.Verify(x => x.Invoke(It.IsAny<Object[]>()), Times.Once);
+			await sut.InvokeMessageAsync("hello");
+
+			received.Should().NotBeNull();
+			received!.Response.Should().Contain("cancelled");
+			received.IsFinal.Should().BeTrue();
+		}
+
+		[Fact]
+		public async Task InvokeMessageAsync_SuccessfulResponse_FiresAgentResponse()
+		{
+			Mock<IChatClient> mockClient = new Mock<IChatClient>();
+			mockClient.Setup(x => x.GetResponseAsync(It.IsAny<IEnumerable<ChatMessage>>(), It.IsAny<ChatOptions?>(), It.IsAny<CancellationToken>()))
+				.ReturnsAsync(new ChatResponse(new ChatMessage(ChatRole.Assistant, "Hello, world!")));
+
+			AssistantAgent sut = TestUtils.CreateInitializedSut(mockChatClient: mockClient);
+			AgentResponseEventArgs? received = null;
+			sut.AiResponseReceived += (s, e) => received = e;
+
+			await sut.InvokeMessageAsync("hello");
+
+			received.Should().NotBeNull();
+			received!.Response.Should().Contain("Hello, world!");
+			received.IsFinal.Should().BeTrue();
+		}
+
+		[Fact]
+		public async Task InvokeMessageAsync_ToolConfirmationDeclined_ConfirmationEventBubbles()
+		{
+			Mock<IChatClient> mockClient = new Mock<IChatClient>();
+			mockClient.SetupSequence(x => x.GetResponseAsync(It.IsAny<IEnumerable<ChatMessage>>(), It.IsAny<ChatOptions?>(), It.IsAny<CancellationToken>()))
+				.ReturnsAsync(new ChatResponse(new ChatMessage(ChatRole.Assistant, [new FunctionCallContent("call-1", nameof(PluginSettingsTools.SettingsSet), new Dictionary<String, Object?> { ["pluginId"] = TestUtils.PluginId, ["settingName"] = "Value", ["valueJson"] = "\"x\"" })])))
+				.ReturnsAsync(new ChatResponse(new ChatMessage(ChatRole.Assistant, "done")));
+
+			AssistantAgent sut = TestUtils.CreateInitializedSut(TestUtils.CreateSettingsPlugin(new SimpleSettings()), mockChatClient: mockClient);
+			Boolean confirmationFired = false;
+			sut.ConfirmationRequired += (s, e) => { confirmationFired = true; e.Confirm(false); };
+
+			await sut.InvokeMessageAsync("update setting");
+
+			confirmationFired.Should().BeTrue();
 		}
 
 		#endregion
 
 		#region Nested types
-
-		private sealed class FakeTimeProvider : TimeProvider
-		{
-			private readonly DateTimeOffset _utcNow;
-
-			public FakeTimeProvider(DateTimeOffset utcNow) => this._utcNow = utcNow;
-
-			public override DateTimeOffset GetUtcNow() => this._utcNow;
-		}
 
 		private sealed class SimpleSettings
 		{

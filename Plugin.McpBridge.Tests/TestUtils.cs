@@ -5,16 +5,17 @@ using System.Reflection;
 using Microsoft.Extensions.AI;
 using Moq;
 using Plugin.McpBridge.Helpers;
+using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
 
 namespace Plugin.McpBridge.Tests;
 
-internal static class TestHelpers
+internal static class TestUtils
 {
 	public const String PluginId = "test-plugin";
 	public static readonly TraceSource Trace = new TraceSource("test");
 
-	public static (IHost Host, PluginSettingsHelper SettingsHelper, PluginMethodsHelper MethodsHelper) CreateDependencies(IPluginDescription? pluginDescription = null)
+	public static (IHost Host, PluginSettingsTools Settings, PluginMethodsTools Methods, ShellTools Shell) CreateDependencies(IPluginDescription? pluginDescription = null, TimeProvider? timeProvider = null)
 	{
 		Mock<IPluginStorage> mockStorage = CreateStorage(pluginDescription);
 		Mock<IHost> mockHost = new Mock<IHost>();
@@ -23,32 +24,39 @@ internal static class TestHelpers
 		IHost host = mockHost.Object;
 		return (
 			host,
-			new PluginSettingsHelper(host),
-			new PluginMethodsHelper(host));
+			new PluginSettingsTools(host),
+			new PluginMethodsTools(host),
+			new ShellTools(timeProvider));
 	}
 
-	/// <summary>Creates a bare agent without calling Initialize — _maxToolResultLength stays 0.</summary>
+	public static ToolFactory CreateToolFactory(IPluginDescription? pluginDescription = null, TimeProvider? timeProvider = null)
+	{
+		(IHost _, PluginSettingsTools settings, PluginMethodsTools methods, ShellTools shell) = CreateDependencies(pluginDescription, timeProvider);
+		return new ToolFactory(Trace, shell, settings, methods);
+	}
+
 	public static AssistantAgent CreateSut(IPluginDescription? pluginDescription = null)
 	{
-		(IHost host, PluginSettingsHelper settingsHelper, PluginMethodsHelper methodsHelper) = CreateDependencies(pluginDescription);
-		return new AssistantAgent(Trace, host, settingsHelper, methodsHelper);
+		(IHost host, PluginSettingsTools settings, PluginMethodsTools methods, ShellTools shell) = CreateDependencies(pluginDescription);
+		ToolFactory toolFactory = new ToolFactory(Trace, shell, settings, methods);
+		return new AssistantAgent(Trace, host, toolFactory);
 	}
 
-	/// <summary>Creates an agent with Initialize called so _maxToolResultLength is set.</summary>
 	public static AssistantAgent CreateInitializedSut(
 		IPluginDescription? pluginDescription = null,
-		TimeProvider? timeProvider = null)
+		TimeProvider? timeProvider = null,
+		Mock<IChatClient>? mockChatClient = null)
 	{
-		(IHost host, PluginSettingsHelper settingsHelper, PluginMethodsHelper methodsHelper) = CreateDependencies(pluginDescription);
-
-		Mock<IChatClient> mockChatClient = new Mock<IChatClient>();
+		(IHost host, PluginSettingsTools settingsTools, PluginMethodsTools methodsTools, ShellTools shellTools) = CreateDependencies(pluginDescription, timeProvider);
+		ToolFactory toolFactory = new ToolFactory(Trace, shellTools, settingsTools, methodsTools);
+		mockChatClient ??= new Mock<IChatClient>();
 
 		Settings settings = new Settings
 		{
 			ProviderType = AiProviderType.LocalOpenAICompatible,
 		};
 
-		AssistantAgent agent = new AssistantAgent(Trace, host, settingsHelper, methodsHelper, (s, h) => mockChatClient.Object, timeProvider);
+		AssistantAgent agent = new AssistantAgent(Trace, host, toolFactory, (s, h) => mockChatClient.Object);
 		agent.Initialize(settings);
 		return agent;
 	}

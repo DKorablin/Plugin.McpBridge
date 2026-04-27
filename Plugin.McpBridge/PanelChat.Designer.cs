@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Plugin.McpBridge.UI;
 
 namespace Plugin.McpBridge;
 
@@ -12,7 +13,6 @@ partial class PanelChat
 	/// Required designer variable.
 	/// </summary>
 	private System.ComponentModel.IContainer components = null;
-	private SplitContainer splitMain = null!;
 
 	/// <summary> 
 	/// Clean up any resources being used.
@@ -35,43 +35,27 @@ partial class PanelChat
 	/// </summary>
 	private void InitializeComponent()
 	{
+		System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(PanelChat));
 		this.rtfResponse = new RichTextBox();
-		this.bnSend = new Button();
+		this.tsBottom = new ToolStrip();
+		this.tsbnSend = new ToolStripButton();
 		this.txtRequest = new TextBox();
-		this.toolStrip1 = new ToolStrip();
+		this.tsTop = new ToolStrip();
 		this.bnNewConversation = new ToolStripButton();
 		this.splitMain = new SplitContainer();
-		((System.ComponentModel.ISupportInitialize)splitMain).BeginInit();
-		splitMain.Panel1.SuspendLayout();
-		splitMain.Panel2.SuspendLayout();
-		splitMain.SuspendLayout();
+		this.pnlConfirmation = new ConfirmationPanel();
+		this.tsBottom.SuspendLayout();
+		this.tsTop.SuspendLayout();
+		((System.ComponentModel.ISupportInitialize)this.splitMain).BeginInit();
+		this.splitMain.Panel1.SuspendLayout();
+		this.splitMain.Panel2.SuspendLayout();
+		this.splitMain.SuspendLayout();
 		this.SuspendLayout();
-		// 
-		// splitMain
-		// 
-		splitMain.Dock = DockStyle.Fill;
-		splitMain.FixedPanel = FixedPanel.Panel2;
-		splitMain.Location = new Point(0, 25);
-		splitMain.Name = "splitMain";
-		splitMain.Orientation = Orientation.Horizontal;
-		// 
-		// splitMain.Panel1
-		// 
-		splitMain.Panel1.Controls.Add(this.rtfResponse);
-		// 
-		// splitMain.Panel2
-		// 
-		splitMain.Panel2.Controls.Add(this.bnSend);
-		splitMain.Panel2.Controls.Add(this.txtRequest);
-		splitMain.Size = new Size(175, 148);
-		splitMain.SplitterDistance = 70;
-		splitMain.TabIndex = 3;
 		// 
 		// rtfResponse
 		// 
 		this.rtfResponse.BackColor = SystemColors.Window;
 		this.rtfResponse.BorderStyle = BorderStyle.None;
-		this.rtfResponse.DetectUrls = true;
 		this.rtfResponse.Dock = DockStyle.Fill;
 		this.rtfResponse.Location = new Point(0, 0);
 		this.rtfResponse.Name = "rtfResponse";
@@ -79,17 +63,29 @@ partial class PanelChat
 		this.rtfResponse.ScrollBars = RichTextBoxScrollBars.Vertical;
 		this.rtfResponse.Size = new Size(175, 70);
 		this.rtfResponse.TabIndex = 2;
+		this.rtfResponse.Text = "";
 		// 
-		// bnSend
+		// tsBottom
 		// 
-		this.bnSend.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-		this.bnSend.Location = new Point(97, 48);
-		this.bnSend.Name = "bnSend";
-		this.bnSend.Size = new Size(75, 23);
-		this.bnSend.TabIndex = 1;
-		this.bnSend.Text = "&Send";
-		this.bnSend.UseVisualStyleBackColor = true;
-		this.bnSend.Click += this.bnSend_Click;
+		this.tsBottom.Dock = DockStyle.Bottom;
+		this.tsBottom.GripStyle = ToolStripGripStyle.Hidden;
+		this.tsBottom.Items.AddRange(new ToolStripItem[] { this.tsbnSend });
+		this.tsBottom.Location = new Point(0, 49);
+		this.tsBottom.Name = "tsBottom";
+		this.tsBottom.Size = new Size(175, 25);
+		this.tsBottom.TabIndex = 2;
+		// 
+		// tsbnSend
+		// 
+		this.tsbnSend.Alignment = ToolStripItemAlignment.Right;
+		this.tsbnSend.DisplayStyle = ToolStripItemDisplayStyle.Image;
+		this.tsbnSend.Image = (Image)resources.GetObject("tsbnSend.Image");
+		this.tsbnSend.ImageTransparentColor = Color.Magenta;
+		this.tsbnSend.Name = "tsbnSend";
+		this.tsbnSend.Size = new Size(23, 22);
+		this.tsbnSend.Text = "&Send";
+		this.tsbnSend.ToolTipText = "Send message to LLM";
+		this.tsbnSend.Click += this.tsbnSend_Click;
 		// 
 		// txtRequest
 		// 
@@ -101,38 +97,67 @@ partial class PanelChat
 		this.txtRequest.TabIndex = 0;
 		this.txtRequest.KeyDown += this.txtRequest_KeyDown;
 		// 
+		// tsTop
+		// 
+		this.tsTop.GripStyle = ToolStripGripStyle.Hidden;
+		this.tsTop.Items.AddRange(new ToolStripItem[] { this.bnNewConversation });
+		this.tsTop.Location = new Point(0, 0);
+		this.tsTop.Name = "tsTop";
+		this.tsTop.Size = new Size(175, 25);
+		this.tsTop.TabIndex = 4;
+		// 
 		// bnNewConversation
 		// 
 		this.bnNewConversation.DisplayStyle = ToolStripItemDisplayStyle.Text;
 		this.bnNewConversation.Name = "bnNewConversation";
+		this.bnNewConversation.Size = new Size(35, 22);
 		this.bnNewConversation.Text = "New";
 		this.bnNewConversation.ToolTipText = "Start a new conversation";
 		this.bnNewConversation.Click += this.bnNewConversation_Click;
 		// 
-		// toolStrip1
+		// pnlConfirmation
 		// 
-		this.toolStrip1.Items.AddRange(new ToolStripItem[] { this.bnNewConversation });
-		this.toolStrip1.Location = new Point(0, 0);
-		this.toolStrip1.Name = "toolStrip1";
-		this.toolStrip1.Size = new Size(175, 25);
-		this.toolStrip1.TabIndex = 4;
-		this.toolStrip1.Text = "toolStrip1";
+		this.pnlConfirmation.ConfirmationHandled += this.PnlConfirmation_ConfirmationHandled;
+		// 
+		// splitMain
+		// 
+		this.splitMain.Dock = DockStyle.Fill;
+		this.splitMain.FixedPanel = FixedPanel.Panel2;
+		this.splitMain.Location = new Point(0, 25);
+		this.splitMain.Name = "splitMain";
+		this.splitMain.Orientation = Orientation.Horizontal;
+		// 
+		// splitMain.Panel1
+		// 
+		this.splitMain.Panel1.Controls.Add(this.rtfResponse);
+		this.splitMain.Panel1.Controls.Add(this.pnlConfirmation);
+		// 
+		// splitMain.Panel2
+		// 
+		this.splitMain.Panel2.Controls.Add(this.tsBottom);
+		this.splitMain.Panel2.Controls.Add(this.txtRequest);
+		this.splitMain.Size = new Size(175, 148);
+		this.splitMain.SplitterDistance = 70;
+		this.splitMain.TabIndex = 3;
 		// 
 		// PanelChat
 		// 
 		this.AutoScaleDimensions = new SizeF(7F, 15F);
 		this.AutoScaleMode = AutoScaleMode.Font;
-		this.Controls.Add(splitMain);
-		this.Controls.Add(this.toolStrip1);
+		this.Controls.Add(this.splitMain);
+		this.Controls.Add(this.tsTop);
 		this.Margin = new Padding(4, 3, 4, 3);
 		this.Name = "PanelChat";
 		this.Size = new Size(175, 173);
-		splitMain.Panel1.ResumeLayout(false);
-		splitMain.Panel1.PerformLayout();
-		splitMain.Panel2.ResumeLayout(false);
-		splitMain.Panel2.PerformLayout();
-		((System.ComponentModel.ISupportInitialize)splitMain).EndInit();
-		splitMain.ResumeLayout(false);
+		this.tsBottom.ResumeLayout(false);
+		this.tsBottom.PerformLayout();
+		this.tsTop.ResumeLayout(false);
+		this.tsTop.PerformLayout();
+		this.splitMain.Panel1.ResumeLayout(false);
+		this.splitMain.Panel2.ResumeLayout(false);
+		this.splitMain.Panel2.PerformLayout();
+		((System.ComponentModel.ISupportInitialize)this.splitMain).EndInit();
+		this.splitMain.ResumeLayout(false);
 		this.ResumeLayout(false);
 		this.PerformLayout();
 
@@ -140,9 +165,12 @@ partial class PanelChat
 
 	#endregion
 
-	private ToolStrip toolStrip1;
+	private SplitContainer splitMain;
+	private ToolStrip tsTop;
 	private ToolStripButton bnNewConversation;
-	private Button bnSend;
 	private TextBox txtRequest;
 	private RichTextBox rtfResponse;
+	private ToolStrip tsBottom;
+	private ToolStripButton tsbnSend;
+	private ConfirmationPanel pnlConfirmation;
 }

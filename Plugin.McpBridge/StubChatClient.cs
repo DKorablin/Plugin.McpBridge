@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.AI;
+using Plugin.McpBridge.Tools;
 
 namespace Plugin.McpBridge
 {
@@ -58,28 +59,44 @@ Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."));
 			ChatMessage lastMessage = messages.LastOrDefault() ?? new ChatMessage(ChatRole.User, String.Empty);
 
 			if(lastMessage.Role == ChatRole.Tool)
-				return Task.FromResult(BuildText($"The tool was executed. Here is a **summary** of the result:{Environment.NewLine}{lastMessage.Text}"));
-			else if(lastMessage.Role == ChatRole.User)
+			{
+				if(lastMessage.Contents.OfType<FunctionResultContent>().FirstOrDefault() is FunctionResultContent call)
+				{
+					return Task.FromResult(BuildText($@"Received a tool **{call.CallId}** call with
+Exception:
+```
+{call.Exception}
+```
+Result:
+```
+{call.Result}
+```"));
+				}else
+					return Task.FromResult(BuildText($@"The tool was executed. Here is a **summary** of the result:
+```
+{String.Join(" ", lastMessage.Contents.Select(c => c.RawRepresentation))}
+```"));
+			} else if(lastMessage.Role == ChatRole.User)
 			{
 				String lower = lastMessage.Text.ToLowerInvariant();
 				switch(lower)
 				{
 				case "invoke":
-					return Task.FromResult(BuildToolCall(nameof(AssistantAgent.MethodsInvoke), new Dictionary<String, Object?>
+					return Task.FromResult(BuildToolCall(nameof(PluginMethodsTools.MethodsInvoke), new Dictionary<String, Object?>
 					{
 						{ "pluginId", "stub-plugin" },
 						{ "methodName", "StubMethod" },
-						{ "argsJson", "{}" },
+						{ "argumentsJson", "{}" },
 					}));
 				case "events":
-					return Task.FromResult(BuildToolCall(nameof(AssistantAgent.MethodsInvoke), new Dictionary<String, Object?>
+					return Task.FromResult(BuildToolCall(nameof(PluginMethodsTools.MethodsInvoke), new Dictionary<String, Object?>
 					{
 						{ "pluginId", "535b6be7-847b-45ab-bdaa-68e1e52be508" },
 						{ "methodName", "GetEvents" },
-						{ "argsJson", "{\"timeStart\":\"2026-04-25T00:00:00\", \"timeEnd\":\"2026-04-25T23:59:59\", \"eventLogEntryTypes\": [\"Error\",\"Warning\",\"Information\"]}" },
+						{ "argumentsJson", $"{{\"timeStart\":\"{DateTime.Today.AddDays(-1).ToString("s")}\", \"timeEnd\":\"{DateTime.Today.AddSeconds(-1).ToString("s")}\", \"eventLogEntryTypes\": [\"Error\",\"Warning\",\"Information\"]}}" },
 					}));
 				case "settings":
-					return Task.FromResult(BuildToolCall(nameof(AssistantAgent.SettingsSet), new Dictionary<String, Object?>
+					return Task.FromResult(BuildToolCall(nameof(PluginSettingsTools.SettingsSet), new Dictionary<String, Object?>
 					{
 						{ "pluginId", "stub-plugin" },
 						{ "settingName", "StubSetting" },

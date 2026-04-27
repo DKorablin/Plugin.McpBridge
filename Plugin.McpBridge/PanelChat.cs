@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel;
-using System.Text.RegularExpressions;
 using Plugin.McpBridge.UI;
 using SAL.Windows;
 
@@ -11,8 +10,6 @@ public partial class PanelChat : UserControl
 	private Boolean _streamingActive;
 	private CancellationTokenSource? _cts;
 	private const String Caption = "OpenAI Chat";
-
-	private ConfirmationPanel _confirmationPanel = null!;
 
 	private Plugin Plugin => (Plugin)this.Window.Plugin;
 
@@ -26,23 +23,23 @@ public partial class PanelChat : UserControl
 	protected override void OnCreateControl()
 	{
 		this.Window.Caption = Caption;
-		this.Plugin.Settings.PropertyChanged += this.Settings_PropertyChanged;
 		this.Window.Closed += this.Window_Closed;
-		this._confirmationPanel = new ConfirmationPanel();
-		this._confirmationPanel.ConfirmationHandled += (Object? s, EventArgs e) => this.Invoke(() =>
-		{
-			bnSend.Enabled = true;
-			this.Window.Caption = Caption;
-		});
-		this.splitMain.Panel1.Controls.Add(this._confirmationPanel);
+		this.Plugin.Settings.PropertyChanged += this.Settings_PropertyChanged;
 		base.OnCreateControl();
 	}
 
 	private void Window_Closed(Object? sender, EventArgs e)
 	{
-		this._confirmationPanel.Dismiss();
+		pnlConfirmation.Dismiss();
 		this.Plugin.Settings.PropertyChanged -= this.Settings_PropertyChanged;
 	}
+
+	private void PnlConfirmation_ConfirmationHandled(Object sender, EventArgs e)
+		=> this.Invoke(() =>
+		{
+			tsbnSend.Enabled = true;
+			this.Window.Caption = Caption;
+		});
 
 	private void Settings_PropertyChanged(Object? sender, PropertyChangedEventArgs e)
 		=> this.ResetAgent();
@@ -62,10 +59,10 @@ public partial class PanelChat : UserControl
 		this._cts?.Dispose();
 		this._cts = null;
 
-		this._confirmationPanel.Dismiss();
+		pnlConfirmation.Dismiss();
 		this._streamingActive = false;
-		bnSend.Text = "&Send";
-		bnSend.Enabled = true;
+		tsbnSend.Text = "&Send";
+		tsbnSend.Enabled = true;
 	}
 
 	private AssistantAgent GetAgent()
@@ -84,11 +81,11 @@ public partial class PanelChat : UserControl
 		if(String.IsNullOrWhiteSpace(message))
 			return;
 
-		this._confirmationPanel.Dismiss();
+		pnlConfirmation.Dismiss();
 		this._streamingActive = false;
 		this._cts?.Dispose();
 		this._cts = new CancellationTokenSource();
-		bnSend.Text = "&Cancel";
+		tsbnSend.Text = "&Cancel";
 
 		CancellationToken token = this._cts.Token;
 		AssistantAgent agent = this.GetAgent();
@@ -104,7 +101,7 @@ public partial class PanelChat : UserControl
 			{
 				this.Invoke(() =>
 					{
-						bnSend.Text = "&Send";
+						tsbnSend.Text = "&Send";
 						this._cts?.Dispose();
 						this._cts = null;
 					});
@@ -135,8 +132,8 @@ public partial class PanelChat : UserControl
 	{
 		this.BeginInvoke(() =>
 		{
-			this._confirmationPanel.Request(e);
-			bnSend.Enabled = false;
+			pnlConfirmation.Request(e);
+			tsbnSend.Enabled = false;
 			this.Window.Caption = Caption + " (!)";
 		});
 	}
@@ -144,7 +141,7 @@ public partial class PanelChat : UserControl
 	private void bnNewConversation_Click(Object sender, EventArgs e)
 		=> this.ResetAgent();
 
-	private void bnSend_Click(Object sender, EventArgs e)
+	private void tsbnSend_Click(Object sender, EventArgs e)
 	{
 		if(this._cts != null)
 		{
@@ -168,7 +165,7 @@ public partial class PanelChat : UserControl
 	{
 		if(e.KeyCode == Keys.Enter && !e.Shift)
 		{
-			this.bnSend_Click(sender, e);
+			this.tsbnSend_Click(sender, e);
 			e.SuppressKeyPress = true;
 		}
 	}

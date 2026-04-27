@@ -4,7 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using SAL.Flatbed;
 
-namespace Plugin.McpBridge.Helpers;
+namespace Plugin.McpBridge;
 
 internal static class Utils
 {

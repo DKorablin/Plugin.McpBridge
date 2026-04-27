@@ -1,14 +1,13 @@
 ﻿using System.ClientModel;
 using System.ClientModel.Primitives;
-using System.ComponentModel;
 using System.Diagnostics;
-using System.Globalization;
 using System.Text;
 using Azure.AI.OpenAI;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using OpenAI;
 using Plugin.McpBridge.Helpers;
+using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
 
 namespace Plugin.McpBridge
@@ -18,13 +17,10 @@ namespace Plugin.McpBridge
 	{
 		private readonly TraceSource _trace;
 		private readonly IHost _host;
-		private readonly PluginSettingsHelper _settingsHelper;
-		private readonly PluginMethodsHelper _methodsHelper;
+		private readonly ToolFactory _toolsFactory;
 		private readonly Func<Settings, HttpClient, IChatClient> _chatClientFactory;
-		private readonly TimeProvider _timeProvider;
 		private ChatClientAgent? _agent;
 		private AgentSession? _session;
-
 
 		public event EventHandler<AgentResponseEventArgs>? AiResponseReceived;
 		public event EventHandler<AgentConfirmationEventArgs>? ConfirmationRequired;
@@ -32,17 +28,13 @@ namespace Plugin.McpBridge
 		public AssistantAgent(
 			TraceSource trace,
 			IHost host,
-			PluginSettingsHelper settingsHelper,
-			PluginMethodsHelper methodsHelper,
-			Func<Settings, HttpClient, IChatClient>? chatClientFactory = null,
-			TimeProvider? timeProvider = null)
+			ToolFactory toolsFactory,
+			Func<Settings, HttpClient, IChatClient>? chatClientFactory = null)
 		{
 			this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
 			this._host = host ?? throw new ArgumentNullException(nameof(host));
-			this._settingsHelper = settingsHelper ?? throw new ArgumentNullException(nameof(settingsHelper));
-			this._methodsHelper = methodsHelper ?? throw new ArgumentNullException(nameof(methodsHelper));
+			this._toolsFactory = toolsFactory ?? throw new ArgumentNullException(nameof(toolsFactory));
 			this._chatClientFactory = chatClientFactory ?? this.BuildChatClient;
-			this._timeProvider = timeProvider ?? TimeProvider.System;
 		}
 
 		public void Initialize(Settings settings)
@@ -78,41 +70,12 @@ namespace Plugin.McpBridge
 				})
 				.Build();
 
-			List<AITool> tools = GetTools().ToList();
+			ToolFactory toolFactory = this._toolsFactory;
+			List<AITool> tools = toolFactory.CreateTools(settings.ToolsPermission, (Object? s, AgentConfirmationEventArgs e) => this.OnConfirmationRequired(e)).ToList();
 			String instructions = this.BuildSystemInstructions(settings, tools);
 			this._agent = configuredClient.AsAIAgent(
 				instructions: instructions,
 				tools: tools);
-
-			IEnumerable<AITool> GetTools()
-			{
-				Settings.Tools permissions = settings.ToolsPermission;
-				if(permissions.HasFlag(Settings.Tools.SystemInformation))
-					yield return CreateTool(this.SystemInformation);
-
-				if(permissions.HasFlag(Settings.Tools.SettingsList))
-					yield return CreateTool(this.SettingsList);
-
-				if(permissions.HasFlag(Settings.Tools.SettingsGet))
-					yield return CreateTool(this.SettingsGet);
-
-				if(permissions.HasFlag(Settings.Tools.SettingsSet))
-					yield return CreateTool(this.SettingsSet, confirmationRequired: true);
-
-				if(permissions.HasFlag(Settings.Tools.MethodsList))
-					yield return CreateTool(this.MethodsList);
-
-				if(permissions.HasFlag(Settings.Tools.MethodsInvoke))
-					yield return CreateTool(this.MethodsInvoke, confirmationRequired: true);
-			}
-
-			ToolWrapper CreateTool(Delegate method, Boolean confirmationRequired = false)
-			{
-				ToolWrapper wrapper = new ToolWrapper(this._trace, method);
-				if(confirmationRequired)
-					wrapper.ConfirmationRequired += (Object? s, AgentConfirmationEventArgs e) => this.OnConfirmationRequired(e);
-				return wrapper;
-			}
 		}
 
 		public async Task InvokeMessageAsync(String message, CancellationToken cancellationToken = default)
@@ -203,9 +166,9 @@ namespace Plugin.McpBridge
 				pluginsText.Append(" | ");
 				pluginsText.Append(pluginDescription.Version?.ToString());
 				pluginsText.Append(" | Settings: ");
-				pluginsText.Append(PluginSettingsHelper.HasPluginSettings(pluginDescription) ? "yes" : "no");
+				pluginsText.Append(PluginSettingsTools.HasPluginSettings(pluginDescription) ? "yes" : "no");
 				pluginsText.Append(" | Members: ");
-				pluginsText.Append(PluginMethodsHelper.HasCallableMembers(pluginDescription) ? "yes" : "no");
+				pluginsText.Append(PluginMethodsTools.HasCallableMembers(pluginDescription) ? "yes" : "no");
 				pluginsText.AppendLine();
 			}
 			return pluginsText.ToString().Trim();
@@ -241,46 +204,5 @@ namespace Plugin.McpBridge
 				.AsIChatClient();
 			}
 		}
-
-		[Description("Get the current host environment system information including OS version, DateTime format and UTC")]
-		internal async Task<String> SystemInformation()
-		{
-			DateTimeFormatInfo formatPreferences = CultureInfo.CurrentCulture.DateTimeFormat;
-			String result = @$"
-Short date pattern: {formatPreferences.ShortDatePattern}
-Long date pattern; {formatPreferences.LongTimePattern}
-Current time: {this._timeProvider.GetLocalNow()}
-OS Version: {Environment.OSVersion}";
-
-			return result;
-		}
-
-		[Description("List all available settings for a plugin")]
-		internal Task<String> SettingsList([Description("Plugin identifier")] String pluginId)
-			=> Task.FromResult(this._settingsHelper.ListPluginSettings(pluginId));
-
-		[Description("Get the current value of a specific plugin setting")]
-		internal Task<Object?> SettingsGet(
-			[Description("Plugin identifier")] String pluginId,
-			[Description("Setting name")] String settingName)
-			=> Task.FromResult(this._settingsHelper.ReadPluginSetting(pluginId, settingName));
-
-		[Description("Update a plugin setting value; requires user confirmation")]
-		internal Task<Object?> SettingsSet(
-			[Description("Plugin identifier")] String pluginId,
-			[Description("Setting name")] String settingName,
-			[Description("New value as JSON")] String valueJson)
-			=> Task.FromResult(this._settingsHelper.UpdatePluginSetting(pluginId, settingName, valueJson));
-
-		[Description("List all callable methods for a plugin")]
-		internal Task<String> MethodsList([Description("Plugin identifier")] String pluginId)
-			=> Task.FromResult(this._methodsHelper.ListPluginMethods(pluginId));
-
-		[Description("Invoke a plugin method with arguments provided as JSON; requires user confirmation")]
-		internal Task<Object?> MethodsInvoke(
-			[Description("Plugin identifier")] String pluginId,
-			[Description("Method name")] String methodName,
-			[Description("Arguments as JSON")] String argsJson)
-			=> Task.FromResult(this._methodsHelper.InvokePluginMethod(pluginId, methodName, argsJson));
 	}
 }

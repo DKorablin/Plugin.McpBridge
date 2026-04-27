@@ -5,14 +5,14 @@ using Microsoft.Extensions.AI;
 namespace Plugin.McpBridge.Helpers;
 
 /// <summary>Catches tool exceptions and returns the message as a string so the LLM receives a result rather than a broken conversation.</summary>
-internal sealed class ToolWrapper : DelegatingAIFunction
+internal sealed class ToolFacade : DelegatingAIFunction
 {
 	private readonly TraceSource _trace;
 
 	public event EventHandler<AgentConfirmationEventArgs>? ConfirmationRequired;
 
-	public ToolWrapper(TraceSource trace, Delegate method)
-	: base(AIFunctionFactory.Create(method))
+	public ToolFacade(TraceSource trace, Delegate method)
+		: base(AIFunctionFactory.Create(method))
 	{
 		this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
 	}
@@ -35,15 +35,10 @@ internal sealed class ToolWrapper : DelegatingAIFunction
 			sw.Stop();
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool result] {result} Elapsed: {sw}");
 			return result;
-		}catch(ArgumentException exc)
-		{
-			this._trace.TraceData(TraceEventType.Verbose, 0, exc.Message);
-			return exc.Message;
-		}
-		catch(Exception exc)
+		}catch(Exception exc)
 		{
 			this._trace.TraceData(TraceEventType.Error, 0, exc);
-			return $"[Tool error] {exc.Message}";
+			throw;
 		}
 	}
 

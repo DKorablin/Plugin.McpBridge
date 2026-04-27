@@ -1,28 +1,31 @@
-﻿using System.Reflection;
+﻿using System.ComponentModel;
+using System.Reflection;
 using System.Text;
-using System.Text.Json;
+using Plugin.McpBridge.Helpers;
 using SAL.Flatbed;
 
-namespace Plugin.McpBridge.Helpers
+namespace Plugin.McpBridge.Tools
 {
-	internal sealed class PluginMethodsHelper
+	internal sealed class PluginMethodsTools
 	{
-		private readonly SAL.Flatbed.IHost _host;
+		private readonly IHost _host;
 
-		public PluginMethodsHelper(SAL.Flatbed.IHost host)
+		public PluginMethodsTools(IHost host)
 		{
 			this._host = host ?? throw new ArgumentNullException(nameof(host));
 		}
 
-		public String ListPluginMethods(String pluginId)
+		[Tool(Settings.Tools.MethodsList)]
+		[Description("List all callable methods for a plugin")]
+		public Task<String> MethodsList([Description("Plugin identifier")] String pluginId)
 		{
 			var pluginDescription = this._host.Plugins[pluginId];
 			if(pluginDescription == null)
-				return $"Plugin with ID '{pluginId}' was not found.";
+				return Task.FromResult($"Plugin with ID '{pluginId}' was not found.");
 
-			IEnumerable<IPluginMemberInfo> callableMembers = PluginMethodsHelper.GetCallableMembers(pluginDescription);
+			IEnumerable<IPluginMemberInfo> callableMembers = PluginMethodsTools.GetCallableMembers(pluginDescription);
 			if(!callableMembers.Any())
-				return $"Plugin '{pluginDescription.ID}' does not expose any callable methods.";
+				return Task.FromResult($"Plugin '{pluginDescription.ID}' does not expose any callable methods.");
 
 			StringBuilder builder = new StringBuilder();
 			builder.Append("Callable methods for plugin '");
@@ -30,7 +33,7 @@ namespace Plugin.McpBridge.Helpers
 			builder.Append("' (");
 			builder.Append(pluginDescription.Name);
 			builder.AppendLine("):");
-			foreach(IPluginMemberInfo member in PluginMethodsHelper.GetCallableMembers(pluginDescription))
+			foreach(IPluginMemberInfo member in PluginMethodsTools.GetCallableMembers(pluginDescription))
 			{
 				if(member.MemberType == MemberTypes.Method)
 				{
@@ -58,15 +61,20 @@ namespace Plugin.McpBridge.Helpers
 				}
 			}
 
-			return builder.ToString();
+			return Task.FromResult(builder.ToString());
 		}
 
-		public Object? InvokePluginMethod(String pluginId, String methodName, String argumentsJson)
+		[Tool(Settings.Tools.MethodsInvoke, confirmationRequired: true)]
+		[Description("Invoke a plugin method with arguments provided as JSON; requires user confirmation")]
+		public Task<Object?> MethodsInvoke(
+			[Description("Plugin identifier")] String pluginId,
+			[Description("Method name")] String methodName,
+			[Description("Arguments as JSON")] String argumentsJson)
 		{
 			var pluginDescription = this._host.Plugins[pluginId]
 				?? throw new ArgumentException($"Plugin '{pluginId}' was not found.");
 
-			var member = PluginMethodsHelper.GetCallableMembers(pluginDescription).FirstOrDefault(m => m.Name == methodName)
+			var member = PluginMethodsTools.GetCallableMembers(pluginDescription).FirstOrDefault(m => m.Name == methodName)
 				?? throw new ArgumentException($"Method '{methodName}' was not found in plugin '{pluginId}'.");
 
 			if(member.MemberType == MemberTypes.Method)
@@ -75,7 +83,7 @@ namespace Plugin.McpBridge.Helpers
 				var arguments = Utils.ConvertArgumentsValue(method, argumentsJson);
 				var result = method.Invoke(arguments);
 
-				return result;
+				return Task.FromResult<Object?>(result);
 			}
 
 			var exc = new ArgumentException($"Unsupported member type '{member.MemberType}' for method invocation. Only methods are supported.");

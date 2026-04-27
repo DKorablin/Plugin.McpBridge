@@ -1,17 +1,18 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Globalization;
 using System.Reflection;
 using System.Text;
+using Plugin.McpBridge.Helpers;
 using SAL.Flatbed;
 
-namespace Plugin.McpBridge.Helpers
+namespace Plugin.McpBridge.Tools
 {
 	/// <summary>Reflection-based helpers for inspecting and mutating SAL plugin settings.</summary>
-	internal sealed class PluginSettingsHelper
+	internal sealed class PluginSettingsTools
 	{
 		private readonly IHost _host;
 
-		public PluginSettingsHelper(IHost host)
+		public PluginSettingsTools(IHost host)
 		{
 			this._host = host ?? throw new ArgumentNullException(nameof(host));
 		}
@@ -19,7 +20,9 @@ namespace Plugin.McpBridge.Helpers
 		public static Boolean HasPluginSettings(IPluginDescription pluginDescription)
 			=> pluginDescription.Instance is IPluginSettings;
 
-		public String ListPluginSettings(String pluginId)
+		[Tool(Settings.Tools.SettingsList)]
+		[Description("List all available settings for a plugin")]
+		public Task<String> SettingsList([Description("Plugin identifier")] String pluginId)
 		{
 			var settingsInstance = this.GetPluginSettingsInstance(pluginId, out IPluginDescription? pluginDescription);
 
@@ -62,25 +65,34 @@ namespace Plugin.McpBridge.Helpers
 				builder.AppendLine();
 			}
 
-			return builder.ToString().Trim();
+			return Task.FromResult(builder.ToString().Trim());
 		}
 
-		public Object? ReadPluginSetting(String pluginId, String settingName)
+		[Tool(Settings.Tools.SettingsGet)]
+		[Description("Get the current value of a specific plugin setting")]
+		public Task<Object?> SettingsGet(
+			[Description("Plugin identifier")] String pluginId,
+			[Description("Setting name")] String settingName)
 		{
 			var settingsInstance = this.GetPluginSettingsInstance(pluginId, out IPluginDescription? pluginDescription);
 
-			PropertyInfo? propertyInfo = this.FindSettingsProperty(settingsInstance!, settingName);
+			PropertyInfo? propertyInfo = FindSettingsProperty(settingsInstance!, settingName);
 			if(propertyInfo == null || !propertyInfo.CanRead)
 				throw new ArgumentException($"Setting '{settingName}' was not found for plugin '{pluginDescription!.ID}'.");
 
-			return propertyInfo.GetValue(settingsInstance, null);
+			return Task.FromResult(propertyInfo.GetValue(settingsInstance, null));
 		}
 
-		public Object? UpdatePluginSetting(String pluginId, String settingName, String valueJson)
+		[Tool(Settings.Tools.SettingsSet, confirmationRequired: true)]
+		[Description("Update a plugin setting value; requires user confirmation")]
+		public Task<Object?> SettingsSet(
+			[Description("Plugin identifier")] String pluginId,
+			[Description("Setting name")] String settingName,
+			[Description("New value as JSON")] String valueJson)
 		{
 			var settingsInstance = this.GetPluginSettingsInstance(pluginId, out IPluginDescription? pluginDescription);
 
-			PropertyInfo? propertyInfo = this.FindSettingsProperty(settingsInstance!, settingName)
+			PropertyInfo? propertyInfo = FindSettingsProperty(settingsInstance!, settingName)
 				?? throw new ArgumentException($"Setting '{settingName}' was not found for plugin '{pluginDescription!.ID}'.");
 
 			if(!propertyInfo.CanWrite)
@@ -89,7 +101,7 @@ namespace Plugin.McpBridge.Helpers
 			var convertedValue = Utils.ConvertValue(valueJson, propertyInfo.PropertyType);
 
 			propertyInfo.SetValue(settingsInstance, convertedValue, null);
-			return this.ReadPluginSetting(pluginId, propertyInfo.Name);
+			return this.SettingsGet(pluginId, propertyInfo.Name);
 		}
 
 		private Object GetPluginSettingsInstance(String pluginId, out IPluginDescription? pluginDescription)
@@ -104,7 +116,7 @@ namespace Plugin.McpBridge.Helpers
 			throw new ArgumentException($"Plugin '{pluginDescription.ID}' does not expose settings through {nameof(IPluginSettings)}.");
 		}
 
-		private PropertyInfo? FindSettingsProperty(Object settingsInstance, String settingName)
+		private static PropertyInfo? FindSettingsProperty(Object settingsInstance, String settingName)
 		{
 			foreach(PropertyInfo propertyInfo in settingsInstance.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public))
 				if(String.Equals(propertyInfo.Name, settingName, StringComparison.OrdinalIgnoreCase) ||
