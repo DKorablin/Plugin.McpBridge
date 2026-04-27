@@ -32,8 +32,11 @@ internal sealed class ToolFacade : DelegatingAIFunction
 
 			Stopwatch sw = Stopwatch.StartNew();
 			Object? result = await base.InvokeCoreAsync(arguments, cancellationToken);
+			if(cancellationToken.IsCancellationRequested)
+				return "Operation cancelled.";
+
 			sw.Stop();
-			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool result] {result} Elapsed: {sw}");
+			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool result] {result?.GetType()} Elapsed: {sw}");
 			return result;
 		}catch(Exception exc)
 		{

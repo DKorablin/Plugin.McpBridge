@@ -69,7 +69,8 @@ namespace Plugin.McpBridge.Tools
 		public Task<Object?> MethodsInvoke(
 			[Description("Plugin identifier")] String pluginId,
 			[Description("Method name")] String methodName,
-			[Description("Arguments as JSON")] String argumentsJson)
+			[Description("Arguments as JSON")] String argumentsJson,
+			CancellationToken cancellationToken = default)
 		{
 			var pluginDescription = this._host.Plugins[pluginId]
 				?? throw new ArgumentException($"Plugin '{pluginId}' was not found.");

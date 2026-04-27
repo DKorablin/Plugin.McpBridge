@@ -23,7 +23,7 @@ internal sealed class ToolFactory
 	public IEnumerable<AITool> CreateTools(Settings.Tools permissions, EventHandler<AgentConfirmationEventArgs> confirmationHandler)
 	{
 		foreach(Object target in this._targets)
-			foreach(MethodInfo method in target.GetType().GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+			foreach(MethodInfo method in target.GetType().GetMethods(BindingFlags.Instance | BindingFlags.Public))
 			{
 				ToolAttribute? attr = method.GetCustomAttribute<ToolAttribute>();
 				if(attr == null)
@@ -55,6 +55,7 @@ internal sealed class ToolFactory
 				1 => typeof(Action<>).MakeGenericType(paramTypes),
 				2 => typeof(Action<,>).MakeGenericType(paramTypes),
 				3 => typeof(Action<,,>).MakeGenericType(paramTypes),
+				4 => typeof(Action<,,,>).MakeGenericType(paramTypes),
 				_ => throw new NotSupportedException($"Too many parameters on method '{method.Name}'.")
 			};
 		}
@@ -67,6 +68,7 @@ internal sealed class ToolFactory
 				2 => typeof(Func<,>).MakeGenericType(typeArgs),
 				3 => typeof(Func<,,>).MakeGenericType(typeArgs),
 				4 => typeof(Func<,,,>).MakeGenericType(typeArgs),
+				5 => typeof(Func<,,,,>).MakeGenericType(typeArgs),
 				_ => throw new NotSupportedException($"Too many parameters on method '{method.Name}'.")
 			};
 		}

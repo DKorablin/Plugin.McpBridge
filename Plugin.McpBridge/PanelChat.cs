@@ -105,6 +105,7 @@ public partial class PanelChat : UserControl
 					{
 						tsbnSend.Text = "&Send";
 						tsbnSend.Image = this._imgSend;
+						tsbnSend.Enabled = true;
 						this._cts?.Dispose();
 						this._cts = null;
 					});
@@ -150,6 +151,7 @@ public partial class PanelChat : UserControl
 		{
 			if(!this._cts.IsCancellationRequested)
 				this._cts.Cancel();
+			tsbnSend.Enabled = false;
 
 			return;
 		}

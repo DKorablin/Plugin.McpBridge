@@ -66,6 +66,22 @@ namespace Plugin.McpBridge.Tools
 			}
 
 			return Task.FromResult(builder.ToString().Trim());
+
+			String GetSettingDescription(PropertyInfo propertyInfo)
+			{
+				DescriptionAttribute? attribute = propertyInfo.GetCustomAttribute<DescriptionAttribute>();
+				return attribute?.Description ?? String.Empty;
+			}
+
+			String FormatSettingValue(Object? value)
+				=> value == null
+					? "<null>" : Convert.ToString(value, CultureInfo.InvariantCulture) ?? String.Empty;
+
+			String GetFriendlyTypeName(Type propertyType)
+			{
+				Type targetType = Nullable.GetUnderlyingType(propertyType) ?? propertyType;
+				return targetType.Name;
+			}
 		}
 
 		[Tool(Settings.Tools.SettingsGet)]
@@ -106,9 +122,8 @@ namespace Plugin.McpBridge.Tools
 
 		private Object GetPluginSettingsInstance(String pluginId, out IPluginDescription? pluginDescription)
 		{
-			pluginDescription = this._host.Plugins[pluginId];
-			if(pluginDescription == null)
-				throw new ArgumentException($"Plugin '{pluginId}' was not found.");
+			pluginDescription = this._host.Plugins[pluginId]
+				?? throw new ArgumentException($"Plugin '{pluginId}' was not found.");
 
 			if(pluginDescription.Instance is IPluginSettings settings)
 				return settings.Settings;
@@ -130,26 +145,6 @@ namespace Plugin.McpBridge.Tools
 		{
 			DisplayNameAttribute? attribute = propertyInfo.GetCustomAttribute<DisplayNameAttribute>();
 			return attribute != null && !String.IsNullOrWhiteSpace(attribute.DisplayName) ? attribute.DisplayName : propertyInfo.Name;
-		}
-
-		private static String GetSettingDescription(PropertyInfo propertyInfo)
-		{
-			DescriptionAttribute? attribute = propertyInfo.GetCustomAttribute<DescriptionAttribute>();
-			return attribute != null ? attribute.Description : String.Empty;
-		}
-
-		private static String FormatSettingValue(Object? value)
-		{
-			if(value == null)
-				return "<null>";
-
-			return Convert.ToString(value, CultureInfo.InvariantCulture) ?? String.Empty;
-		}
-
-		private static String GetFriendlyTypeName(Type propertyType)
-		{
-			Type targetType = Nullable.GetUnderlyingType(propertyType) ?? propertyType;
-			return targetType.Name;
 		}
 	}
 }
