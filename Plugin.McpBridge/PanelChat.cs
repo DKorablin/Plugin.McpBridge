@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel;
 using System.Drawing.Imaging;
-using System.IO;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Events;
 using Plugin.McpBridge.UI;
@@ -20,9 +19,7 @@ public partial class PanelChat : UserControl
 	private IWindow Window => (IWindow)base.Parent;
 
 	public PanelChat()
-	{
-		this.InitializeComponent();
-	}
+		=> this.InitializeComponent();
 
 	protected override void OnCreateControl()
 	{
@@ -50,7 +47,7 @@ public partial class PanelChat : UserControl
 
 	private void ResetAgent()
 	{
-		rtfResponse.Clear();
+		mdResponse.Clear();
 
 		if(this._agent != null)
 		{
@@ -105,7 +102,7 @@ public partial class PanelChat : UserControl
 				await agent.InvokeMessageAsync(message, images, token);
 			} catch(Exception ex)
 			{
-				this.Invoke(() => rtfResponse.AppendMessage(ex.Message, RichEditBoxExtension.MessageKind.Error));
+				this.Invoke(() => mdResponse.AppendMessage(ex.Message, MarkdownCtrl.MessageKind.Error));
 			} finally
 			{
 				this.Invoke(() =>
@@ -127,8 +124,8 @@ public partial class PanelChat : UserControl
 			if(!this._streamingActive)
 				this._streamingActive = true;
 
-			rtfResponse.AppendMarkdown(e.Response);
-			rtfResponse.ScrollToCaret();
+			mdResponse.AppendMarkdown(e.Response);
+			mdResponse.ScrollToCaret();
 
 			if(e.IsFinal)
 			{
@@ -168,7 +165,7 @@ public partial class PanelChat : UserControl
 			return;
 
 		txtRequest.Clear();
-		rtfResponse.AppendMessage(request, RichEditBoxExtension.MessageKind.User);
+		mdResponse.AppendMessage(request, MarkdownCtrl.MessageKind.User);
 		Image[] rawImages = pnlAttachments.TakeAttachments();
 		DataContent[] images = PanelChat.ImagesToDataContent(rawImages);
 		foreach(Image img in rawImages)

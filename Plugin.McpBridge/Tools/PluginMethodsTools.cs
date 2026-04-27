@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Reflection;
 using System.Text;
-using Plugin.McpBridge.Helpers;
 using SAL.Flatbed;
 
 namespace Plugin.McpBridge.Tools
@@ -15,7 +14,7 @@ namespace Plugin.McpBridge.Tools
 			this._host = host ?? throw new ArgumentNullException(nameof(host));
 		}
 
-		[Tool(Settings.Tools.MethodsList)]
+		[Tool]
 		[Description("List all callable methods for a plugin")]
 		public Task<String> MethodsList([Description("Plugin identifier")] String pluginId)
 		{
@@ -64,7 +63,7 @@ namespace Plugin.McpBridge.Tools
 			return Task.FromResult(builder.ToString());
 		}
 
-		[Tool(Settings.Tools.MethodsInvoke, confirmationRequired: true)]
+		[Tool(confirmationRequired: true)]
 		[Description("Invoke a plugin method with arguments provided as JSON; requires user confirmation")]
 		public Task<Object?> MethodsInvoke(
 			[Description("Plugin identifier")] String pluginId,

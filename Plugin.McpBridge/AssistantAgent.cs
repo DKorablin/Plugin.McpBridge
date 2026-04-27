@@ -7,7 +7,6 @@ using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using OpenAI;
 using Plugin.McpBridge.Events;
-using Plugin.McpBridge.Helpers;
 using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
 
@@ -18,7 +17,7 @@ namespace Plugin.McpBridge
 	{
 		private readonly TraceSource _trace;
 		private readonly IHost _host;
-		private readonly ToolFactory _toolsFactory;
+		private readonly ToolsFactory _toolsFactory;
 		private readonly Func<Settings, HttpClient, IChatClient> _chatClientFactory;
 		private ChatClientAgent? _agent;
 		private AgentSession? _session;
@@ -29,7 +28,7 @@ namespace Plugin.McpBridge
 		public AssistantAgent(
 			TraceSource trace,
 			IHost host,
-			ToolFactory toolsFactory,
+			ToolsFactory toolsFactory,
 			Func<Settings, HttpClient, IChatClient>? chatClientFactory = null)
 		{
 			this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
@@ -71,7 +70,7 @@ namespace Plugin.McpBridge
 				})
 				.Build();
 
-			ToolFactory toolFactory = this._toolsFactory;
+			ToolsFactory toolFactory = this._toolsFactory;
 			List<AITool> tools = toolFactory.CreateTools(settings.ToolsPermission, (Object? s, AgentConfirmationEventArgs e) => this.OnConfirmationRequired(e)).ToList();
 			String instructions = this.BuildSystemInstructions(settings, tools);
 			this._agent = configuredClient.AsAIAgent(

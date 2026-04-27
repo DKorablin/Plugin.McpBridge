@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Drawing.Design;
 using Microsoft.Extensions.AI;
-using Plugin.EventLog.UI;
+using Plugin.McpBridge.UI;
 
 namespace Plugin.McpBridge
 {
@@ -32,46 +32,8 @@ namespace Plugin.McpBridge
 Use available MCP tools when useful.
 Return clear user-facing responses, or a command payload only when automation is required.
 Before using relative dates (today, yesterday, last hour), obtain the current system time from the SystemInformation tool.";
-			public static readonly TimeSpan ConnectionTimeout = TimeSpan.FromSeconds(100);
-			/// <summary>Represents a combination of all available tool permissions.</summary>
-			/// <remarks>
-			/// Use this value to grant access to all tool-related operations.
-			/// This is typically used when full access is required, such as for administrative users or system-level operations.
-			/// </remarks>
-
-			public const Tools ToolsPermission = Tools.SystemInformation | Tools.SettingsList | Tools.SettingsGet | Tools.SettingsSet | Tools.MethodsList | Tools.MethodsInvoke;
-		}
-
-		/// <summary>
-		/// Specifies the set of tools or permissions that can be granted to a large language model (LLM) for interacting with
-		/// system and plugin features.
-		/// </summary>
-		/// <remarks>Each value in the enumeration represents a specific capability that can be enabled for the LLM,
-		/// such as accessing system information, retrieving or modifying settings, or invoking plugin methods. Multiple
-		/// permissions can be combined using a bitwise OR operation to grant the LLM access to multiple tools.</remarks>
-		[Flags]
-		public enum Tools : UInt32
-		{
-			/// <summary>Represents permission for LLM to access system information such as current date and time, which can be essential for generating accurate and contextually relevant responses, especially when dealing with time-sensitive queries or when the assistant's behavior depends on the current system state.</summary>
-			SystemInformation = 1 << 0,
-			/// <summary>Represents permission for LLM to retrieve the list of available plugin settings and their metadata (name, description, type).</summary>
-			SettingsList = 1 << 1,
-			/// <summary>Represents permission to retrieve plugin settings value.</summary>
-			SettingsGet = 1 << 2,
-			/// <summary>
-			/// Permission for LLM to modify application setting value.
-			/// This is a powerful permission that allows the LLM to change the behavior of the application, so it should be granted with caution.
-			/// </summary>
-			SettingsSet = 1 << 3,
-			/// <summary>Permission for LLM to retrieve the list of available plugins and their methods, along with method metadata (name, description, parameters).</summary>
-			MethodsList = 1 << 4,
-			/// <summary>
-			/// Permission for LLM to invoke plugin methods.
-			/// This allows the LLM to execute actions and retrieve information from plugins, enabling dynamic interactions and automation based on user queries.
-			/// Like SettingsSet, this is a powerful permission that should be granted with caution, as it allows the LLM to perform operations that can affect the system or access sensitive data through plugins.
-			/// </summary>
-			MethodsInvoke = 1 << 5,
-		}
+		public static readonly TimeSpan ConnectionTimeout = TimeSpan.FromSeconds(100);
+	}
 
 		private AiProviderType _providerType = Defaults.ProviderType;
 		private String _modelId = Defaults.ModelId;
@@ -82,7 +44,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		private Double? _temperature;
 		private Int32? _maxTokens;
 		private TimeSpan _connectionTimeout = Defaults.ConnectionTimeout;
-		private Tools _toolsPermission = Defaults.ToolsPermission;
+		private String[] _toolsPermission = Array.Empty<String>();
 
 		private ReasoningOutput? _reasoningOutput = null;
 		private ReasoningEffort? _reasoningEffort = null;
@@ -196,19 +158,12 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		}
 
 		[Category("Prompt Settings")]
-		[Editor(typeof(ColumnEditor<Tools>), typeof(UITypeEditor))]
-		[DefaultValue(Defaults.ToolsPermission)]
-		[Description("Controls the permissions granted to the assistant for using various tools and accessing system information. Use bitwise combination of flags to grant multiple permissions.")]
-		public Tools ToolsPermission
+		[Editor(typeof(ToolPermissionEditor), typeof(UITypeEditor))]
+		[Description("Controls which tools the assistant may use. Leave empty to allow all tools; otherwise only the listed method names are enabled.")]
+		public String[] ToolsPermission
 		{
 			get => this._toolsPermission;
-			set
-			{
-				if((value & ~Defaults.ToolsPermission) != 0 || value == (Tools)0)
-					value = Defaults.ToolsPermission;
-
-				this.SetField(ref this._toolsPermission, value, nameof(this.ToolsPermission));
-			}
+			set => this.SetField(ref this._toolsPermission, value ?? Array.Empty<String>(), nameof(this.ToolsPermission));
 		}
 
 		[Category("Debugging")]

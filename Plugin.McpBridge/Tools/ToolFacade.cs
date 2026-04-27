@@ -3,7 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Events;
 
-namespace Plugin.McpBridge.Helpers;
+namespace Plugin.McpBridge.Tools;
 
 /// <summary>Catches tool exceptions and returns the message as a string so the LLM receives a result rather than a broken conversation.</summary>
 internal sealed class ToolFacade : DelegatingAIFunction

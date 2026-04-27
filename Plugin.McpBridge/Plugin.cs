@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
 using Plugin.McpBridge.Events;
-using Plugin.McpBridge.Helpers;
 using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
 using SAL.Windows;
@@ -93,7 +92,7 @@ namespace Plugin.McpBridge
 			PluginSettingsTools settingsTools = new PluginSettingsTools(this.Host);
 			PluginMethodsTools methodsTools = new PluginMethodsTools(this.Host);
 			ShellTools shellTools = new ShellTools();
-			ToolFactory toolsFactory = new ToolFactory(this.Trace, settingsTools, methodsTools, shellTools);
+			ToolsFactory toolsFactory = new ToolsFactory(this.Trace, settingsTools, methodsTools, shellTools);
 			var result = new AssistantAgent(this.Trace, this.Host, toolsFactory);
 			result.Initialize(this.Settings);
 

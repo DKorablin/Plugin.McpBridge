@@ -35,7 +35,7 @@ partial class PanelChat
 	/// </summary>
 	private void InitializeComponent()
 	{
-		this.rtfResponse = new RichTextBox();
+		this.mdResponse = new MarkdownCtrl();
 		this.tsBottom = new ToolStrip();
 		this.tsbnSend = new ToolStripButton();
 		this.txtRequest = new TextBox();
@@ -56,16 +56,16 @@ partial class PanelChat
 		// 
 		// rtfResponse
 		// 
-		this.rtfResponse.BackColor = SystemColors.Window;
-		this.rtfResponse.BorderStyle = BorderStyle.None;
-		this.rtfResponse.Dock = DockStyle.Fill;
-		this.rtfResponse.Location = new Point(0, 0);
-		this.rtfResponse.Name = "rtfResponse";
-		this.rtfResponse.ReadOnly = true;
-		this.rtfResponse.ScrollBars = RichTextBoxScrollBars.Vertical;
-		this.rtfResponse.Size = new Size(175, 70);
-		this.rtfResponse.TabIndex = 2;
-		this.rtfResponse.Text = "";
+		this.mdResponse.BackColor = SystemColors.Window;
+		this.mdResponse.BorderStyle = BorderStyle.None;
+		this.mdResponse.Dock = DockStyle.Fill;
+		this.mdResponse.Location = new Point(0, 0);
+		this.mdResponse.Name = "mdResponse";
+		this.mdResponse.ReadOnly = true;
+		this.mdResponse.ScrollBars = RichTextBoxScrollBars.Vertical;
+		this.mdResponse.Size = new Size(175, 70);
+		this.mdResponse.TabIndex = 2;
+		this.mdResponse.Text = "";
 		// 
 		// tsBottom
 		// 
@@ -143,7 +143,7 @@ partial class PanelChat
 		// 
 		// splitMain.Panel1
 		// 
-		this.splitMain.Panel1.Controls.Add(this.rtfResponse);
+		this.splitMain.Panel1.Controls.Add(this.mdResponse);
 		this.splitMain.Panel1.Controls.Add(this.pnlConfirmation);
 		// 
 		// splitMain.Panel2
@@ -185,7 +185,7 @@ partial class PanelChat
 	private ToolStrip tsTop;
 	private ToolStripButton bnNewConversation;
 	private TextBox txtRequest;
-	private RichTextBox rtfResponse;
+	private MarkdownCtrl mdResponse;
 	private ToolStrip tsBottom;
 	private ToolStripButton tsbnSend;
 	private ConfirmationPanel pnlConfirmation;

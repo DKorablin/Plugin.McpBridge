@@ -7,7 +7,6 @@ using FluentAssertions;
 using Microsoft.Extensions.AI;
 using Moq;
 using Plugin.McpBridge.Events;
-using Plugin.McpBridge.Helpers;
 using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
 using Xunit;
@@ -22,7 +21,7 @@ namespace Plugin.McpBridge.Tests
 		public void Ctor_TraceIsNull_ThrowsArgumentNullException()
 		{
 			(IHost host, PluginSettingsTools _, PluginMethodsTools _, ShellTools _) = TestUtils.CreateDependencies();
-			ToolFactory factory = TestUtils.CreateToolFactory();
+			ToolsFactory factory = TestUtils.CreateToolFactory();
 
 			Action act = () => _ = new AssistantAgent(null!, host, factory);
 
@@ -32,7 +31,7 @@ namespace Plugin.McpBridge.Tests
 		[Fact]
 		public void Ctor_HostIsNull_ThrowsArgumentNullException()
 		{
-			ToolFactory factory = TestUtils.CreateToolFactory();
+			ToolsFactory factory = TestUtils.CreateToolFactory();
 
 			Action act = () => _ = new AssistantAgent(TestUtils.Trace, null!, factory);
 
@@ -75,7 +74,7 @@ namespace Plugin.McpBridge.Tests
 				.ReturnsAsync(new ChatResponse(new ChatMessage(ChatRole.Assistant, "ok")));
 
 			(IHost host, PluginSettingsTools settings, PluginMethodsTools methods, ShellTools shell) = TestUtils.CreateDependencies();
-			ToolFactory factory = new ToolFactory(TestUtils.Trace, shell, settings, methods);
+			ToolsFactory factory = new ToolsFactory(TestUtils.Trace, shell, settings, methods);
 			AssistantAgent sut = new AssistantAgent(TestUtils.Trace, host, factory, (s, h) => mockClient.Object);
 			Settings agentSettings = new Settings { ProviderType = AiProviderType.LocalOpenAICompatible };
 

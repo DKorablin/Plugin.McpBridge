@@ -2,7 +2,6 @@
 using System.Globalization;
 using System.Reflection;
 using System.Text;
-using Plugin.McpBridge.Helpers;
 using SAL.Flatbed;
 
 namespace Plugin.McpBridge.Tools
@@ -20,7 +19,7 @@ namespace Plugin.McpBridge.Tools
 		public static Boolean HasPluginSettings(IPluginDescription pluginDescription)
 			=> pluginDescription.Instance is IPluginSettings;
 
-		[Tool(Settings.Tools.SettingsList)]
+		[Tool]
 		[Description("List all available settings for a plugin")]
 		public Task<String> SettingsList([Description("Plugin identifier")] String pluginId)
 		{
@@ -84,7 +83,7 @@ namespace Plugin.McpBridge.Tools
 			}
 		}
 
-		[Tool(Settings.Tools.SettingsGet)]
+		[Tool]
 		[Description("Get the current value of a specific plugin setting")]
 		public Task<Object?> SettingsGet(
 			[Description("Plugin identifier")] String pluginId,
@@ -99,7 +98,7 @@ namespace Plugin.McpBridge.Tools
 			return Task.FromResult(propertyInfo.GetValue(settingsInstance, null));
 		}
 
-		[Tool(Settings.Tools.SettingsSet, confirmationRequired: true)]
+		[Tool(confirmationRequired: true)]
 		[Description("Update a plugin setting value; requires user confirmation")]
 		public Task<Object?> SettingsSet(
 			[Description("Plugin identifier")] String pluginId,

@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Reflection;
 using Microsoft.Extensions.AI;
 using Moq;
-using Plugin.McpBridge.Helpers;
 using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
 
@@ -29,16 +28,16 @@ internal static class TestUtils
 			new ShellTools(timeProvider));
 	}
 
-	public static ToolFactory CreateToolFactory(IPluginDescription? pluginDescription = null, TimeProvider? timeProvider = null)
+	public static ToolsFactory CreateToolFactory(IPluginDescription? pluginDescription = null, TimeProvider? timeProvider = null)
 	{
 		(IHost _, PluginSettingsTools settings, PluginMethodsTools methods, ShellTools shell) = CreateDependencies(pluginDescription, timeProvider);
-		return new ToolFactory(Trace, shell, settings, methods);
+		return new ToolsFactory(Trace, shell, settings, methods);
 	}
 
 	public static AssistantAgent CreateSut(IPluginDescription? pluginDescription = null)
 	{
 		(IHost host, PluginSettingsTools settings, PluginMethodsTools methods, ShellTools shell) = CreateDependencies(pluginDescription);
-		ToolFactory toolFactory = new ToolFactory(Trace, shell, settings, methods);
+		ToolsFactory toolFactory = new ToolsFactory(Trace, shell, settings, methods);
 		return new AssistantAgent(Trace, host, toolFactory);
 	}
 
@@ -48,7 +47,7 @@ internal static class TestUtils
 		Mock<IChatClient>? mockChatClient = null)
 	{
 		(IHost host, PluginSettingsTools settingsTools, PluginMethodsTools methodsTools, ShellTools shellTools) = CreateDependencies(pluginDescription, timeProvider);
-		ToolFactory toolFactory = new ToolFactory(Trace, shellTools, settingsTools, methodsTools);
+		ToolsFactory toolFactory = new ToolsFactory(Trace, shellTools, settingsTools, methodsTools);
 		mockChatClient ??= new Mock<IChatClient>();
 
 		Settings settings = new Settings

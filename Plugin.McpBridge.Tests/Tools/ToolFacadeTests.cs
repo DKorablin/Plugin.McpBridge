@@ -2,12 +2,11 @@
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
-using Plugin.McpBridge.Helpers;
 using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
 using Xunit;
 
-namespace Plugin.McpBridge.Tests.Helpers
+namespace Plugin.McpBridge.Tests.Tools
 {
 	public class ToolFacadeTests
 	{

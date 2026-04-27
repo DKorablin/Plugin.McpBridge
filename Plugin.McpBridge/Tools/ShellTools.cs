@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel;
 using System.Globalization;
-using Plugin.McpBridge.Helpers;
 
 namespace Plugin.McpBridge.Tools
 {
@@ -13,9 +12,9 @@ namespace Plugin.McpBridge.Tools
 			this._timeProvider = timeProvider ?? TimeProvider.System;
 		}
 
-		[Tool(Settings.Tools.SystemInformation)]
+		[Tool]
 		[Description("Get the current host environment system information including OS version, DateTime format and UTC")]
-		internal async Task<String> SystemInformation()
+		public async Task<String> SystemInformation()
 		{
 			DateTimeFormatInfo formatPreferences = CultureInfo.CurrentCulture.DateTimeFormat;
 			String result = @$"
