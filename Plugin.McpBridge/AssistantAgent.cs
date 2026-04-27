@@ -79,7 +79,7 @@ namespace Plugin.McpBridge
 				tools: tools);
 		}
 
-		public async Task InvokeMessageAsync(String message, CancellationToken cancellationToken = default)
+		public async Task InvokeMessageAsync(String message, DataContent[]? images = null, CancellationToken cancellationToken = default)
 		{
 			if(String.IsNullOrWhiteSpace(message))
 			{
@@ -100,7 +100,9 @@ namespace Plugin.McpBridge
 
 			try
 			{
-				AgentResponse response = await this._agent.RunAsync(message, this._session, null, cancellationToken);
+				AgentResponse response = images != null && images.Length > 0
+					? await this._agent.RunAsync(AssistantAgent.BuildUserMessage(message, images), this._session, null, cancellationToken)
+					: await this._agent.RunAsync(message, this._session, null, cancellationToken);
 				this.HandleResponse(response);
 			}
 			catch(HttpRequestException exc)
@@ -173,6 +175,14 @@ namespace Plugin.McpBridge
 				pluginsText.AppendLine();
 			}
 			return pluginsText.ToString().Trim();
+		}
+
+		private static ChatMessage BuildUserMessage(String text, DataContent[] images)
+		{
+			List<AIContent> contents = new List<AIContent> { new TextContent(text) };
+			foreach(DataContent image in images)
+				contents.Add(image);
+			return new ChatMessage(ChatRole.User, contents);
 		}
 
 		private IChatClient BuildChatClient(Settings settings, HttpClient httpClient)

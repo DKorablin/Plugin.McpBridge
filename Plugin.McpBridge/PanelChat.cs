@@ -1,4 +1,7 @@
 ﻿using System.ComponentModel;
+using System.Drawing.Imaging;
+using System.IO;
+using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Events;
 using Plugin.McpBridge.UI;
 using SAL.Windows;
@@ -79,7 +82,7 @@ public partial class PanelChat : UserControl
 		return this._agent;
 	}
 
-	private void InvokeMessage(String message)
+	private void InvokeMessage(String message, DataContent[] images)
 	{
 		if(String.IsNullOrWhiteSpace(message))
 			return;
@@ -93,11 +96,13 @@ public partial class PanelChat : UserControl
 
 		CancellationToken token = this._cts.Token;
 		AssistantAgent agent = this.GetAgent();
+		Application.DoEvents();
+
 		Task.Run(async () =>
 		{
 			try
 			{
-				await agent.InvokeMessageAsync(message, token);
+				await agent.InvokeMessageAsync(message, images, token);
 			} catch(Exception ex)
 			{
 				this.Invoke(() => rtfResponse.AppendMessage(ex.Message, RichEditBoxExtension.MessageKind.Error));
@@ -164,9 +169,12 @@ public partial class PanelChat : UserControl
 
 		txtRequest.Clear();
 		rtfResponse.AppendMessage(request, RichEditBoxExtension.MessageKind.User);
-		pnlAttachments.ClearAttachments();
+		Image[] rawImages = pnlAttachments.TakeAttachments();
+		DataContent[] images = PanelChat.ImagesToDataContent(rawImages);
+		foreach(Image img in rawImages)
+			img.Dispose();
 
-		this.InvokeMessage(request);
+		this.InvokeMessage(request, images);
 	}
 
 	private void txtRequest_KeyDown(Object sender, KeyEventArgs e)
@@ -193,4 +201,16 @@ public partial class PanelChat : UserControl
 		=> splitMain.SplitterDistance = pnlAttachments.Visible
 			? Math.Max(splitMain.Panel1MinSize, splitMain.SplitterDistance - pnlAttachments.Height)
 			: Math.Min(splitMain.Height - splitMain.Panel2MinSize - splitMain.SplitterWidth, splitMain.SplitterDistance + pnlAttachments.Height);
+
+	private static DataContent[] ImagesToDataContent(Image[] images)
+	{
+		DataContent[] result = new DataContent[images.Length];
+		for(Int32 i = 0; i < images.Length; i++)
+		{
+			using MemoryStream ms = new MemoryStream();
+			images[i].Save(ms, ImageFormat.Png);
+			result[i] = new DataContent(ms.ToArray(), "image/png");
+		}
+		return result;
+	}
 }

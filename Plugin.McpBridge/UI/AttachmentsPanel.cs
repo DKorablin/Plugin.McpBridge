@@ -68,8 +68,20 @@ internal sealed class AttachmentsPanel : FlowLayoutPanel
 	}
 
 	/// <summary>Returns a snapshot array of all currently attached images.</summary>
-	public IEnumerable<Image> GetAttachments()
-		=> this._attachments.Select(a => a.Image);
+	public Image[] GetAttachments()
+		=> this._attachments.Select(a => a.Image).ToArray();
+
+	/// <summary>Transfers ownership of all attached images to the caller, disposes the thumbnail panels and hides the strip. The caller is responsible for disposing the returned images.</summary>
+	public Image[] TakeAttachments()
+	{
+		Image[] images = this._attachments.Select(a => a.Image).ToArray();
+		foreach((Image _, Panel panel) in this._attachments)
+			panel.Dispose();
+		this._attachments.Clear();
+		this.Controls.Clear();
+		this.Visible = false;
+		return images;
+	}
 
 	/// <summary>Removes and disposes all attachments.</summary>
 	public void ClearAttachments()
