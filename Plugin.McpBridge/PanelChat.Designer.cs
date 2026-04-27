@@ -35,7 +35,6 @@ partial class PanelChat
 	/// </summary>
 	private void InitializeComponent()
 	{
-		System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(PanelChat));
 		this.rtfResponse = new RichTextBox();
 		this.tsBottom = new ToolStrip();
 		this.tsbnSend = new ToolStripButton();
@@ -79,7 +78,9 @@ partial class PanelChat
 		// 
 		this.tsbnSend.Alignment = ToolStripItemAlignment.Right;
 		this.tsbnSend.DisplayStyle = ToolStripItemDisplayStyle.Image;
-		this.tsbnSend.Image = (Image)resources.GetObject("tsbnSend.Image");
+		this._imgSend = PanelChat.ImageFromBase64("iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAACRSURBVDhPY2AYHKD8ugJD/X0OdGHiQfn1Boby6+8ZKq63gw0jGYAMqLj+HwkvZyi/7oCujDBANeQ/Q9nV6wzl1xNI9x66QWR7D90gsr2HaQjMe0S4CF1jxfXn4EAvuSKBrhQBMDWB8HFwgOIFmJr+M1Rcnc9Qds0CXSkqwEwHRDgTGSAMIMKZ2AAoWgg6k0YAAHcZl5HLIgRYAAAAAElFTkSuQmCC");
+		this._imgCancel = PanelChat.ImageFromBase64("iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAFfSURBVDhPY2CgJTiqI6lxWFva4YiWlAG6HE6wX16e44i2TPsRbenvR7Rl/qNgLenl+7XkJdD1wAHIpsNaMtcxNKJg6ecgV6Hrhdl8/5S94f9HU/v+nw92R9F42s0CLH7WxwHkkvcYLjmsLTMdpPDx7Cn/QeDvjx//r6bHgDWDDPv96SNY/N3h/TCXbEezHeJnkCYYABlyt6UarhkE7nU0wF11XF1eAWwAyO/Izr1VXQjXgAxAXkBWd0hTJgBigKZUBrIECD+c0oOi+dXmdSjyIHxYW7oB6n9pB2QJZD/DAHKYwLGWbAIkDPTlBWCCoFBG1vx27w4UQy4nhCIZgJTAjmjJ7AcJwmIBBGB+Rg4TRCzI3IdrBgFQsgXFBMiGD6eO/X/Q347i3BslWWDxO42VMP9jJqZD2jIRWJMwGj6sLV2ArhcOIC6ROY6uCYJxJGNs4LCGtAUoekFRBbIRl0WAKK+j5zJluA0AAAAASUVORK5CYII=");
+		this.tsbnSend.Image = this._imgSend;
 		this.tsbnSend.ImageTransparentColor = Color.Magenta;
 		this.tsbnSend.Name = "tsbnSend";
 		this.tsbnSend.Size = new Size(23, 22);
@@ -173,4 +174,9 @@ partial class PanelChat
 	private ToolStrip tsBottom;
 	private ToolStripButton tsbnSend;
 	private ConfirmationPanel pnlConfirmation;
+	private Image _imgSend;
+	private Image _imgCancel;
+
+	private static Image ImageFromBase64(String b64)
+		=> new Bitmap(new System.IO.MemoryStream(Convert.FromBase64String(b64)));
 }

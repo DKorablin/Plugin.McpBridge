@@ -62,6 +62,7 @@ public partial class PanelChat : UserControl
 		pnlConfirmation.Dismiss();
 		this._streamingActive = false;
 		tsbnSend.Text = "&Send";
+		tsbnSend.Image = this._imgSend;
 		tsbnSend.Enabled = true;
 	}
 
@@ -86,6 +87,7 @@ public partial class PanelChat : UserControl
 		this._cts?.Dispose();
 		this._cts = new CancellationTokenSource();
 		tsbnSend.Text = "&Cancel";
+		tsbnSend.Image = this._imgCancel;
 
 		CancellationToken token = this._cts.Token;
 		AssistantAgent agent = this.GetAgent();
@@ -102,6 +104,7 @@ public partial class PanelChat : UserControl
 				this.Invoke(() =>
 					{
 						tsbnSend.Text = "&Send";
+						tsbnSend.Image = this._imgSend;
 						this._cts?.Dispose();
 						this._cts = null;
 					});
