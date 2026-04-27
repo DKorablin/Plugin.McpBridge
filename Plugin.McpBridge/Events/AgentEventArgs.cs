@@ -1,4 +1,4 @@
-﻿namespace Plugin.McpBridge
+﻿namespace Plugin.McpBridge.Events
 {
 	/// <summary>Arguments for the AiResponseReceived event.</summary>
 	internal sealed class AgentResponseEventArgs : EventArgs
@@ -23,9 +23,7 @@
 		public Task<Boolean> ConfirmationTask => this._tcs.Task;
 
 		public AgentConfirmationEventArgs(String actionDescription)
-		{
-			this.ActionDescription = actionDescription;
-		}
+			=> this.ActionDescription = actionDescription ?? throw new ArgumentNullException(nameof(actionDescription));
 
 		public void Confirm(Boolean allowed)
 			=> this._tcs.TrySetResult(allowed);

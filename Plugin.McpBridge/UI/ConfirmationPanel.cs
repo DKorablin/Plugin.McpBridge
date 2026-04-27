@@ -1,5 +1,6 @@
 ﻿using System.Drawing;
 using System.Windows.Forms;
+using Plugin.McpBridge.Events;
 
 namespace Plugin.McpBridge.UI;
 

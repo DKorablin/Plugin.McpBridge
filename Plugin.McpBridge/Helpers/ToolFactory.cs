@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Reflection;
 using Microsoft.Extensions.AI;
+using Plugin.McpBridge.Events;
 using Plugin.McpBridge.Tools;
 
 namespace Plugin.McpBridge.Helpers;

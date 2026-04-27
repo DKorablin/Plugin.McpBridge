@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using Plugin.McpBridge.Events;
 using Plugin.McpBridge.UI;
 using SAL.Windows;
 
