@@ -44,7 +44,7 @@ partial class PanelChat
 		this.splitMain = new SplitContainer();
 		this.pnlConfirmation = new ConfirmationPanel();
 		this.pnlInput = new Panel();
-		this.pnlAttachments = new FlowLayoutPanel();
+		this.pnlAttachments = new AttachmentsPanel();
 		this.tsBottom.SuspendLayout();
 		this.tsTop.SuspendLayout();
 		((System.ComponentModel.ISupportInitialize)this.splitMain).BeginInit();
@@ -101,13 +101,8 @@ partial class PanelChat
 		// 
 		// pnlAttachments
 		// 
-		this.pnlAttachments.AutoScroll = true;
-		this.pnlAttachments.Dock = DockStyle.Bottom;
-		this.pnlAttachments.FlowDirection = FlowDirection.LeftToRight;
-		this.pnlAttachments.Height = 62;
 		this.pnlAttachments.Name = "pnlAttachments";
-		this.pnlAttachments.Visible = false;
-		this.pnlAttachments.WrapContents = false;
+		this.pnlAttachments.VisibleChanged += this.PnlAttachments_VisibleChanged;
 		// 
 		// pnlInput
 		// 
@@ -195,7 +190,7 @@ partial class PanelChat
 	private ToolStripButton tsbnSend;
 	private ConfirmationPanel pnlConfirmation;
 	private Panel pnlInput;
-	private FlowLayoutPanel pnlAttachments;
+	private AttachmentsPanel pnlAttachments;
 	private Image _imgSend;
 	private Image _imgCancel;
 
