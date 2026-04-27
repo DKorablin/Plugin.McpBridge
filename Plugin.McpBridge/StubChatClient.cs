@@ -1,19 +1,17 @@
-using System.Collections.Generic;
-using System.Linq;
-using Microsoft.Extensions.AI;
+ï»¿using Microsoft.Extensions.AI;
 
 namespace Plugin.McpBridge
 {
-	/// <summary>Scripted IChatClient for UI testing — returns predefined responses with no network or credentials.</summary>
+	/// <summary>Scripted IChatClient for UI testing â€” returns predefined responses with no network or credentials.</summary>
 	/// <remarks>
 	/// Trigger phrases in the user message (case-insensitive):
 	/// <list type="bullet">
-	///   <item><c>help</c> — markdown response with headers, lists and code.</item>
-	///   <item><c>long</c> — multi-paragraph response to exercise scrolling.</item>
-	///   <item><c>invoke</c> — simulates a MethodsInvoke tool call; triggers the confirmation panel.</item>
-	///   <item><c>events</c> — simulates a real plugin method call to get events; triggers the confirmation panel.</item>
-	///   <item><c>settings</c> — simulates a SettingsSet tool call; triggers the confirmation panel.</item>
-	///   <item>anything else — short default markdown response.</item>
+	///   <item><c>help</c> â€” markdown response with headers, lists and code.</item>
+	///   <item><c>long</c> â€” multi-paragraph response to exercise scrolling.</item>
+	///   <item><c>invoke</c> â€” simulates a MethodsInvoke tool call; triggers the confirmation panel.</item>
+	///   <item><c>events</c> â€” simulates a real plugin method call to get events; triggers the confirmation panel.</item>
+	///   <item><c>settings</c> â€” simulates a SettingsSet tool call; triggers the confirmation panel.</item>
+	///   <item>anything else â€” short default markdown response.</item>
 	/// </list>
 	/// </remarks>
 	internal sealed class StubChatClient : IChatClient
@@ -23,11 +21,11 @@ namespace Plugin.McpBridge
 I am a **stub** assistant for UI testing.
 
 Try typing:
-- `help` — formatted markdown
-- `long` — long response
-- `invoke` — confirmation panel (MethodsInvoke)
+- `help` â€” formatted markdown
+- `long` â€” long response
+- `invoke` â€” confirmation panel (MethodsInvoke)
 - `events` - real test plugin method call (MethodsInvoke)
-- `settings` — confirmation panel (SettingsSet)";
+- `settings` â€” confirmation panel (SettingsSet)";
 
 		private static readonly String HelpResponse = @"# Markdown Test
 
@@ -55,49 +53,47 @@ Console.WriteLine(x);
 Lorem ipsum dolor sit amet, consectetur adipiscing elit. 
 Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."));
 
-		public Task<ChatResponse> GetResponseAsync(
-			IEnumerable<ChatMessage> messages,
-			ChatOptions? options = null,
-			CancellationToken cancellationToken = default)
+		public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
 		{
-			ChatMessage[] allMessages = messages as ChatMessage[] ?? messages.ToArray();
-			String userText = allMessages.LastOrDefault(m => m.Role == ChatRole.User)?.Text ?? String.Empty;
-			String lower = userText.ToLowerInvariant();
+			ChatMessage lastMessage = messages.LastOrDefault() ?? new ChatMessage(ChatRole.User, String.Empty);
 
-			if(allMessages[allMessages.Length - 1].Role == ChatRole.Tool)
-				return Task.FromResult(BuildText("The tool was executed. Here is a **summary** of the result."));
-
-			if(lower.Contains("invoke"))
-				return Task.FromResult(BuildToolCall(nameof(AssistantAgent.MethodsInvoke), new Dictionary<String, Object?>
+			if(lastMessage.Role == ChatRole.Tool)
+				return Task.FromResult(BuildText($"The tool was executed. Here is a **summary** of the result:{Environment.NewLine}{lastMessage.Text}"));
+			else if(lastMessage.Role == ChatRole.User)
+			{
+				String lower = lastMessage.Text.ToLowerInvariant();
+				switch(lower)
 				{
-					{ "pluginId", "stub-plugin" },
-					{ "methodName", "StubMethod" },
-					{ "argsJson", "{}" },
-				}));
-
-			if(lower.Contains("events"))
-				return Task.FromResult(BuildToolCall(nameof(AssistantAgent.MethodsInvoke), new Dictionary<String, Object?>
-				{
-					{ "pluginId", "535b6be7-847b-45ab-bdaa-68e1e52be508" },
-					{ "methodName", "GetEvents" },
-					{ "argsJson", "{\"timeStart\":\"2026-04-25T00:00:00\", \"timeEnd\":\"2026-04-25T23:59:59\", \"eventLogEntryTypes\": [\"Error\",\"Warning\",\"Information\"]}" },
-				}));
-
-			if(lower.Contains("settings"))
-				return Task.FromResult(BuildToolCall(nameof(AssistantAgent.SettingsSet), new Dictionary<String, Object?>
-				{
-					{ "pluginId", "stub-plugin" },
-					{ "settingName", "StubSetting" },
-					{ "valueJson", "\"stub-value\"" },
-				}));
-
-			if(lower.Contains("help"))
-				return Task.FromResult(BuildText(HelpResponse));
-
-			if(lower.Contains("long"))
-				return Task.FromResult(BuildText(LongResponse));
-
-			return Task.FromResult(BuildText(DefaultResponse));
+				case "invoke":
+					return Task.FromResult(BuildToolCall(nameof(AssistantAgent.MethodsInvoke), new Dictionary<String, Object?>
+					{
+						{ "pluginId", "stub-plugin" },
+						{ "methodName", "StubMethod" },
+						{ "argsJson", "{}" },
+					}));
+				case "events":
+					return Task.FromResult(BuildToolCall(nameof(AssistantAgent.MethodsInvoke), new Dictionary<String, Object?>
+					{
+						{ "pluginId", "535b6be7-847b-45ab-bdaa-68e1e52be508" },
+						{ "methodName", "GetEvents" },
+						{ "argsJson", "{\"timeStart\":\"2026-04-25T00:00:00\", \"timeEnd\":\"2026-04-25T23:59:59\", \"eventLogEntryTypes\": [\"Error\",\"Warning\",\"Information\"]}" },
+					}));
+				case "settings":
+					return Task.FromResult(BuildToolCall(nameof(AssistantAgent.SettingsSet), new Dictionary<String, Object?>
+					{
+						{ "pluginId", "stub-plugin" },
+						{ "settingName", "StubSetting" },
+						{ "valueJson", "\"stub-value\"" },
+					}));
+				case "help":
+					return Task.FromResult(BuildText(HelpResponse));
+				case "long":
+					return Task.FromResult(BuildText(LongResponse));
+				default:
+					return Task.FromResult(BuildText(DefaultResponse));
+				}
+			} else
+				return Task.FromResult(BuildText($"Received a message with role {lastMessage.Role} and text: {lastMessage.Text}"));
 		}
 
 		public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(

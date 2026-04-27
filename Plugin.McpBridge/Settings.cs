@@ -33,7 +33,6 @@ Use available MCP tools when useful.
 Return clear user-facing responses, or a command payload only when automation is required.
 Before using relative dates (today, yesterday, last hour), obtain the current system time from the SystemInformation tool.";
 			public static readonly TimeSpan ConnectionTimeout = TimeSpan.FromSeconds(100);
-			public const Int32 MaxToolResultLength = 8000;
 			/// <summary>Represents a combination of all available tool permissions.</summary>
 			/// <remarks>
 			/// Use this value to grant access to all tool-related operations.
@@ -83,7 +82,6 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		private Double? _temperature;
 		private Int32? _maxTokens;
 		private TimeSpan _connectionTimeout = Defaults.ConnectionTimeout;
-		private Int32 _maxToolResultLength = Defaults.MaxToolResultLength;
 		private Tools _toolsPermission = Defaults.ToolsPermission;
 
 		private ReasoningOutput? _reasoningOutput = null;
@@ -194,21 +192,6 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 					value = null;
 
 				this.SetField(ref this._maxTokens, value, nameof(this.MaxTokens));
-			}
-		}
-
-		/// <summary>The maximum number of characters returned by a single tool invocation result.</summary>
-		[Category("Prompt Settings")]
-		[DefaultValue(Defaults.MaxToolResultLength)]
-		[Description("The maximum number of characters returned by a single tool invocation result. Prevents large plugin responses from exceeding the model context limit.")]
-		public Int32 MaxToolResultLength
-		{
-			get => this._maxToolResultLength;
-			set
-			{
-				if(value <= 0)
-					value = Defaults.MaxToolResultLength;
-				this.SetField(ref this._maxToolResultLength, value, nameof(this.MaxToolResultLength));
 			}
 		}
 

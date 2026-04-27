@@ -126,10 +126,10 @@ namespace Plugin.McpBridge.Tests.Helpers
 		{
 			PluginSettingsHelper sut = CreateSut(CreatePluginDescription(PluginId, new AnnotatedSettings { Named = "test-value" }));
 
-			String result = sut.ReadPluginSetting(PluginId, "Named");
+			Object? result = sut.ReadPluginSetting(PluginId, "Named");
 
-			result.Should().Contain("[Named] = test-value");
-			result.Should().Contain("(String)");
+			result.Should().BeOfType<String>();
+			result.Should().Be("test-value");
 		}
 
 		[Fact]
@@ -137,9 +137,10 @@ namespace Plugin.McpBridge.Tests.Helpers
 		{
 			PluginSettingsHelper sut = CreateSut(CreatePluginDescription(PluginId, new AnnotatedSettings { Named = "found" }));
 
-			String result = sut.ReadPluginSetting(PluginId, "Display Name");
+			Object? result = sut.ReadPluginSetting(PluginId, "Display Name");
 
-			result.Should().Contain("[Named] = found");
+			result.Should().BeOfType<String>();
+			result.Should().Be("found");
 		}
 
 		[Fact]
@@ -178,10 +179,10 @@ namespace Plugin.McpBridge.Tests.Helpers
 			AnnotatedSettings settings = new AnnotatedSettings { Named = "old" };
 			PluginSettingsHelper sut = CreateSut(CreatePluginDescription(PluginId, settings));
 
-			String result = sut.UpdatePluginSetting(PluginId, "Named", "new-value");
+			Object? result = sut.UpdatePluginSetting(PluginId, "Named", "new-value");
 
 			settings.Named.Should().Be("new-value");
-			result.Should().Contain("[Named] = new-value");
+			result.Should().Be("new-value");
 		}
 
 		[Fact]
@@ -190,10 +191,10 @@ namespace Plugin.McpBridge.Tests.Helpers
 			AnnotatedSettings settings = new AnnotatedSettings { Count = 0 };
 			PluginSettingsHelper sut = CreateSut(CreatePluginDescription(PluginId, settings));
 
-			String result = sut.UpdatePluginSetting(PluginId, "Count", "99");
+			Object? result = sut.UpdatePluginSetting(PluginId, "Count", "99");
 
 			settings.Count.Should().Be(99);
-			result.Should().Contain("[Count] = 99");
+			result.Should().Be(99);
 		}
 
 		[Fact]

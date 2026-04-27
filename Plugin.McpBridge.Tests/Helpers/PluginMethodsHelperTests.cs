@@ -1,9 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using System.Text.Json;
 using FluentAssertions;
 using Moq;
 using Plugin.McpBridge.Helpers;
@@ -128,7 +126,7 @@ namespace Plugin.McpBridge.Tests.Helpers
 		}
 
 		[Fact]
-		public void InvokePluginMethodPlaceholder_PluginNotFound_ThrowsArgumentException()
+		public void InvokePluginMethod_PluginNotFound_ThrowsArgumentException()
 		{
 			PluginMethodsHelper sut = CreateSut(null);
 
@@ -138,7 +136,7 @@ namespace Plugin.McpBridge.Tests.Helpers
 		}
 
 		[Fact]
-		public void InvokePluginMethodPlaceholder_MethodNotFound_ThrowsArgumentException()
+		public void InvokePluginMethod_MethodNotFound_ThrowsArgumentException()
 		{
 			Mock<IPluginDescription> pluginDescription = new Mock<IPluginDescription>();
 			pluginDescription.SetupGet(x => x.ID).Returns("plugin-id");
@@ -152,7 +150,7 @@ namespace Plugin.McpBridge.Tests.Helpers
 		}
 
 		[Fact]
-		public void InvokePluginMethodPlaceholder_ValidMethod_ConvertsArgumentsAndSerializesResult()
+		public void InvokePluginMethod_ValidMethod_ConvertsArguments()
 		{
 			Mock<IPluginParameterInfo> firstParameter = CreateParameter("levels", "System.String[]", false);
 			Mock<IPluginParameterInfo> secondParameter = CreateParameter("from", "System.DateTime", false);
@@ -181,7 +179,7 @@ namespace Plugin.McpBridge.Tests.Helpers
 
 			PluginMethodsHelper sut = CreateSut(pluginDescription.Object, "plugin-id");
 
-			String result = sut.InvokePluginMethod("plugin-id", "Execute", "{\"levels\":[\"Warning\",\"Information\"],\"from\":\"2026-04-05T00:00:00\",\"to\":\"2026-04-05T23:59:59\"}");
+			Object? result = sut.InvokePluginMethod("plugin-id", "Execute", "{\"levels\":[\"Warning\",\"Information\"],\"from\":\"2026-04-05T00:00:00\",\"to\":\"2026-04-05T23:59:59\"}");
 
 			invokedArguments.Should().NotBeNull();
 			invokedArguments[0].Should().BeEquivalentTo(new String[] { "Warning", "Information" });
@@ -189,9 +187,7 @@ namespace Plugin.McpBridge.Tests.Helpers
 			invokedArguments[2].Should().Be(new DateTime(2026, 04, 05, 23, 59, 59));
 			invokedArguments[3].Should().BeNull();
 
-			using JsonDocument doc = JsonDocument.Parse(result);
-			doc.RootElement.GetProperty("ok").GetBoolean().Should().BeTrue();
-			doc.RootElement.GetProperty("message").GetString().Should().Be("done");
+			result.Should().BeEquivalentTo(new { ok = true, message = "done" });
 		}
 
 		private static PluginMethodsHelper CreateSut(IPluginDescription pluginDescription, String pluginId = "plugin-id")

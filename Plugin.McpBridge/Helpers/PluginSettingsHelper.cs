@@ -48,7 +48,7 @@ namespace Plugin.McpBridge.Helpers
 				builder.Append(" [");
 				builder.Append(propertyInfo.Name);
 				builder.Append("] = ");
-				builder.Append(this.FormatSettingValue(currentValue));
+				builder.Append(FormatSettingValue(currentValue));
 				builder.Append(" (");
 				builder.Append(GetFriendlyTypeName(propertyInfo.PropertyType));
 				builder.Append(')');
@@ -65,7 +65,7 @@ namespace Plugin.McpBridge.Helpers
 			return builder.ToString().Trim();
 		}
 
-		public String ReadPluginSetting(String pluginId, String settingName)
+		public Object? ReadPluginSetting(String pluginId, String settingName)
 		{
 			var settingsInstance = this.GetPluginSettingsInstance(pluginId, out IPluginDescription? pluginDescription);
 
@@ -73,25 +73,10 @@ namespace Plugin.McpBridge.Helpers
 			if(propertyInfo == null || !propertyInfo.CanRead)
 				throw new ArgumentException($"Setting '{settingName}' was not found for plugin '{pluginDescription!.ID}'.");
 
-			Object? currentValue = propertyInfo.GetValue(settingsInstance, null);
-			String displayName = GetSettingDisplayName(propertyInfo);
-			String propertyDescription = GetSettingDescription(propertyInfo);
-
-			StringBuilder builder = new StringBuilder();
-			builder.Append($"Plugin '{pluginDescription!.ID}' setting {displayName}");
-			builder.Append($" [{propertyInfo.Name}] = {this.FormatSettingValue(currentValue)}");
-			builder.Append($" ({GetFriendlyTypeName(propertyInfo.PropertyType)})");
-
-			if(!String.IsNullOrWhiteSpace(propertyDescription))
-			{
-				builder.Append(" - ");
-				builder.Append(propertyDescription);
-			}
-
-			return builder.ToString();
+			return propertyInfo.GetValue(settingsInstance, null);
 		}
 
-		public String UpdatePluginSetting(String pluginId, String settingName, String valueJson)
+		public Object? UpdatePluginSetting(String pluginId, String settingName, String valueJson)
 		{
 			var settingsInstance = this.GetPluginSettingsInstance(pluginId, out IPluginDescription? pluginDescription);
 
@@ -141,7 +126,7 @@ namespace Plugin.McpBridge.Helpers
 			return attribute != null ? attribute.Description : String.Empty;
 		}
 
-		private String FormatSettingValue(Object? value)
+		private static String FormatSettingValue(Object? value)
 		{
 			if(value == null)
 				return "<null>";

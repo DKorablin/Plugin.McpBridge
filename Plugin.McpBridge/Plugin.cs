@@ -60,13 +60,11 @@ namespace Plugin.McpBridge
 
 		public IEnumerable<String> InvokeMessage(String message)
 		{
-			this.EnsureConnected();
-
 			var responses = new List<String>();
-			var agent = this._agent!;
 			EventHandler<AgentResponseEventArgs> responseHandler =
 				(Object? sender, AgentResponseEventArgs e) => responses.Add(e.Response);
 
+			var agent = this.GetAgent();
 			agent.AiResponseReceived += responseHandler;
 
 			try
@@ -81,10 +79,11 @@ namespace Plugin.McpBridge
 			return responses;
 		}
 
-		private void EnsureConnected()
+		private AssistantAgent GetAgent()
 		{
 			if(this._agent == null)
 				this._agent = this.InitializeAgent();
+			return this._agent;
 		}
 
 		internal AssistantAgent InitializeAgent()

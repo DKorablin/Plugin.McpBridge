@@ -61,7 +61,7 @@ namespace Plugin.McpBridge.Helpers
 			return builder.ToString();
 		}
 
-		public String InvokePluginMethod(String pluginId, String methodName, String argumentsJson)
+		public Object? InvokePluginMethod(String pluginId, String methodName, String argumentsJson)
 		{
 			var pluginDescription = this._host.Plugins[pluginId]
 				?? throw new ArgumentException($"Plugin '{pluginId}' was not found.");
@@ -75,7 +75,7 @@ namespace Plugin.McpBridge.Helpers
 				var arguments = Utils.ConvertArgumentsValue(method, argumentsJson);
 				var result = method.Invoke(arguments);
 
-				return JsonSerializer.Serialize(result);
+				return result;
 			}
 
 			var exc = new ArgumentException($"Unsupported member type '{member.MemberType}' for method invocation. Only methods are supported.");

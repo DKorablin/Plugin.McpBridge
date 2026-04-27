@@ -24,7 +24,6 @@ namespace Plugin.McpBridge
 		private readonly TimeProvider _timeProvider;
 		private ChatClientAgent? _agent;
 		private AgentSession? _session;
-		private Int32 _maxToolResultLength;
 
 
 		public event EventHandler<AgentResponseEventArgs>? AiResponseReceived;
@@ -49,7 +48,6 @@ namespace Plugin.McpBridge
 		public void Initialize(Settings settings)
 		{
 			this._session = null;
-			this._maxToolResultLength = settings.MaxToolResultLength;
 
 			Boolean requiresApiKey = settings.ProviderType != AiProviderType.LocalOpenAICompatible
 				&& settings.ProviderType != AiProviderType.Stub;
@@ -88,24 +86,32 @@ namespace Plugin.McpBridge
 
 			IEnumerable<AITool> GetTools()
 			{
-				var permissions = settings.ToolsPermission;
+				Settings.Tools permissions = settings.ToolsPermission;
 				if(permissions.HasFlag(Settings.Tools.SystemInformation))
-					yield return AIFunctionFactory.Create(this.SystemInformation, nameof(this.SystemInformation), "Get the current host environment system information including OS version, DateTime format and UTC");
+					yield return CreateTool(this.SystemInformation);
 
 				if(permissions.HasFlag(Settings.Tools.SettingsList))
-					yield return AIFunctionFactory.Create(this.SettingsList, nameof(this.SettingsList), "List all available settings for a plugin");
+					yield return CreateTool(this.SettingsList);
 
 				if(permissions.HasFlag(Settings.Tools.SettingsGet))
-					yield return AIFunctionFactory.Create(this.SettingsGet, nameof(this.SettingsGet), "Get the current value of a specific plugin setting");
+					yield return CreateTool(this.SettingsGet);
 
 				if(permissions.HasFlag(Settings.Tools.SettingsSet))
-					yield return AIFunctionFactory.Create(this.SettingsSet, nameof(this.SettingsSet), "Update a plugin setting value; requires user confirmation");
+					yield return CreateTool(this.SettingsSet, confirmationRequired: true);
 
 				if(permissions.HasFlag(Settings.Tools.MethodsList))
-					yield return AIFunctionFactory.Create(this.MethodsList, nameof(this.MethodsList), "List all available methods for a plugin");
+					yield return CreateTool(this.MethodsList);
 
 				if(permissions.HasFlag(Settings.Tools.MethodsInvoke))
-					yield return AIFunctionFactory.Create(this.MethodsInvoke, nameof(this.MethodsInvoke), "Invoke a plugin method; requires user confirmation");
+					yield return CreateTool(this.MethodsInvoke, confirmationRequired: true);
+			}
+
+			ToolWrapper CreateTool(Delegate method, Boolean confirmationRequired = false)
+			{
+				ToolWrapper wrapper = new ToolWrapper(this._trace, method);
+				if(confirmationRequired)
+					wrapper.ConfirmationRequired += (Object? s, AgentConfirmationEventArgs e) => this.OnConfirmationRequired(e);
+				return wrapper;
 			}
 		}
 
@@ -159,16 +165,6 @@ namespace Plugin.McpBridge
 			String aiResponse = response.ToString();
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, "> " + aiResponse);
 			this.OnAiResponseReceived(new AgentResponseEventArgs(aiResponse, true));
-		}
-
-		private Task<Boolean> RequestConfirmationAsync(String actionDescription)
-		{
-			if(this.ConfirmationRequired == null)
-				return Task.FromResult(false);
-
-			AgentConfirmationEventArgs confirmArgs = new AgentConfirmationEventArgs(actionDescription);
-			this.OnConfirmationRequired(confirmArgs);
-			return confirmArgs.ConfirmationTask;
 		}
 
 		private String BuildSystemInstructions(Settings settings, IReadOnlyList<AITool> tools)
@@ -246,97 +242,9 @@ namespace Plugin.McpBridge
 			}
 		}
 
-		private async Task ConfirmOrThrowAsync(String actionDescription)
-		{
-			if(!await this.RequestConfirmationAsync(actionDescription))
-			{
-				ArgumentException exc = new ArgumentException("Operation declined by user.");
-				exc.Data.Add(nameof(actionDescription), actionDescription);
-				throw exc;
-			}
-		}
-
-		private async Task<String> EnforceResultLengthAsync(String result)
-		{
-			if(result.Length <= this._maxToolResultLength)
-				return result;
-
-			Boolean confirmed = await this.RequestConfirmationAsync($"The result is {result.Length:N0} characters long, which exceeds the configured limit of {this._maxToolResultLength:N0}. Do you want to send a truncated result?");
-			if(confirmed)
-				return result.Substring(0, this._maxToolResultLength) + $"\n[Result truncated: {result.Length} chars total, limit is {this._maxToolResultLength}]";
-
-			ArgumentException exc = new ArgumentException("Operation declined by user due to result length.");
-			exc.Data.Add("ResultLength", result.Length);
-			exc.Data.Add(nameof(this._maxToolResultLength), this._maxToolResultLength);
-			throw exc;
-		}
-
-		internal async Task<String> SettingsList([Description("Plugin identifier")] String pluginId)
-		{
-			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] SettingsList plugin={pluginId}");
-			String result = this._settingsHelper.ListPluginSettings(pluginId);
-
-			result = await this.EnforceResultLengthAsync(result);
-			this._trace.TraceEvent(TraceEventType.Verbose, 0, "[tool result] " + result);
-			return result;
-		}
-
-		internal async Task<String> SettingsGet(
-			[Description("Plugin identifier")] String pluginId,
-			[Description("Setting name")] String settingName)
-		{
-			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] SettingsGet plugin={pluginId} setting={settingName}");
-			String result = this._settingsHelper.ReadPluginSetting(pluginId, settingName);
-
-			result = await this.EnforceResultLengthAsync(result);
-			this._trace.TraceEvent(TraceEventType.Verbose, 0, "[tool result] " + result);
-			return result;
-		}
-
-		internal async Task<String> SettingsSet(
-			[Description("Plugin identifier")] String pluginId,
-			[Description("Setting name")] String settingName,
-			[Description("New value as JSON")] String valueJson)
-		{
-			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] SettingsSet plugin={pluginId} setting={settingName} value={valueJson}");
-
-			await this.ConfirmOrThrowAsync($"SETTINGS SET {pluginId} {settingName}={valueJson}");
-			String result = this._settingsHelper.UpdatePluginSetting(pluginId, settingName, valueJson);
-
-			result = await this.EnforceResultLengthAsync(result);
-			this._trace.TraceEvent(TraceEventType.Verbose, 0, "[tool result] " + result);
-			return result;
-		}
-
-		internal async Task<String> MethodsList([Description("Plugin identifier")] String pluginId)
-		{
-			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] MethodsList plugin={pluginId}");
-			String result = this._methodsHelper.ListPluginMethods(pluginId);
-
-			result = await this.EnforceResultLengthAsync(result);
-			this._trace.TraceEvent(TraceEventType.Verbose, 0, "[tool result] " + result);
-			return result;
-		}
-
-		internal async Task<String> MethodsInvoke(
-			[Description("Plugin identifier")] String pluginId,
-			[Description("Method name")] String methodName,
-			[Description("Arguments as JSON")] String argsJson)
-		{
-			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] MethodsInvoke plugin={pluginId} method={methodName} args={argsJson}");
-
-			await this.ConfirmOrThrowAsync($"METHODS INVOKE {pluginId} {methodName} {argsJson}");
-			String result = this._methodsHelper.InvokePluginMethod(pluginId, methodName, argsJson);
-
-			result = await this.EnforceResultLengthAsync(result);
-			this._trace.TraceEvent(TraceEventType.Verbose, 0, "[tool result] " + result);
-			return result;
-		}
-
+		[Description("Get the current host environment system information including OS version, DateTime format and UTC")]
 		internal async Task<String> SystemInformation()
 		{
-			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] SystemInformation");
-
 			DateTimeFormatInfo formatPreferences = CultureInfo.CurrentCulture.DateTimeFormat;
 			String result = @$"
 Short date pattern: {formatPreferences.ShortDatePattern}
@@ -346,5 +254,33 @@ OS Version: {Environment.OSVersion}";
 
 			return result;
 		}
+
+		[Description("List all available settings for a plugin")]
+		internal Task<String> SettingsList([Description("Plugin identifier")] String pluginId)
+			=> Task.FromResult(this._settingsHelper.ListPluginSettings(pluginId));
+
+		[Description("Get the current value of a specific plugin setting")]
+		internal Task<Object?> SettingsGet(
+			[Description("Plugin identifier")] String pluginId,
+			[Description("Setting name")] String settingName)
+			=> Task.FromResult(this._settingsHelper.ReadPluginSetting(pluginId, settingName));
+
+		[Description("Update a plugin setting value; requires user confirmation")]
+		internal Task<Object?> SettingsSet(
+			[Description("Plugin identifier")] String pluginId,
+			[Description("Setting name")] String settingName,
+			[Description("New value as JSON")] String valueJson)
+			=> Task.FromResult(this._settingsHelper.UpdatePluginSetting(pluginId, settingName, valueJson));
+
+		[Description("List all callable methods for a plugin")]
+		internal Task<String> MethodsList([Description("Plugin identifier")] String pluginId)
+			=> Task.FromResult(this._methodsHelper.ListPluginMethods(pluginId));
+
+		[Description("Invoke a plugin method with arguments provided as JSON; requires user confirmation")]
+		internal Task<Object?> MethodsInvoke(
+			[Description("Plugin identifier")] String pluginId,
+			[Description("Method name")] String methodName,
+			[Description("Arguments as JSON")] String argsJson)
+			=> Task.FromResult(this._methodsHelper.InvokePluginMethod(pluginId, methodName, argsJson));
 	}
 }
