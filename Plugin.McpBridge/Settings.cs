@@ -28,7 +28,7 @@ namespace Plugin.McpBridge
 		{
 			public const AiProviderType ProviderType = AiProviderType.OpenAI;
 			public const String ModelId = "gpt-4o-mini";
-			public const String AssistantSystemPrompt = @"You are a SAL automation assistant.
+			public const String AssistantSystemPrompt = @"You are a Software Abstraction Layer automation assistant.
 Use available MCP tools when useful.
 Return clear user-facing responses, or a command payload only when automation is required.
 Before using relative dates (today, yesterday, last hour), obtain the current system time from the SystemInformation tool.";
@@ -60,7 +60,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		}
 
 		/// <summary>The AI model identifier used for chat completions.</summary>
-		[Category("AI Model Settings")]
+		[Category("AI Provider")]
 		[DefaultValue(Defaults.ModelId)]
 		[Description("The AI model identifier or Azure OpenAI deployment name used for chat completions (e.g. gpt-4o-mini).")]
 		public String ModelId
@@ -70,7 +70,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		}
 
 		/// <summary>The API key used to authenticate with the AI provider.</summary>
-		[Category("AI Model Settings")]
+		[Category("AI Provider")]
 		[Description("The API key used to authenticate with the AI provider.")]
 		public String? ApiKey
 		{

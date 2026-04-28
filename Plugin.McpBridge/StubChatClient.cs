@@ -26,7 +26,8 @@ Try typing:
 - `long` — long response
 - `invoke` — confirmation panel (MethodsInvoke)
 - `events` - real test plugin method call (MethodsInvoke)
-- `settings` — confirmation panel (SettingsSet)";
+- `settings` — confirmation panel (SettingsSet)
+- `image` - embedded image";
 
 		private static readonly String HelpResponse = @"# Markdown Test
 

@@ -89,10 +89,17 @@ namespace Plugin.McpBridge
 
 		internal AssistantAgent InitializeAgent()
 		{
-			PluginSettingsTools settingsTools = new PluginSettingsTools(this.Host);
-			PluginMethodsTools methodsTools = new PluginMethodsTools(this.Host);
-			ShellTools shellTools = new ShellTools();
-			ToolsFactory toolsFactory = new ToolsFactory(this.Trace, settingsTools, methodsTools, shellTools);
+			List<Object> tools = new List<Object>()
+			{
+				new PluginSettingsTools(this.Host),
+				new PluginMethodsTools(this.Host),
+				new ShellTools(),
+			};
+
+			if(this.HostWindows != null)
+				tools.Add(new WindowsTools(this.HostWindows));
+
+			ToolsFactory toolsFactory = new ToolsFactory(this.Trace, tools.ToArray());
 			var result = new AssistantAgent(this.Trace, this.Host, toolsFactory);
 			result.Initialize(this.Settings);
 
