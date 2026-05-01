@@ -147,6 +147,32 @@ public partial class PanelChat : UserControl
 	private void bnNewConversation_Click(Object sender, EventArgs e)
 		=> this.ResetAgent();
 
+	private void tsbnSend_DropDownOpening(Object sender, EventArgs e)
+	{
+		tsbnSend.DropDownItems.Clear();
+		var providers = this.Plugin.Settings.AiProviders;
+		var selectedProviderId = this.Plugin.Settings.SelectedProviderId == null && providers.Count > 0
+			? providers[0].Id : this.Plugin.Settings.SelectedProviderId;
+		foreach(AiProviderDto provider in this.Plugin.Settings.AiProviders)
+		{
+			ToolStripMenuItem item = new ToolStripMenuItem(provider.ToString())
+			{
+				Tag = provider.Id,
+				Checked = provider.Id == selectedProviderId,
+			};
+			item.Click += this.tsbnSend_ProviderItem_Click;
+			tsbnSend.DropDownItems.Add(item);
+		}
+	}
+
+	private void tsbnSend_ProviderItem_Click(Object? sender, EventArgs e)
+	{
+		ToolStripMenuItem item = (ToolStripMenuItem)sender!;
+		this.Plugin.Settings.SelectedProviderId = (Guid)item.Tag;
+	}
+
+
+
 	private void tsbnSend_Click(Object sender, EventArgs e)
 	{
 		if(this._cts != null)

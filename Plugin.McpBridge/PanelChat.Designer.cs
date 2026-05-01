@@ -37,7 +37,7 @@ partial class PanelChat
 	{
 		this.mdResponse = new MarkdownTextBox();
 		this.tsBottom = new ToolStrip();
-		this.tsbnSend = new ToolStripButton();
+		this.tsbnSend = new ToolStripSplitButton();
 		this.txtRequest = new TextBox();
 		this.tsTop = new ToolStrip();
 		this.bnNewConversation = new ToolStripButton();
@@ -90,6 +90,7 @@ partial class PanelChat
 		this.tsbnSend.Text = "&Send";
 		this.tsbnSend.ToolTipText = "Send message to LLM";
 		this.tsbnSend.Click += this.tsbnSend_Click;
+		this.tsbnSend.DropDownOpening += this.tsbnSend_DropDownOpening;
 		// 
 		// txtRequest
 		// 
@@ -187,7 +188,7 @@ partial class PanelChat
 	private TextBox txtRequest;
 	private MarkdownTextBox mdResponse;
 	private ToolStrip tsBottom;
-	private ToolStripButton tsbnSend;
+	private ToolStripSplitButton tsbnSend;
 	private ConfirmationPanel pnlConfirmation;
 	private Panel pnlInput;
 	private AttachmentsPanel pnlAttachments;

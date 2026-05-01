@@ -43,14 +43,10 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		private Guid? _selectedProviderId;
 		private String? _apiKey = null;
 		private String? _assistantSystemPrompt = Defaults.AssistantSystemPrompt;
-		private Double? _temperature;
 		private Int32? _maxTokens;
 		private TimeSpan _connectionTimeout = Defaults.ConnectionTimeout;
 		private String[]? _toolsPermission = null;
 		private String[]? _pluginsPermission = null;
-
-		private ReasoningOutput _reasoningOutput = ReasoningOutput.None;
-		private ReasoningEffort _reasoningEffort = ReasoningEffort.Medium;
 
 		[Browsable(false)]
 		public String? AiProvidersJson
@@ -125,15 +121,6 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 			}
 		}
 
-		/// <summary>The sampling temperature controlling randomness in responses (0.0–2.0).</summary>
-		[Category("Prompt Settings")]
-		[Description("The sampling temperature controlling randomness in responses. Lower values produce more deterministic output (0.0–2.0).")]
-		public Double? Temperature
-		{
-			get => this._temperature;
-			set => this.SetField(ref this._temperature, value, nameof(this.Temperature));
-		}
-
 		/// <summary>The maximum number of tokens to generate in a single response.</summary>
 		[Category("Prompt Settings")]
 		[Description("The maximum number of tokens to generate in a single response. Leave empty for the model default.")]
@@ -180,24 +167,6 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 
 				this.SetField(ref this._pluginsPermission, value, nameof(this.PluginsPermission));
 			}
-		}
-
-		[Category("Debugging")]
-		[Description("When enabled, the plugin will include the reasoning steps taken by the assistant in the response. This can be useful for debugging and understanding how the assistant arrived at its conclusions.")]
-		[DefaultValue(ReasoningOutput.None)]
-		public ReasoningOutput ReasoningOutput
-		{
-			get => this._reasoningOutput;
-			set => this.SetField(ref this._reasoningOutput, value, nameof(this.ReasoningOutput));
-		}
-
-		[Category("Debugging")]
-		[Description("Controls the level of effort the assistant should use when reasoning through a problem.")]
-		[DefaultValue(ReasoningEffort.Medium)]
-		public ReasoningEffort ReasoningEffort
-		{
-			get => this._reasoningEffort;
-			set => this.SetField(ref this._reasoningEffort, value, nameof(this.ReasoningEffort));
 		}
 
 		[Category("Network")]

@@ -61,14 +61,14 @@ namespace Plugin.McpBridge
 				{
 					if(settings.MaxTokens.HasValue)
 						options.MaxOutputTokens = settings.MaxTokens.Value;
-					if(settings.Temperature.HasValue)
-						options.Temperature = (Single)settings.Temperature.Value;
-					if(settings.ReasoningOutput != ReasoningOutput.None)
+					if(provider.Temperature.HasValue)
+						options.Temperature = (Single)provider.Temperature.Value;
+					if(provider.ReasoningOutput.HasValue || provider.ReasoningEffort.HasValue)
 					{
 						options.Reasoning = new ReasoningOptions
 						{
-							Output = settings.ReasoningOutput,
-							Effort = settings.ReasoningEffort
+							Output = provider.ReasoningOutput ?? ReasoningOutput.None,
+							Effort = provider.ReasoningEffort ?? ReasoningEffort.Medium
 						};
 					}
 				})

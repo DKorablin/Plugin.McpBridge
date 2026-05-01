@@ -51,7 +51,7 @@ public class AiProviderIdConverter : GuidConverter
 			// If the user selected from the dropdown, find the matching ID by name
 			if(context?.Instance is Settings settings && settings.AiProviders != null)
 			{
-				var match = settings.AiProviders.FirstOrDefault(p => $"{p.ProviderType} ({p.ModelId})" == s);
+				var match = settings.AiProviders.FirstOrDefault(p => p.ToString() == s);
 
 				if(match != null)
 					return match.Id;
