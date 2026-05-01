@@ -63,24 +63,23 @@ namespace Plugin.McpBridge
 						options.MaxOutputTokens = settings.MaxTokens.Value;
 					if(settings.Temperature.HasValue)
 						options.Temperature = (Single)settings.Temperature.Value;
-					if(settings.ReasoningOutput.HasValue || settings.ReasoningEffort.HasValue)
+					if(settings.ReasoningOutput != ReasoningOutput.None)
 					{
 						options.Reasoning = new ReasoningOptions
 						{
-							Output = settings.ReasoningOutput ?? ReasoningOutput.None,
-							Effort = settings.ReasoningEffort ?? ReasoningEffort.Medium
+							Output = settings.ReasoningOutput,
+							Effort = settings.ReasoningEffort
 						};
 					}
 				})
 				.Build();
 
-			ToolsFactory toolFactory = this._toolsFactory;
-			List<AITool> tools = toolFactory.CreateTools(settings.ToolsPermission, (Object? s, AgentConfirmationEventArgs e) => this.OnConfirmationRequired(e)).ToList();
+			List<AITool> tools = this._toolsFactory.CreateTools(settings.ToolsPermission, (Object? s, AgentConfirmationEventArgs e) => this.OnConfirmationRequired(e)).ToList();
 			String instructions = this.BuildSystemInstructions(settings, tools);
 			this._agent = configuredClient.AsAIAgent(
 				instructions: instructions,
 				tools: tools);
-			this._trace.TraceEvent(TraceEventType.Start, 0, $"Initialized AssistantAgent with instructions '{instructions}'.");
+			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"Initialized AssistantAgent with instructions '{instructions}'.");
 		}
 
 		public async Task InvokeMessageAsync(String message, DataContent[]? images = null, CancellationToken cancellationToken = default)
@@ -95,20 +94,21 @@ namespace Plugin.McpBridge
 
 			if(this._agent == null)
 			{
-				this.OnAiResponseReceived(new AgentResponseEventArgs("AI is not configured. Set ApiKey and ModelId in plugin settings.", true));
+				this.OnAiResponseReceived(new AgentResponseEventArgs("AI is not configured. Add LLM configuration options in plugin settings.", true));
 				return;
 			}
 
 			if(this._session == null)
 				this._session = await this._agent.CreateSessionAsync(cancellationToken);
 
-			try
-			{
-				AgentResponse response = images != null && images.Length > 0
-					? await this._agent.RunAsync(AssistantAgent.BuildUserMessage(message, images), this._session, null, cancellationToken)
-					: await this._agent.RunAsync(message, this._session, null, cancellationToken);
-				this.HandleResponse(response);
-			}
+		try
+		{
+			AgentResponse response = await this._agent.RunAsync(AssistantAgent.BuildUserMessage(message, images), this._session, null, cancellationToken);
+			this.HandleResponse(response);
+
+			/*IAsyncEnumerable <AgentResponseUpdate> stream = this._agent.RunStreamingAsync(AssistantAgent.BuildUserMessage(message, images), this._session, null, cancellationToken);
+			await this.HandleStreamingResponseAsync(stream, cancellationToken);*/
+		}
 			catch(HttpRequestException exc)
 			{
 				this._trace.TraceData(TraceEventType.Error, 0, exc);
@@ -132,8 +132,49 @@ namespace Plugin.McpBridge
 
 		private void HandleResponse(AgentResponse response)
 		{
-			String aiResponse = response.ToString();
+			String aiResponse = response.Text;
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, "> " + aiResponse);
+			if(response.Usage != null)
+				this._trace.TraceEvent(TraceEventType.Verbose, 0, $"Tokens: {String.Join(Environment.NewLine, Utils.ParseTokenUsageCount(response.Usage))}");
+
+			this.OnAiResponseReceived(new AgentResponseEventArgs(aiResponse, true));
+		}
+
+		private async Task HandleStreamingResponseAsync(IAsyncEnumerable<AgentResponseUpdate> stream, CancellationToken cancellationToken)
+		{
+			StringBuilder textBuilder = new StringBuilder();
+			Boolean hasReasoning = false;
+			UsageDetails? usage = null;
+
+			await foreach(AgentResponseUpdate update in stream.WithCancellation(cancellationToken))
+			{
+				if(update.Contents == null)
+					continue;
+				foreach(AIContent content in update.Contents)
+				{
+					if(content is TextReasoningContent reasoningContent && !String.IsNullOrEmpty(reasoningContent.Text))
+					{
+						if(!hasReasoning)
+						{
+							hasReasoning = true;
+							this.OnAiResponseReceived(new AgentResponseEventArgs("> *Thinking...*\n\n", false));
+						}
+						this.OnAiResponseReceived(new AgentResponseEventArgs(reasoningContent.Text, false));
+					}
+					else if(content is TextContent textContent && !String.IsNullOrEmpty(textContent.Text))
+						textBuilder.Append(textContent.Text);
+					else if(content is UsageContent usageContent)
+						usage = usageContent.Details;
+				}
+			}
+
+			String aiResponse = textBuilder.ToString();
+			this._trace.TraceEvent(TraceEventType.Verbose, 0, "> " + aiResponse);
+			if(usage != null)
+				this._trace.TraceEvent(TraceEventType.Verbose, 0, $"Tokens: {String.Join(Environment.NewLine, Utils.ParseTokenUsageCount(usage))}");
+
+			if(hasReasoning)
+				this.OnAiResponseReceived(new AgentResponseEventArgs("\n\n---\n\n", false));
 			this.OnAiResponseReceived(new AgentResponseEventArgs(aiResponse, true));
 		}
 
@@ -187,15 +228,18 @@ namespace Plugin.McpBridge
 			return pluginsText.ToString().Trim();
 		}
 
-		private static ChatMessage BuildUserMessage(String text, DataContent[] images)
+		private static ChatMessage BuildUserMessage(String text, DataContent[]? images = null)
 		{
+			if(images == null || images.Length == 0)
+				return new ChatMessage(ChatRole.User, text);
+
 			List<AIContent> contents = new List<AIContent> { new TextContent(text) };
 			foreach(DataContent image in images)
 				contents.Add(image);
 			return new ChatMessage(ChatRole.User, contents);
 		}
 
-		private IChatClient BuildChatClient(Data.AiProviderDto provider, HttpClient httpClient)
+		private IChatClient BuildChatClient(AiProviderDto provider, HttpClient httpClient)
 		{
 			if(provider.ProviderType == AiProviderType.Stub)
 				return new StubChatClient();

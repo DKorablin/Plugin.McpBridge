@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Reflection;
 using Microsoft.Extensions.AI;
 using Moq;
+using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
 
@@ -50,13 +51,11 @@ internal static class TestUtils
 		ToolsFactory toolFactory = new ToolsFactory(Trace, shellTools, settingsTools, methodsTools);
 		mockChatClient ??= new Mock<IChatClient>();
 
-		Settings settings = new Settings
-		{
-			ProviderType = AiProviderType.LocalOpenAICompatible,
-		};
+		Settings settings = new Settings(host);
+		AiProviderDto provider = new AiProviderDto { ProviderType = AiProviderType.LocalOpenAICompatible };
 
 		AssistantAgent agent = new AssistantAgent(Trace, host, toolFactory, (s, h) => mockChatClient.Object);
-		agent.Initialize(settings);
+		agent.Initialize(settings, provider);
 		return agent;
 	}
 
@@ -65,7 +64,10 @@ internal static class TestUtils
 		Mock<IPluginStorage> storage = new Mock<IPluginStorage>();
 		if(pluginDescription != null)
 			storage.Setup(x => x[PluginId]).Returns(pluginDescription);
-		storage.SetupGet(x => x.Count).Returns(0);
+		storage.SetupGet(x => x.Count).Returns(pluginDescription == null ? 0 : 1);
+
+		IPluginDescription[] items = pluginDescription != null ? new[] { pluginDescription } : Array.Empty<IPluginDescription>();
+		storage.Setup(x => x.GetEnumerator()).Returns(() => ((IEnumerable<IPluginDescription>)items).GetEnumerator());
 		return storage;
 	}
 

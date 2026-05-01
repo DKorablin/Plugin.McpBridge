@@ -46,17 +46,27 @@ namespace Plugin.McpBridge.Tests.Tools
 		#region CreateTools — permission filtering
 
 		[Fact]
-		public void CreateTools_NoPermissions_ReturnsEmpty()
+	public void CreateTools_NullExclusionList_ReturnsAllTools()
+		{
+			ToolsFactory sut = new ToolsFactory(TestUtils.Trace, new StubToolHost());
+
+			IList<AITool> tools = sut.CreateTools(null, (s, e) => { }).ToList();
+
+			tools.Should().HaveCount(2);
+		}
+
+		[Fact]
+		public void CreateTools_ExclusionListWithNoMatch_ReturnsAllTools()
 		{
 			ToolsFactory sut = new ToolsFactory(TestUtils.Trace, new StubToolHost());
 
 			IList<AITool> tools = sut.CreateTools(new String[] { "SystemInformation" }, (s, e) => { }).ToList();
 
-			tools.Should().BeEmpty();
+			tools.Should().HaveCount(2);
 		}
 
 		[Fact]
-		public void CreateTools_MatchingPermission_ReturnsTool()
+		public void CreateTools_ExclusionListWithMatch_ExcludesTool()
 		{
 			ToolsFactory sut = new ToolsFactory(TestUtils.Trace, new StubToolHost());
 
@@ -64,28 +74,28 @@ namespace Plugin.McpBridge.Tests.Tools
 
 			tools.Should().HaveCount(1);
 			tools[0].Should().BeAssignableTo<AIFunction>();
-			((AIFunction)tools[0]).Name.Should().Be(nameof(StubToolHost.NoConfirmTool));
+			((AIFunction)tools[0]).Name.Should().Be(nameof(StubToolHost.ConfirmTool));
 		}
 
 		[Fact]
-		public void CreateTools_MultiplePermissions_ReturnsAllMatchingTools()
+		public void CreateTools_MultipleExclusions_ExcludesAll()
 		{
 			ToolsFactory sut = new ToolsFactory(TestUtils.Trace, new StubToolHost());
 
 			IList<AITool> tools = sut.CreateTools(new String[] { nameof(StubToolHost.NoConfirmTool), nameof(StubToolHost.ConfirmTool) }, (s, e) => { }).ToList();
 
-			tools.Should().HaveCount(2);
+			tools.Should().BeEmpty();
 		}
 
 		[Fact]
-		public void CreateTools_PermissionNotGranted_ExcludesTool()
+		public void CreateTools_ToolNotInExclusionList_ReturnsTool()
 		{
 			ToolsFactory sut = new ToolsFactory(TestUtils.Trace, new StubToolHost());
 
 			IList<AITool> tools = sut.CreateTools(new String[] { nameof(StubToolHost.ConfirmTool) }, (s, e) => { }).ToList();
 
 			tools.Should().HaveCount(1);
-			((AIFunction)tools[0]).Name.Should().Be(nameof(StubToolHost.ConfirmTool));
+			((AIFunction)tools[0]).Name.Should().Be(nameof(StubToolHost.NoConfirmTool));
 		}
 
 		#endregion
@@ -97,7 +107,7 @@ namespace Plugin.McpBridge.Tests.Tools
 		{
 			ToolsFactory sut = new ToolsFactory(TestUtils.Trace, new StubToolHost());
 			Boolean handlerFired = false;
-			IList<AITool> tools = sut.CreateTools(new String[] { nameof(StubToolHost.ConfirmTool) }, (s, e) => { handlerFired = true; e.Confirm(false); }).ToList();
+			IList<AITool> tools = sut.CreateTools(new String[] { nameof(StubToolHost.NoConfirmTool) }, (s, e) => { handlerFired = true; e.Confirm(false); }).ToList();
 
 			await ((ToolFacade)tools[0]).InvokeAsync();
 
@@ -109,7 +119,7 @@ namespace Plugin.McpBridge.Tests.Tools
 		{
 			ToolsFactory sut = new ToolsFactory(TestUtils.Trace, new StubToolHost());
 			Boolean handlerFired = false;
-			IList<AITool> tools = sut.CreateTools(new String[] { nameof(StubToolHost.NoConfirmTool) }, (s, e) => { handlerFired = true; e.Confirm(true); }).ToList();
+			IList<AITool> tools = sut.CreateTools(new String[] { nameof(StubToolHost.ConfirmTool) }, (s, e) => { handlerFired = true; e.Confirm(true); }).ToList();
 
 			await ((ToolFacade)tools[0]).InvokeAsync();
 
@@ -132,14 +142,14 @@ namespace Plugin.McpBridge.Tests.Tools
 		}
 
 		[Fact]
-		public void CreateTools_MultipleTargets_PartialPermissions_ReturnsSubset()
+		public void CreateTools_MultipleTargets_PartialExclusions_ReturnsSubset()
 		{
 			(IHost _, PluginSettingsTools settingsTools, PluginMethodsTools methodsTools, ShellTools shellTools) = TestUtils.CreateDependencies();
 			ToolsFactory sut = new ToolsFactory(TestUtils.Trace, shellTools, settingsTools, methodsTools);
 
 			IList<AITool> tools = sut.CreateTools(new String[] { nameof(ShellTools.SystemInformation), nameof(PluginSettingsTools.SettingsList) }, (s, e) => { }).ToList();
 
-			tools.Should().HaveCount(2);
+			tools.Should().HaveCount(4);
 		}
 
 		#endregion

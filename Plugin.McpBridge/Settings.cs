@@ -49,8 +49,8 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		private String[]? _toolsPermission = null;
 		private String[]? _pluginsPermission = null;
 
-		private ReasoningOutput? _reasoningOutput = null;
-		private ReasoningEffort? _reasoningEffort = null;
+		private ReasoningOutput _reasoningOutput = ReasoningOutput.None;
+		private ReasoningEffort _reasoningEffort = ReasoningEffort.Medium;
 
 		[Browsable(false)]
 		public String? AiProvidersJson
@@ -184,29 +184,20 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 
 		[Category("Debugging")]
 		[Description("When enabled, the plugin will include the reasoning steps taken by the assistant in the response. This can be useful for debugging and understanding how the assistant arrived at its conclusions.")]
-		public ReasoningOutput? ReasoningOutput
+		[DefaultValue(ReasoningOutput.None)]
+		public ReasoningOutput ReasoningOutput
 		{
 			get => this._reasoningOutput;
-			set
-			{
-				if(value == Microsoft.Extensions.AI.ReasoningOutput.None)
-					value = null;
-
-				this.SetField(ref this._reasoningOutput, value, nameof(this.ReasoningOutput));
-			}
+			set => this.SetField(ref this._reasoningOutput, value, nameof(this.ReasoningOutput));
 		}
 
 		[Category("Debugging")]
 		[Description("Controls the level of effort the assistant should use when reasoning through a problem.")]
-		public ReasoningEffort? ReasoningEffort
+		[DefaultValue(ReasoningEffort.Medium)]
+		public ReasoningEffort ReasoningEffort
 		{
 			get => this._reasoningEffort;
-			set
-			{
-				if(value == Microsoft.Extensions.AI.ReasoningEffort.None)
-					value = null;
-				this.SetField(ref this._reasoningEffort, value, nameof(this.ReasoningEffort));
-			}
+			set => this.SetField(ref this._reasoningEffort, value, nameof(this.ReasoningEffort));
 		}
 
 		[Category("Network")]

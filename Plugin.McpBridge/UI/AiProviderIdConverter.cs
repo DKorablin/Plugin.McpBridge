@@ -35,7 +35,7 @@ public class AiProviderIdConverter : GuidConverter
 			{
 				var provider = settings.AiProviders.FirstOrDefault(p => p.Id == (Guid)value);
 				if(provider != null)
-					return $"{provider.ProviderType} ({provider.ModelId})";
+					return provider.ToString();
 			}
 		}
 		return base.ConvertTo(context, culture, value, destinationType);

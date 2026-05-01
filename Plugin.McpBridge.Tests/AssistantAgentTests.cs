@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading;
@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
 using Moq;
+using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Events;
 using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
@@ -53,21 +54,23 @@ namespace Plugin.McpBridge.Tests
 		#region Initialize
 
 		[Fact]
-		public void Initialize_KeyRequiredProviderWithNoApiKey_SubsequentMessageReportsNotConfigured()
+		public async Task Initialize_KeyRequiredProviderWithNoApiKey_SubsequentMessageReportsNotConfigured()
 		{
-			AssistantAgent sut = TestUtils.CreateSut();
-			sut.Initialize(new Settings { ProviderType = AiProviderType.OpenAI, ApiKey = null });
+			(IHost host, PluginSettingsTools settingsTools, PluginMethodsTools methodsTools, ShellTools shellTools) = TestUtils.CreateDependencies();
+			ToolsFactory factory = new ToolsFactory(TestUtils.Trace, shellTools, settingsTools, methodsTools);
+			AssistantAgent sut = new AssistantAgent(TestUtils.Trace, host, factory);
+			sut.Initialize(new Settings(host), new AiProviderDto { ProviderType = AiProviderType.OpenAI, ApiKey = null });
 			AgentResponseEventArgs? received = null;
 			sut.AiResponseReceived += (s, e) => received = e;
 
-			sut.InvokeMessageAsync("hello").GetAwaiter().GetResult();
+			await sut.InvokeMessageAsync("hello");
 
 			received.Should().NotBeNull();
 			received!.Response.Should().Contain("not configured");
 		}
 
 		[Fact]
-		public void Initialize_CalledTwice_ResetsSession()
+		public async Task Initialize_CalledTwice_ResetsSession()
 		{
 			Mock<IChatClient> mockClient = new Mock<IChatClient>();
 			mockClient.Setup(x => x.GetResponseAsync(It.IsAny<IEnumerable<ChatMessage>>(), It.IsAny<ChatOptions?>(), It.IsAny<CancellationToken>()))
@@ -76,13 +79,14 @@ namespace Plugin.McpBridge.Tests
 			(IHost host, PluginSettingsTools settings, PluginMethodsTools methods, ShellTools shell) = TestUtils.CreateDependencies();
 			ToolsFactory factory = new ToolsFactory(TestUtils.Trace, shell, settings, methods);
 			AssistantAgent sut = new AssistantAgent(TestUtils.Trace, host, factory, (s, h) => mockClient.Object);
-			Settings agentSettings = new Settings { ProviderType = AiProviderType.LocalOpenAICompatible };
+			Settings agentSettings = new Settings(host);
+			AiProviderDto provider = new AiProviderDto { ProviderType = AiProviderType.LocalOpenAICompatible };
 
-			sut.Initialize(agentSettings);
-			sut.Initialize(agentSettings);
+			sut.Initialize(agentSettings, provider);
+			sut.Initialize(agentSettings, provider);
 
-			Action act = () => sut.InvokeMessageAsync("hello").GetAwaiter().GetResult();
-			act.Should().NotThrow();
+			Func<Task> act = async () => await sut.InvokeMessageAsync("hello");
+			await act.Should().NotThrowAsync();
 		}
 
 		#endregion

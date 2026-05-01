@@ -13,21 +13,22 @@ public partial class PanelChat : UserControl
 	private AssistantAgent? _agent;
 	private Boolean _streamingActive;
 	private CancellationTokenSource? _cts;
-	private const String Caption = "OpenAI Chat";
 
 	private Plugin Plugin => (Plugin)this.Window.Plugin;
 
 	private IWindow Window => (IWindow)base.Parent;
+
+	private AiProviderDto? CurrentProvider => this.Plugin.Settings.GetSelectedProvider();
 
 	public PanelChat()
 		=> this.InitializeComponent();
 
 	protected override void OnCreateControl()
 	{
-		this.Window.Caption = Caption;
 		this.Window.Closed += this.Window_Closed;
 		this.Plugin.Settings.PropertyChanged += this.Settings_PropertyChanged;
 		base.OnCreateControl();
+		this.UpdateUiState();
 	}
 
 	private void Window_Closed(Object? sender, EventArgs e)
@@ -37,11 +38,7 @@ public partial class PanelChat : UserControl
 	}
 
 	private void PnlConfirmation_ConfirmationHandled(Object sender, EventArgs e)
-		=> this.Invoke(() =>
-		{
-			tsbnSend.Enabled = true;
-			this.Window.Caption = Caption;
-		});
+		=> this.Invoke(this.UpdateUiState);
 
 	private void Settings_PropertyChanged(Object? sender, PropertyChangedEventArgs e)
 		=> this.ResetAgent();
@@ -63,21 +60,21 @@ public partial class PanelChat : UserControl
 
 		pnlConfirmation.Dismiss();
 		this._streamingActive = false;
-		tsbnSend.Text = "&Send";
-		tsbnSend.Image = this._imgSend;
-		tsbnSend.Enabled = true;
-		pnlAttachments.ClearAttachments();
+		this.UpdateUiState();
 	}
 
 	private AssistantAgent GetAgent()
 	{
 		if(this._agent == null)
 		{
-			AiProviderDto provider = this.Plugin.Settings.GetSelectedProvider()
-				?? throw new InvalidOperationException("No AI provider configured.");
-			this._agent = this.Plugin.InitializeAgent(provider);
+			if(this.CurrentProvider == null)
+				throw new InvalidOperationException("No AI provider configured.");
+
+			this._agent = this.Plugin.InitializeAgent(this.CurrentProvider);
 			this._agent.AiResponseReceived += this.Agent_AiResponseReceived;
 			this._agent.ConfirmationRequired += this.Agent_ConfirmationRequired;
+			this.UpdateUiState();
+
 		}
 		return this._agent;
 	}
@@ -91,12 +88,11 @@ public partial class PanelChat : UserControl
 		this._streamingActive = false;
 		this._cts?.Dispose();
 		this._cts = new CancellationTokenSource();
-		tsbnSend.Text = "&Cancel";
-		tsbnSend.Image = this._imgCancel;
+
+		this.UpdateUiState();
 
 		CancellationToken token = this._cts.Token;
 		AssistantAgent agent = this.GetAgent();
-		Application.DoEvents();
 
 		Task.Run(async () =>
 		{
@@ -110,11 +106,10 @@ public partial class PanelChat : UserControl
 			{
 				this.Invoke(() =>
 					{
-						tsbnSend.Text = "&Send";
-						tsbnSend.Image = this._imgSend;
-						tsbnSend.Enabled = true;
 						this._cts?.Dispose();
 						this._cts = null;
+
+						this.UpdateUiState();
 					});
 			}
 		});
@@ -135,6 +130,7 @@ public partial class PanelChat : UserControl
 				this._streamingActive = false;
 				this._cts?.Dispose();
 				this._cts = null;
+				this.UpdateUiState();
 			}
 		});
 	}
@@ -144,8 +140,7 @@ public partial class PanelChat : UserControl
 		this.BeginInvoke(() =>
 		{
 			pnlConfirmation.Request(e);
-			tsbnSend.Enabled = false;
-			this.Window.Caption = Caption + " (!)";
+			this.UpdateUiState();
 		});
 	}
 
@@ -207,10 +202,33 @@ public partial class PanelChat : UserControl
 		DataContent[] result = new DataContent[images.Length];
 		for(Int32 i = 0; i < images.Length; i++)
 		{
-			using MemoryStream ms = new MemoryStream();
-			images[i].Save(ms, ImageFormat.Png);
-			result[i] = new DataContent(ms.ToArray(), "image/png");
+			using(MemoryStream ms = new MemoryStream())
+			{
+				images[i].Save(ms, ImageFormat.Png);
+				result[i] = new DataContent(ms.ToArray(), "image/png");
+			}
 		}
 		return result;
+	}
+
+	private void UpdateUiState()
+	{
+		Boolean isProcessing = _cts != null;
+		Boolean needsConfirmation = pnlConfirmation.Visible; // Assuming a property exists
+		Boolean hasProvider = this.CurrentProvider != null;
+
+		// tsbnSend Logic
+		tsbnSend.Enabled = !needsConfirmation && hasProvider;
+		tsbnSend.Text = isProcessing ? "&Cancel" : "&Send";
+		tsbnSend.Image = isProcessing ? _imgCancel : _imgSend;
+
+		// Window Caption Logic
+		String providerInfo = this.CurrentProvider?.ToString() ?? "Undefinded";
+		String statusIcon = needsConfirmation ? " (!)" : String.Empty;
+		this.Window.Caption = providerInfo + statusIcon;
+
+		// Input Logic
+		if(!isProcessing && !needsConfirmation && hasProvider)
+			txtRequest.Focus();
 	}
 }

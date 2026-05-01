@@ -10,11 +10,10 @@ public record AiProviderDto : INotifyPropertyChanged
 	private static class Defaults
 	{
 		public const AiProviderType ProviderType = AiProviderType.OpenAI;
-		public const String ModelId = "gpt-4o-mini";
 	}
 
 	private AiProviderType _providerType = Defaults.ProviderType;
-	private String? _modelId = Defaults.ModelId;
+	private String? _modelId = null;
 	private String? _apiKey;
 	private String? _deploymentName;
 	private String? _modelEndpointUrl = null;
@@ -38,7 +37,6 @@ public record AiProviderDto : INotifyPropertyChanged
 	/// <summary>The AI model identifier used for chat completions.</summary>
 	[DataMember]
 	[Category("AI Provider")]
-	[DefaultValue(Defaults.ModelId)]
 	[Description("The AI model identifier or Azure OpenAI deployment name used for chat completions (e.g. gpt-4o-mini).")]
 	public String? ModelId
 	{
@@ -84,6 +82,11 @@ public record AiProviderDto : INotifyPropertyChanged
 			this.SetField(ref this._modelEndpointUrl, value, nameof(this.ModelEndpointUrl));
 		}
 	}
+
+	public override String ToString()
+		=> this.ModelId == null
+			? this.ProviderType.ToString()
+			: $"{this.ProviderType} ({this.ModelId})";
 
 	#region INotifyPropertyChanged
 	public event PropertyChangedEventHandler? PropertyChanged;

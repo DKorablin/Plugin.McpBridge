@@ -1,7 +1,11 @@
 ﻿using System.ComponentModel;
+using System.Diagnostics;
 using System.Globalization;
+using System.Reflection;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.AI;
 using SAL.Flatbed;
 
 namespace Plugin.McpBridge;
@@ -69,27 +73,21 @@ internal static class Utils
 		return Convert.ChangeType(valueJson, underlyingType, CultureInfo.InvariantCulture);
 	}
 
-	public static Boolean IsBitSet(UInt32 flags, Int32 bit)
-		=> (flags & (1U << bit)) != 0;
-
-	public static UInt32[] BitToInt(params Boolean[] bits)
+	public static IEnumerable<String> ParseTokenUsageCount(UsageDetails usage)
 	{
-		UInt32[] result = new UInt32[] { };
-		Int32 counter = 0;
-		for(Int32 loop = 0; loop < bits.Length; loop++)
-		{
-			if(result.Length <= loop)//Increase the array by one if the value does not fit
-				Array.Resize<UInt32>(ref result, result.Length + 1);
+		var properties = usage.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
-			for(Int32 innerLoop = 0; innerLoop < 32; innerLoop++)
-			{
-				result[loop] |= Convert.ToUInt32(bits[counter++]) << innerLoop;
-				if(counter >= bits.Length)
-					break;
-			}
-			if(counter >= bits.Length)
-				break;
+		foreach(var prop in properties)
+		{
+			var value = prop.GetValue(usage);
+
+			if(value is Int64 longValue && longValue > 0)
+				yield return $"{prop.Name}: {longValue:N0}";
 		}
-		return result;
+
+		if(usage.AdditionalCounts != null)
+			foreach(var additionalCount in usage.AdditionalCounts)
+				if(additionalCount.Value > 0)
+					yield return $"{additionalCount.Key}: {additionalCount.Value:N0}";
 	}
 }
