@@ -2,7 +2,7 @@
 
 namespace Plugin.McpBridge.UI;
 
-internal class MarkdownCtrl : RichTextBox
+internal class MarkdownTextBox : RichTextBox
 {
 	private static readonly Regex _inlineMarkdown = new Regex(@"(\*\*[^*\n]+\*\*|\*[^*\n]+\*|`[^`\n]+`)", RegexOptions.Compiled);
 	private static readonly Regex _inlineImage = new Regex(@"data:image/[a-zA-Z]+;base64,([A-Za-z0-9+/=]+)", RegexOptions.Compiled);

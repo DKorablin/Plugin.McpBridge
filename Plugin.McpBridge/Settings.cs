@@ -1,7 +1,10 @@
 ﻿using System.ComponentModel;
 using System.Drawing.Design;
+using System.Runtime.Serialization.Json;
 using Microsoft.Extensions.AI;
+using Plugin.McpBridge.Data;
 using Plugin.McpBridge.UI;
+using SAL.Flatbed;
 
 namespace Plugin.McpBridge
 {
@@ -26,95 +29,84 @@ namespace Plugin.McpBridge
 	{
 		private static class Defaults
 		{
-			public const AiProviderType ProviderType = AiProviderType.OpenAI;
-			public const String ModelId = "gpt-4o-mini";
-			public const String AssistantSystemPrompt = @"You are a Software Abstraction Layer automation assistant.
+			public const String AssistantSystemPrompt = @"You are a SAL automation assistant.
 Use available MCP tools when useful.
 Return clear user-facing responses, or a command payload only when automation is required.
 Before using relative dates (today, yesterday, last hour), obtain the current system time from the SystemInformation tool.";
-		public static readonly TimeSpan ConnectionTimeout = TimeSpan.FromSeconds(100);
-	}
+			public static readonly TimeSpan ConnectionTimeout = TimeSpan.FromSeconds(100);
+		}
 
-		private AiProviderType _providerType = Defaults.ProviderType;
-		private String _modelId = Defaults.ModelId;
+		private static DataContractJsonSerializer Serializer = new DataContractJsonSerializer(typeof(AiProviderDto[]));
+
+		private String? _aiProvidersJson = null;
+		private BindingList<AiProviderDto>? _aiProviders = null;
+		private Guid? _selectedProviderId;
 		private String? _apiKey = null;
-		private String? _modelEndpointUrl = null;
-		private String? _deploymentName = null;
 		private String? _assistantSystemPrompt = Defaults.AssistantSystemPrompt;
 		private Double? _temperature;
 		private Int32? _maxTokens;
 		private TimeSpan _connectionTimeout = Defaults.ConnectionTimeout;
-		private String[] _toolsPermission = Array.Empty<String>();
+		private String[]? _toolsPermission = null;
+		private String[]? _pluginsPermission = null;
 
 		private ReasoningOutput? _reasoningOutput = null;
 		private ReasoningEffort? _reasoningEffort = null;
 
-		/// <summary>Selects the provider profile used to initialize the AI client.</summary>
-		[Category("AI Provider")]
-		[DefaultValue(Defaults.ProviderType)]
-		[Description("Selects the provider profile (OpenAI, Azure OpenAI, Local/OpenAI-compatible, Qwen-compatible, Grok-compatible, Gemini-compatible, custom compatible).")]
-		public AiProviderType ProviderType
+		[Browsable(false)]
+		public String? AiProvidersJson
 		{
-			get => this._providerType;
-			set => this.SetField(ref this._providerType, value, nameof(this.ProviderType));
-		}
-
-		/// <summary>The AI model identifier used for chat completions.</summary>
-		[Category("AI Provider")]
-		[DefaultValue(Defaults.ModelId)]
-		[Description("The AI model identifier or Azure OpenAI deployment name used for chat completions (e.g. gpt-4o-mini).")]
-		public String ModelId
-		{
-			get => this._modelId;
-			set => this.SetField(ref this._modelId, value, nameof(this.ModelId));
-		}
-
-		/// <summary>The API key used to authenticate with the AI provider.</summary>
-		[Category("AI Provider")]
-		[Description("The API key used to authenticate with the AI provider.")]
-		public String? ApiKey
-		{
-			get => this._apiKey;
+			get => this._aiProvidersJson;
 			set
 			{
-				if(String.IsNullOrWhiteSpace(value))
+				if(String.IsNullOrEmpty(value))
 					value = null;
-
-				this.SetField(ref this._apiKey, value, nameof(this.ApiKey));
+				this.SetField(ref this._aiProvidersJson, value, nameof(this.AiProvidersJson));
 			}
 		}
 
-		/// <summary>The Azure OpenAI deployment name found in Azure OpenAI Studio under Deployments or organization identifier supported by some OpenAI-compatible providers.</summary>
 		[Category("AI Provider")]
-		[DisplayName("Deplymanet Name / Organization ID")]
-		[Description("The deployment name from Azure OpenAI Studio (Deployments section). Required when using the Azure OpenAI provider.\r\nOrganization identifier supported by some OpenAI-compatible providers.")]
-		public String? DeploymentName
+		[Description("The list of AI providers available for selection. Managed through the AI Providers Manager UI.")]
+		[DisplayName("AI Providers")]
+		[TypeConverter(typeof(ArrayConverter))]
+		public BindingList<AiProviderDto> AiProviders
 		{
-			get => this._deploymentName;
-			set
+			get
 			{
-				if(String.IsNullOrWhiteSpace(value))
-					value = null;
+				if(this._aiProviders == null)
+				{
+					AiProviderDto[]? arrProviders = null;
+					if(this.AiProvidersJson != null)
+						using(MemoryStream stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(this.AiProvidersJson)))
+							arrProviders = (AiProviderDto[]?)Serializer.ReadObject(stream);
 
-				this.SetField(ref this._deploymentName, value, nameof(this.DeploymentName));
+					List<AiProviderDto> aiProviders = new List<AiProviderDto>(arrProviders ?? Array.Empty<AiProviderDto>());
+
+					this._aiProviders = new BindingList<AiProviderDto>(aiProviders);
+					this._aiProviders.ListChanged += (s, e) => {
+						if(this._aiProviders == null || this._aiProviders.Count == 0)
+							this.AiProvidersJson = null;
+						else
+							using(MemoryStream stream = new MemoryStream())
+							{
+								Serializer.WriteObject(stream, this._aiProviders.ToArray());
+								stream.Seek(0, SeekOrigin.Begin);
+								this.AiProvidersJson = System.Text.Encoding.UTF8.GetString(stream.ToArray());
+							}
+					};
+				}
+				return this._aiProviders;
 			}
 		}
 
-		/// <summary>Optional custom OpenAI-compatible chat completions endpoint URL.</summary>
 		[Category("AI Provider")]
-		[Description("Optional custom OpenAI-compatible chat completions endpoint URL. Required for Azure OpenAI and most non-OpenAI providers.")]
-		public String? ModelEndpointUrl
+		[DisplayName("Selected Provider")]
+		[Description("The active AI provider profile to use.")]
+		[TypeConverter(typeof(AiProviderIdConverter))]
+		[DefaultValue(null)]
+		public Guid? SelectedProviderId
 		{
-			get => this._modelEndpointUrl;
-			set
-			{
-				if(String.IsNullOrWhiteSpace(value))
-					value = null;
-				 else if(!Uri.IsWellFormedUriString(value, UriKind.Absolute))
-					throw new ArgumentException("ModelEndpointUrl must be an absolute URL.", nameof(this.ModelEndpointUrl));
-
-				this.SetField(ref this._modelEndpointUrl, value, nameof(this.ModelEndpointUrl));
-			}
+			get => _selectedProviderId;
+			set => this.SetField(ref this._selectedProviderId, value, nameof(this.SelectedProviderId));
 		}
 
 		/// <summary>The system prompt that defines the assistant's behavior and persona.</summary>
@@ -157,13 +149,37 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 			}
 		}
 
-		[Category("Prompt Settings")]
-		[Editor(typeof(ToolPermissionEditor), typeof(UITypeEditor))]
+		[Category("Debugging")]
+		[DefaultValue(null)]
+		[Editor(typeof(ToolsPermissionEditor), typeof(UITypeEditor))]
 		[Description("Controls which tools the assistant may use. Leave empty to allow all tools; otherwise only the listed method names are enabled.")]
-		public String[] ToolsPermission
+		public String[]? ToolsPermission
 		{
 			get => this._toolsPermission;
-			set => this.SetField(ref this._toolsPermission, value ?? Array.Empty<String>(), nameof(this.ToolsPermission));
+			set
+			{
+				if(value?.Length == 0)
+					value = null;
+
+				this.SetField(ref this._toolsPermission, value, nameof(this.ToolsPermission));
+			}
+		}
+
+		[Category("Debugging")]
+		[DefaultValue(null)]
+		[Editor(typeof(PluginsPermissionEditor), typeof(UITypeEditor))]
+		[TypeConverter(typeof(PluginsPermissionConverter))]
+		[Description("Controls which plugins the assistant may use. Leave empty to allow all plugins")]
+		public String[]? PluginsPermission
+		{
+			get => this._pluginsPermission;
+			set
+			{
+				if(value?.Length == 0)
+					value = null;
+
+				this.SetField(ref this._pluginsPermission, value, nameof(this.PluginsPermission));
+			}
 		}
 
 		[Category("Debugging")]
@@ -206,6 +222,14 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 				this.SetField(ref this._connectionTimeout, value, nameof(this.ConnectionTimeout));
 			}
 		}
+
+		internal IHost Host { get; }
+
+		internal Settings(IHost host)
+			=> this.Host = host ?? throw new ArgumentNullException(nameof(host));
+
+		internal AiProviderDto? GetSelectedProvider()
+			=> this.AiProviders.FirstOrDefault(x => x.Id == this.SelectedProviderId) ?? this.AiProviders.FirstOrDefault();
 
 		#region INotifyPropertyChanged
 		public event PropertyChangedEventHandler? PropertyChanged;

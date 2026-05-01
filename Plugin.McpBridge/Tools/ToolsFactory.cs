@@ -47,12 +47,12 @@ internal sealed class ToolsFactory
 			}
 	}
 
-	public IEnumerable<AITool> CreateTools(String[] permissions, EventHandler<AgentConfirmationEventArgs> confirmationHandler)
+	public IEnumerable<AITool> CreateTools(String[]? permissions, EventHandler<AgentConfirmationEventArgs> confirmationHandler)
 	{
-		Boolean allAllowed = permissions.Length == 0;
+		Boolean allAllowed = permissions == null || permissions.Length == 0;
 		foreach(var method in this.GetTools())
 		{
-			if(!allAllowed && !Array.Exists(permissions, p => p == method.Method.Name))
+			if(!allAllowed && Array.Exists(permissions!, p => p == method.Method.Name))
 				continue;
 
 			Delegate del = method.Method.CreateDelegate(GetDelegateType(method.Method), method.Target);
@@ -61,6 +61,24 @@ internal sealed class ToolsFactory
 				wrapper.ConfirmationRequired += (s, e) => confirmationHandler(s, e);
 
 			yield return wrapper;
+		}
+	}
+
+	public IEnumerable<AITool> CreateTools2(String[]? permissions)
+	{
+		Boolean allAllowed = permissions == null || permissions.Length == 0;
+		foreach(var method in this.GetTools())
+		{
+			if(!allAllowed && Array.Exists(permissions!, p => p == method.Method.Name))
+				continue;
+
+			Delegate del = method.Method.CreateDelegate(GetDelegateType(method.Method), method.Target);
+			yield return AIFunctionFactory.Create(del, new AIFunctionFactoryOptions{
+				AdditionalProperties = new Dictionary<String, Object?>
+				{
+					{ nameof(ToolAttribute), method.Tool }
+				}
+			});
 		}
 	}
 

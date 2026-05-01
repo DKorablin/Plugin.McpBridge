@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Drawing.Imaging;
 using Microsoft.Extensions.AI;
+using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Events;
 using Plugin.McpBridge.UI;
 using SAL.Windows;
@@ -72,7 +73,9 @@ public partial class PanelChat : UserControl
 	{
 		if(this._agent == null)
 		{
-			this._agent = this.Plugin.InitializeAgent();
+			AiProviderDto provider = this.Plugin.Settings.GetSelectedProvider()
+				?? throw new InvalidOperationException("No AI provider configured.");
+			this._agent = this.Plugin.InitializeAgent(provider);
 			this._agent.AiResponseReceived += this.Agent_AiResponseReceived;
 			this._agent.ConfirmationRequired += this.Agent_ConfirmationRequired;
 		}
@@ -102,7 +105,7 @@ public partial class PanelChat : UserControl
 				await agent.InvokeMessageAsync(message, images, token);
 			} catch(Exception ex)
 			{
-				this.Invoke(() => mdResponse.AppendMessage(ex.Message, MarkdownCtrl.MessageKind.Error));
+				this.Invoke(() => mdResponse.AppendMessage(ex.Message, MarkdownTextBox.MessageKind.Error));
 			} finally
 			{
 				this.Invoke(() =>
@@ -165,7 +168,7 @@ public partial class PanelChat : UserControl
 			return;
 
 		txtRequest.Clear();
-		mdResponse.AppendMessage(request, MarkdownCtrl.MessageKind.User);
+		mdResponse.AppendMessage(request, MarkdownTextBox.MessageKind.User);
 		Image[] rawImages = pnlAttachments.TakeAttachments();
 		DataContent[] images = PanelChat.ImagesToDataContent(rawImages);
 		foreach(Image img in rawImages)

@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Drawing.Design;
 using System.Reflection;
 using System.Windows.Forms.Design;
@@ -7,7 +7,7 @@ using Plugin.McpBridge.Tools;
 namespace Plugin.McpBridge.UI;
 
 /// <summary>Drop-down property-grid editor that renders each discovered tool method as a named, described checkbox.</summary>
-internal sealed class ToolPermissionEditor : UITypeEditor
+internal sealed class ToolsPermissionEditor : UITypeEditor
 {
 	private ToolPermissionControl? _control;
 
@@ -15,6 +15,7 @@ internal sealed class ToolPermissionEditor : UITypeEditor
 	{
 		if(this._control == null)
 			this._control = new ToolPermissionControl(ToolsFactory.DiscoverTools(Assembly.GetExecutingAssembly()));
+
 		this._control.SetValue(value as String[] ?? Array.Empty<String>());
 		((IWindowsFormsEditorService)provider.GetService(typeof(IWindowsFormsEditorService))!).DropDownControl(this._control);
 		return this._control.Result;
@@ -28,16 +29,16 @@ internal sealed class ToolPermissionEditor : UITypeEditor
 		private readonly CheckedListBox _list = new CheckedListBox();
 		private readonly List<String> _methodNames = new List<String>();
 
-		/// <summary>Returns the selected method names, or an empty array when all items are checked (meaning all tools are allowed).</summary>
+		/// <summary>Returns the unchecked method names (blocked tools), or an empty array when all items are checked (meaning all tools are allowed).</summary>
 		public String[] Result
 		{
 			get
 			{
-				List<String> selected = new List<String>();
+				List<String> blocked = new List<String>();
 				for(Int32 i = 0; i < this._list.Items.Count; i++)
-					if(this._list.GetItemChecked(i))
-						selected.Add(this._methodNames[i]);
-				return selected.Count == this._list.Items.Count ? Array.Empty<String>() : selected.ToArray();
+					if(!this._list.GetItemChecked(i))
+						blocked.Add(this._methodNames[i]);
+				return blocked.ToArray();
 			}
 		}
 
@@ -54,7 +55,7 @@ internal sealed class ToolPermissionEditor : UITypeEditor
 				this._methodNames.Add(methodName);
 				String label = String.IsNullOrWhiteSpace(description)
 					? methodName
-					: $"{methodName} � {description}";
+					: $"{methodName} — {description}";
 				this._list.Items.Add(label);
 			}
 
@@ -64,11 +65,10 @@ internal sealed class ToolPermissionEditor : UITypeEditor
 			this.ResumeLayout();
 		}
 
-		public void SetValue(String[] permissions)
+		public void SetValue(String[] blockedTools)
 		{
-			Boolean allAllowed = permissions.Length == 0;
 			for(Int32 i = 0; i < this._list.Items.Count; i++)
-				this._list.SetItemChecked(i, allAllowed || Array.Exists(permissions, p => p == this._methodNames[i]));
+				this._list.SetItemChecked(i, !Array.Exists(blockedTools, p => p == this._methodNames[i]));
 		}
 	}
 }

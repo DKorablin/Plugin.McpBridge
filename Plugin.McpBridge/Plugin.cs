@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
+using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Events;
 using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
@@ -26,7 +27,7 @@ namespace Plugin.McpBridge
 			{
 				if(this._settings == null)
 				{
-					this._settings = new Settings();
+					this._settings = new Settings(this.Host);
 					this.Host.Plugins.Settings(this).LoadAssemblyParameters(this._settings);
 					this._settings.PropertyChanged += _settings_PropertyChanged;
 				}
@@ -62,10 +63,13 @@ namespace Plugin.McpBridge
 		public IEnumerable<String> InvokeMessage(String message)
 		{
 			var responses = new List<String>();
-			EventHandler<AgentResponseEventArgs> responseHandler =
-				(Object? sender, AgentResponseEventArgs e) => responses.Add(e.Response);
+			EventHandler<AgentResponseEventArgs> responseHandler = (Object? sender, AgentResponseEventArgs e)
+				=> responses.Add(e.Response);
 
-			var agent = this.GetAgent();
+			var provider = this.Settings.GetSelectedProvider()
+				?? throw new InvalidOperationException("No AI provider configured.");
+
+			var agent = this.GetAgent(provider);
 			agent.AiResponseReceived += responseHandler;
 
 			try
@@ -80,14 +84,14 @@ namespace Plugin.McpBridge
 			return responses;
 		}
 
-		private AssistantAgent GetAgent()
+		private AssistantAgent GetAgent(AiProviderDto provider)
 		{
 			if(this._agent == null)
-				this._agent = this.InitializeAgent();
+				this._agent = this.InitializeAgent(provider);
 			return this._agent;
 		}
 
-		internal AssistantAgent InitializeAgent()
+		internal AssistantAgent InitializeAgent(AiProviderDto provider)
 		{
 			List<Object> tools = new List<Object>()
 			{
@@ -101,7 +105,7 @@ namespace Plugin.McpBridge
 
 			ToolsFactory toolsFactory = new ToolsFactory(this.Trace, tools.ToArray());
 			var result = new AssistantAgent(this.Trace, this.Host, toolsFactory);
-			result.Initialize(this.Settings);
+			result.Initialize(this.Settings, provider);
 
 			return result;
 		}

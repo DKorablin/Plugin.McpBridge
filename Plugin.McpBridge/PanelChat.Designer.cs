@@ -35,7 +35,7 @@ partial class PanelChat
 	/// </summary>
 	private void InitializeComponent()
 	{
-		this.mdResponse = new MarkdownCtrl();
+		this.mdResponse = new MarkdownTextBox();
 		this.tsBottom = new ToolStrip();
 		this.tsbnSend = new ToolStripButton();
 		this.txtRequest = new TextBox();
@@ -185,7 +185,7 @@ partial class PanelChat
 	private ToolStrip tsTop;
 	private ToolStripButton bnNewConversation;
 	private TextBox txtRequest;
-	private MarkdownCtrl mdResponse;
+	private MarkdownTextBox mdResponse;
 	private ToolStrip tsBottom;
 	private ToolStripButton tsbnSend;
 	private ConfirmationPanel pnlConfirmation;
