@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Globalization;
 
-namespace Plugin.McpBridge.UI;
+namespace Plugin.McpBridge.UI.PropertyGrid;
 
 public class AiProviderIdConverter : GuidConverter
 {

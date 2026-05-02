@@ -3,7 +3,7 @@ using System.Drawing.Design;
 using System.Runtime.Serialization.Json;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Data;
-using Plugin.McpBridge.UI;
+using Plugin.McpBridge.UI.PropertyGrid;
 using SAL.Flatbed;
 
 namespace Plugin.McpBridge
@@ -63,7 +63,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		[Category("AI Provider")]
 		[Description("The list of AI providers available for selection. Managed through the AI Providers Manager UI.")]
 		[DisplayName("AI Providers")]
-		[TypeConverter(typeof(ArrayConverter))]
+		[TypeConverter(typeof(BindingListConverter<AiProviderDto>))]
 		public BindingList<AiProviderDto> AiProviders
 		{
 			get
@@ -78,17 +78,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 					List<AiProviderDto> aiProviders = new List<AiProviderDto>(arrProviders ?? Array.Empty<AiProviderDto>());
 
 					this._aiProviders = new BindingList<AiProviderDto>(aiProviders);
-					this._aiProviders.ListChanged += (s, e) => {
-						if(this._aiProviders == null || this._aiProviders.Count == 0)
-							this.AiProvidersJson = null;
-						else
-							using(MemoryStream stream = new MemoryStream())
-							{
-								Serializer.WriteObject(stream, this._aiProviders.ToArray());
-								stream.Seek(0, SeekOrigin.Begin);
-								this.AiProvidersJson = System.Text.Encoding.UTF8.GetString(stream.ToArray());
-							}
-					};
+					this._aiProviders.ListChanged += this.AiProviders_ListChanged;
 				}
 				return this._aiProviders;
 			}
@@ -190,6 +180,35 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 
 		internal AiProviderDto? GetSelectedProvider()
 			=> this.AiProviders.FirstOrDefault(x => x.Id == this.SelectedProviderId) ?? this.AiProviders.FirstOrDefault();
+
+		private Boolean _listChangedPending = false;
+
+		private void AiProviders_ListChanged(Object? sender, ListChangedEventArgs e)
+		{
+			if(this._listChangedPending)
+				return;
+			this._listChangedPending = true;
+
+			SynchronizationContext.Current?.Post(_ =>
+			{
+				this._listChangedPending = false;
+
+				if(this._aiProviders == null || this._aiProviders.Count == 0)
+					this.AiProvidersJson = null;
+				else
+				{
+					using(MemoryStream stream = new MemoryStream())
+					{
+						Serializer.WriteObject(stream, this._aiProviders.ToArray());
+						stream.Seek(0, SeekOrigin.Begin);
+						this.AiProvidersJson = System.Text.Encoding.UTF8.GetString(stream.ToArray());
+					}
+				}
+
+				if(this.SelectedProviderId != null && this._aiProviders?.Any(p => p.Id == this.SelectedProviderId) != true)
+					this.SelectedProviderId = null;
+			}, null);
+		}
 
 		#region INotifyPropertyChanged
 		public event PropertyChangedEventHandler? PropertyChanged;

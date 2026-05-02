@@ -3,7 +3,7 @@ using System.Drawing.Design;
 using System.Windows.Forms.Design;
 using SAL.Flatbed;
 
-namespace Plugin.McpBridge.UI;
+namespace Plugin.McpBridge.UI.PropertyGrid;
 
 /// <summary>Drop-down property-grid editor that renders each loaded plugin as a named checkbox.</summary>
 internal sealed class PluginsPermissionEditor : UITypeEditor

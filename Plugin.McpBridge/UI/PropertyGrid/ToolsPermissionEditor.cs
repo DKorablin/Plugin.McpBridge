@@ -4,7 +4,7 @@ using System.Reflection;
 using System.Windows.Forms.Design;
 using Plugin.McpBridge.Tools;
 
-namespace Plugin.McpBridge.UI;
+namespace Plugin.McpBridge.UI.PropertyGrid;
 
 /// <summary>Drop-down property-grid editor that renders each discovered tool method as a named, described checkbox.</summary>
 internal sealed class ToolsPermissionEditor : UITypeEditor
