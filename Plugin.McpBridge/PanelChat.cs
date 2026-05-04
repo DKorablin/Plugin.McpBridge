@@ -14,7 +14,7 @@ public partial class PanelChat : UserControl
 	private Boolean _streamingActive;
 	private CancellationTokenSource? _cts;
 
-	private Plugin Plugin => (Plugin)this.Window.Plugin;
+	private Plugin Plugin => (Plugin)this.Window.Plugin.Instance;
 
 	private IWindow Window => (IWindow)base.Parent;
 

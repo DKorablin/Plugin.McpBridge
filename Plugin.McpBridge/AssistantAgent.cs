@@ -45,14 +45,6 @@ namespace Plugin.McpBridge
 
 			this._session = null;
 
-			Boolean requiresApiKey = provider.ProviderType != AiProviderType.LocalOpenAICompatible
-				&& provider.ProviderType != AiProviderType.Stub;
-			if(requiresApiKey && String.IsNullOrWhiteSpace(provider.ApiKey))
-			{
-				this._agent = null;
-				return;
-			}
-
 			HttpClient httpClient = new HttpClient { Timeout = settings.ConnectionTimeout };
 			IChatClient chatClient = this._chatClientFactory(provider, httpClient);
 
@@ -241,8 +233,10 @@ namespace Plugin.McpBridge
 
 		private IChatClient BuildChatClient(AiProviderDto provider, HttpClient httpClient)
 		{
+#if DEBUG
 			if(provider.ProviderType == AiProviderType.Stub)
 				return new StubChatClient();
+#endif
 
 			HttpClientPipelineTransport transport = new HttpClientPipelineTransport(httpClient);
 			switch(provider.ProviderType)

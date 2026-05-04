@@ -54,22 +54,6 @@ namespace Plugin.McpBridge.Tests
 		#region Initialize
 
 		[Fact]
-		public async Task Initialize_KeyRequiredProviderWithNoApiKey_SubsequentMessageReportsNotConfigured()
-		{
-			(IHost host, PluginSettingsTools settingsTools, PluginMethodsTools methodsTools, ShellTools shellTools) = TestUtils.CreateDependencies();
-			ToolsFactory factory = new ToolsFactory(TestUtils.Trace, shellTools, settingsTools, methodsTools);
-			AssistantAgent sut = new AssistantAgent(TestUtils.Trace, host, factory);
-			sut.Initialize(new Settings(host), new AiProviderDto { ProviderType = AiProviderType.OpenAI, ApiKey = null });
-			AgentResponseEventArgs? received = null;
-			sut.AiResponseReceived += (s, e) => received = e;
-
-			await sut.InvokeMessageAsync("hello");
-
-			received.Should().NotBeNull();
-			received!.Response.Should().Contain("not configured");
-		}
-
-		[Fact]
 		public async Task Initialize_CalledTwice_ResetsSession()
 		{
 			Mock<IChatClient> mockClient = new Mock<IChatClient>();
