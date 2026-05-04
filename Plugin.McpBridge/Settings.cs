@@ -64,6 +64,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		[Description("The list of AI providers available for selection. Managed through the AI Providers Manager UI.")]
 		[DisplayName("AI Providers")]
 		[TypeConverter(typeof(BindingListConverter<AiProviderDto>))]
+		[Editor(typeof(WithDescriptionCollectionEditor), typeof(UITypeEditor))]
 		public BindingList<AiProviderDto> AiProviders
 		{
 			get
