@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Reflection;
 using Microsoft.Extensions.AI;
 using Moq;
@@ -13,7 +12,7 @@ namespace Plugin.McpBridge.Tests;
 internal static class TestUtils
 {
 	public const String PluginId = "test-plugin";
-	public static readonly TraceSource Trace = new TraceSource("test");
+	public static readonly ITraceSource Trace = new Mock<ITraceSource>().Object;
 
 	public static (IHost Host, PluginSettingsTools Settings, PluginMethodsTools Methods, ShellTools Shell) CreateDependencies(IPluginDescription? pluginDescription = null, TimeProvider? timeProvider = null)
 	{

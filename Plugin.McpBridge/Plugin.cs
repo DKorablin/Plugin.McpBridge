@@ -11,13 +11,12 @@ namespace Plugin.McpBridge
 	public class Plugin : IPlugin, IPluginSettings<Settings>
 	{
 		private Settings? _settings;
-		private TraceSource? _trace;
 
 		private AssistantAgent? _agent;
 
 		private IMenuItem? _menuChat;
 
-		internal TraceSource Trace => this._trace ?? (this._trace = Plugin.CreateTraceSource<Plugin>());
+		internal ITraceSource Trace { get; }
 
 		Object IPluginSettings.Settings => this.Settings;
 
@@ -52,9 +51,10 @@ namespace Plugin.McpBridge
 			};
 		}
 
-		public Plugin(IHost host)
+		public Plugin(IHost host, ITraceSource trace)
 		{
 			this.Host = host ?? throw new ArgumentNullException(nameof(host));
+			this.Trace = trace ?? throw new ArgumentNullException(nameof(trace));
 		}
 
 		public IWindow? GetPluginControl(String typeName, Object args)
@@ -138,14 +138,5 @@ namespace Plugin.McpBridge
 			=> Plugin.DocumentTypes.TryGetValue(typeName, out DockState state)
 				? this.HostWindows.Windows.CreateWindow(this, typeName, searchForOpened, state, args)
 				: null;
-
-		private static TraceSource CreateTraceSource<T>(String? name = null) where T : IPlugin
-		{
-			TraceSource result = new TraceSource(typeof(T).Assembly.GetName().Name + name);
-			result.Switch.Level = SourceLevels.All;
-			result.Listeners.Remove("Default");
-			result.Listeners.AddRange(System.Diagnostics.Trace.Listeners);
-			return result;
-		}
 	}
 }

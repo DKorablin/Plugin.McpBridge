@@ -3,16 +3,17 @@ using System.Diagnostics;
 using System.Reflection;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Events;
+using SAL.Flatbed;
 
 namespace Plugin.McpBridge.Tools;
 
 /// <summary>Creates <see cref="ToolFacade"/> instances from methods decorated with <see cref="ToolAttribute"/> using reflection.</summary>
 internal sealed class ToolsFactory
 {
-	private readonly TraceSource _trace;
+	private readonly ITraceSource _trace;
 	private readonly Object[] _targets;
 
-	public ToolsFactory(TraceSource trace, params Object[] toolsHosts)
+	public ToolsFactory(ITraceSource trace, params Object[] toolsHosts)
 	{
 		if(toolsHosts == null || toolsHosts.Length == 0)
 			throw new ArgumentException("At least one tools host must be provided.", nameof(toolsHosts));

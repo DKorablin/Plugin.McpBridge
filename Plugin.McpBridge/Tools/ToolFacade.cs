@@ -2,17 +2,18 @@
 using System.Text.Json;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Events;
+using SAL.Flatbed;
 
 namespace Plugin.McpBridge.Tools;
 
 /// <summary>Catches tool exceptions and returns the message as a string so the LLM receives a result rather than a broken conversation.</summary>
 internal sealed class ToolFacade : DelegatingAIFunction
 {
-	private readonly TraceSource _trace;
+	private readonly ITraceSource _trace;
 
 	public event EventHandler<AgentConfirmationEventArgs>? ConfirmationRequired;
 
-	public ToolFacade(TraceSource trace, Delegate method)
+	public ToolFacade(ITraceSource trace, Delegate method)
 		: base(AIFunctionFactory.Create(method))
 	{
 		this._trace = trace ?? throw new ArgumentNullException(nameof(trace));

@@ -16,7 +16,7 @@ namespace Plugin.McpBridge
 	/// <summary>Manages the MAF AIAgent instance and drives the multi-turn agent loop.</summary>
 	internal sealed class AssistantAgent
 	{
-		private readonly TraceSource _trace;
+		private readonly ITraceSource _trace;
 		private readonly IHost _host;
 		private readonly ToolsFactory _toolsFactory;
 		private readonly Func<AiProviderDto, HttpClient, IChatClient> _chatClientFactory;
@@ -27,7 +27,7 @@ namespace Plugin.McpBridge
 		public event EventHandler<AgentConfirmationEventArgs>? ConfirmationRequired;
 
 		public AssistantAgent(
-			TraceSource trace,
+			ITraceSource trace,
 			IHost host,
 			ToolsFactory toolsFactory,
 			Func<AiProviderDto, HttpClient, IChatClient>? chatClientFactory = null)
