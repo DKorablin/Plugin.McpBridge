@@ -47,6 +47,8 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		private TimeSpan _connectionTimeout = Defaults.ConnectionTimeout;
 		private String[]? _toolsPermission = null;
 		private String[]? _pluginsPermission = null;
+		private Boolean _devUIEnabled = false;
+		private Int32 _devUIPort = 5050;
 
 		[Browsable(false)]
 		public String? AiProvidersJson
@@ -157,6 +159,31 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 					value = null;
 
 				this.SetField(ref this._pluginsPermission, value, nameof(this.PluginsPermission));
+			}
+		}
+
+		[Category("Debugging")]
+		[DefaultValue(false)]
+		[Description("When enabled, starts an embedded web server exposing the DevUI interface for local agent diagnostics. Navigate to http://localhost:<DevUIPort>/devui.")]
+		[DisplayName("DevUI Enabled")]
+		public Boolean DevUIEnabled
+		{
+			get => this._devUIEnabled;
+			set => this.SetField(ref this._devUIEnabled, value, nameof(this.DevUIEnabled));
+		}
+
+		[Category("Debugging")]
+		[DefaultValue(5050)]
+		[Description("The local port used by the embedded DevUI web server.")]
+		[DisplayName("DevUI Port")]
+		public Int32 DevUIPort
+		{
+			get => this._devUIPort;
+			set
+			{
+				if(value <= 0 || value > 65535)
+					value = 5050;
+				this.SetField(ref this._devUIPort, value, nameof(this.DevUIPort));
 			}
 		}
 

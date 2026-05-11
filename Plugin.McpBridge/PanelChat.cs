@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Drawing.Imaging;
 using Microsoft.Extensions.AI;
+using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Events;
 using Plugin.McpBridge.UI;

@@ -1,17 +1,13 @@
-﻿using System.ClientModel;
-using System.ClientModel.Primitives;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text;
-using Azure.AI.OpenAI;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
-using OpenAI;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Events;
 using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
 
-namespace Plugin.McpBridge
+namespace Plugin.McpBridge.Agents
 {
 	/// <summary>Manages the MAF AIAgent instance and drives the multi-turn agent loop.</summary>
 	internal sealed class AssistantAgent
@@ -35,7 +31,7 @@ namespace Plugin.McpBridge
 			this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
 			this._host = host ?? throw new ArgumentNullException(nameof(host));
 			this._toolsFactory = toolsFactory ?? throw new ArgumentNullException(nameof(toolsFactory));
-			this._chatClientFactory = chatClientFactory ?? this.BuildChatClient;
+			this._chatClientFactory = chatClientFactory ?? AgentFactory.CreateChatClient;
 		}
 
 		public void Initialize(Settings settings, AiProviderDto provider)
@@ -47,27 +43,11 @@ namespace Plugin.McpBridge
 
 			HttpClient httpClient = new HttpClient { Timeout = settings.ConnectionTimeout };
 			IChatClient chatClient = this._chatClientFactory(provider, httpClient);
-
-			IChatClient configuredClient = new ChatClientBuilder(chatClient)
-				.ConfigureOptions(options =>
-				{
-					if(settings.MaxTokens.HasValue)
-						options.MaxOutputTokens = settings.MaxTokens.Value;
-					if(provider.Temperature.HasValue)
-						options.Temperature = (Single)provider.Temperature.Value;
-					if(provider.ReasoningOutput.HasValue || provider.ReasoningEffort.HasValue)
-					{
-						options.Reasoning = new ReasoningOptions
-						{
-							Output = provider.ReasoningOutput ?? ReasoningOutput.None,
-							Effort = provider.ReasoningEffort ?? ReasoningEffort.Medium
-						};
-					}
-				})
-				.Build();
+			IChatClient configuredClient = AgentFactory.ConfigureOptions(chatClient, settings, provider);
 
 			List<AITool> tools = this._toolsFactory.CreateTools(settings.ToolsPermission, (Object? s, AgentConfirmationEventArgs e) => this.OnConfirmationRequired(e)).ToList();
-			String instructions = this.BuildSystemInstructions(settings, tools);
+			String pluginInventory = AgentFactory.ListPluginInventory(this._host, settings.PluginsPermission);
+			String instructions = AgentFactory.BuildSystemInstructions(settings, tools, pluginInventory);
 			this._agent = configuredClient.AsAIAgent(
 				instructions: instructions,
 				tools: tools);
@@ -170,56 +150,6 @@ namespace Plugin.McpBridge
 			this.OnAiResponseReceived(new AgentResponseEventArgs(aiResponse, true));
 		}
 
-		private String BuildSystemInstructions(Settings settings, IReadOnlyList<AITool> tools)
-		{
-			StringBuilder sb = new StringBuilder(settings.AssistantSystemPrompt);
-
-			String pluginInventory = this.ListPluginInventory(settings.PluginsPermission);
-			sb.AppendLine();
-			sb.AppendLine();
-			if(pluginInventory.Length > 0)
-			{
-				sb.AppendLine("Loaded SAL plugins:");
-				sb.AppendLine(pluginInventory);
-			}else
-				sb.AppendLine("No SAL plugins are available.");
-
-			if(tools.Count > 0)
-			{
-				sb.AppendLine();
-				sb.AppendLine("Available AI tools:");
-				foreach(AIFunction tool in tools.OfType<AIFunction>())
-					sb.AppendLine($"- {tool.Name} : {tool.Description}");
-			}
-
-			return sb.ToString().TrimEnd();
-		}
-
-		private String ListPluginInventory(String[]? disallowedPlugins)
-		{
-			StringBuilder pluginsText = new StringBuilder();
-			Boolean allAllowed = disallowedPlugins == null || disallowedPlugins.Length == 0;
-			foreach(IPluginDescription pluginDescription in this._host.Plugins)
-			{
-				if(!allAllowed && Array.Exists(disallowedPlugins!, p => p == pluginDescription.ID))
-					continue;
-
-				pluginsText.Append("- ");
-				pluginsText.Append(pluginDescription.ID);
-				pluginsText.Append(" | ");
-				pluginsText.Append(pluginDescription.Name);
-				pluginsText.Append(" | ");
-				pluginsText.Append(pluginDescription.Version?.ToString());
-				pluginsText.Append(" | Settings: ");
-				pluginsText.Append(PluginSettingsTools.HasPluginSettings(pluginDescription) ? "yes" : "no");
-				pluginsText.Append(" | Members: ");
-				pluginsText.Append(PluginMethodsTools.HasCallableMembers(pluginDescription) ? "yes" : "no");
-				pluginsText.AppendLine();
-			}
-
-			return pluginsText.ToString().Trim();
-		}
-
 		private static ChatMessage BuildUserMessage(String text, DataContent[]? images = null)
 		{
 			if(images == null || images.Length == 0)
@@ -229,37 +159,6 @@ namespace Plugin.McpBridge
 			foreach(DataContent image in images)
 				contents.Add(image);
 			return new ChatMessage(ChatRole.User, contents);
-		}
-
-		private IChatClient BuildChatClient(AiProviderDto provider, HttpClient httpClient)
-		{
-#if DEBUG
-			if(provider.ProviderType == AiProviderType.Stub)
-				return new StubChatClient();
-#endif
-
-			HttpClientPipelineTransport transport = new HttpClientPipelineTransport(httpClient);
-			switch(provider.ProviderType)
-			{
-			case AiProviderType.AzureOpenAI:
-				return new AzureOpenAIClient(
-					new Uri(provider.ModelEndpointUrl!),
-					new ApiKeyCredential(provider.ApiKey!),
-					new AzureOpenAIClientOptions { Transport = transport })
-					.GetChatClient(provider.DeploymentName ?? provider.ModelId)
-				.AsIChatClient();
-			default:
-				OpenAIClientOptions clientOptions = new OpenAIClientOptions
-				{
-					Transport = transport
-				};
-				if(provider.ModelEndpointUrl != null)
-					clientOptions.Endpoint = new Uri(provider.ModelEndpointUrl);
-
-				return new OpenAIClient(new ApiKeyCredential(provider.ApiKey ?? "local-no-key"), clientOptions)
-					.GetChatClient(provider.ModelId)
-					.AsIChatClient();
-			}
 		}
 	}
 }

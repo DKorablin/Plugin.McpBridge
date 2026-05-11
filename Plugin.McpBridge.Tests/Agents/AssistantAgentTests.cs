@@ -6,13 +6,14 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
 using Moq;
+using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Events;
 using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
 using Xunit;
 
-namespace Plugin.McpBridge.Tests
+namespace Plugin.McpBridge.Tests.Agents
 {
 	public class AssistantAgentTests
 	{

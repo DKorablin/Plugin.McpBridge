@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Tools;
 
-namespace Plugin.McpBridge
+namespace Plugin.McpBridge.Tests
 {
 	/// <summary>Scripted IChatClient for UI testing — returns predefined responses with no network or credentials.</summary>
 	/// <remarks>
@@ -94,12 +94,31 @@ Result:
 						{ "methodName", "StubMethod" },
 						{ "argumentsJson", "{}" },
 					}));
-				case "events":
+				case "plugin.eventlog":
 					return Task.FromResult(BuildToolCall(nameof(PluginMethodsTools.MethodsInvoke), new Dictionary<String, Object?>
 					{
 						{ "pluginId", "535b6be7-847b-45ab-bdaa-68e1e52be508" },
 						{ "methodName", "GetEvents" },
 						{ "argumentsJson", $"{{\"timeStart\":\"{DateTime.Today.AddDays(-1).ToString("s")}\", \"timeEnd\":\"{DateTime.Today.AddSeconds(-1).ToString("s")}\", \"eventLogEntryTypes\": [\"Error\",\"Warning\",\"Information\"]}}" },
+					}));
+				case "plugin.windowautomation methods":
+					return Task.FromResult(BuildToolCall(nameof(PluginMethodsTools.MethodsList), new Dictionary<String, Object?>
+					{
+						{ "pluginId", "e8d66370-032d-453a-8bbd-7dbea49feb54" },
+					}));
+				case "plugin.windowautomation.getopenedwindows":
+					return Task.FromResult(BuildToolCall(nameof(PluginMethodsTools.MethodsInvoke), new Dictionary<String, Object?>
+					{
+						{ "pluginId", "e8d66370-032d-453a-8bbd-7dbea49feb54" },
+						{ "methodName", "GetOpenedWindows" },
+						{ "argumentsJson", "{}" },
+					}));
+				case "plugin.windowautomation.getwindowbitmap":
+					return Task.FromResult(BuildToolCall(nameof(PluginMethodsTools.MethodsInvoke), new Dictionary<String, Object?>
+					{
+						{ "pluginId", "e8d66370-032d-453a-8bbd-7dbea49feb54" },
+						{ "methodName", "GetWindowBitmap" },
+						{ "argumentsJson", "{\"handleId\":1}" },
 					}));
 				case "settings":
 					return Task.FromResult(BuildToolCall(nameof(PluginSettingsTools.SettingsSet), new Dictionary<String, Object?>
