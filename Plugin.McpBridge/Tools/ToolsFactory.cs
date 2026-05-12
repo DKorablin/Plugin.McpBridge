@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using System.Reflection;
+﻿using System.Reflection;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Events;
 using SAL.Flatbed;
@@ -11,25 +10,25 @@ namespace Plugin.McpBridge.Tools;
 internal sealed class ToolsFactory
 {
 	private readonly ITraceSource _trace;
-	private readonly Object[] _targets;
+	private readonly ToolsDiscoveryBase[] _targets;
 
-	public ToolsFactory(ITraceSource trace, IHost host)
+	public ToolsFactory(ITraceSource? trace, IHost host)
 	{
-		List<Object> tools = new List<Object>()
-			{
-				new PluginSettingsTools(host),
-				new PluginMethodsTools(host),
-				new ShellTools(),
-			};
+		List<ToolsDiscoveryBase> tools = new List<ToolsDiscoveryBase>()
+		{
+			new PluginSettingsTools(host),
+			new PluginMethodsTools(host),
+			new ShellTools(),
+		};
 
 		if(host is IHostWindows hostWindows)
 			tools.Add(new WindowsTools(hostWindows));
 
-		this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
+		this._trace = trace;
 		this._targets = tools.ToArray();
 	}
 
-	public ToolsFactory(ITraceSource trace, params Object[] toolsHosts)
+	public ToolsFactory(ITraceSource trace, params ToolsDiscoveryBase[] toolsHosts)
 	{
 		if(toolsHosts == null || toolsHosts.Length == 0)
 			throw new ArgumentException("At least one tools host must be provided.", nameof(toolsHosts));
@@ -38,30 +37,11 @@ internal sealed class ToolsFactory
 		this._targets = toolsHosts;
 	}
 
-	/// <summary>Scans the executing assembly for methods decorated with <see cref="ToolAttribute"/>, mirroring the logic of <see cref="ToolsFactory.GetTools"/> without requiring live service instances.</summary>
-	public static IEnumerable<(String MethodName, String Description)> DiscoverTools(Assembly discoveryAssembly)
+	public IEnumerable<(Object Target, ToolAttribute Tool, MethodInfo Method, String Description)> GetTools()
 	{
-		HashSet<String> seen = new HashSet<String>(StringComparer.Ordinal);
-		foreach(Type type in discoveryAssembly.GetTypes())
-			foreach(MethodInfo method in type.GetMethods(BindingFlags.Instance | BindingFlags.Public))
-			{
-				ToolAttribute? tool = method.GetCustomAttribute<ToolAttribute>();
-				if(tool == null || !seen.Add(method.Name))
-					continue;
-				String description = method.GetCustomAttribute<DescriptionAttribute>()?.Description ?? String.Empty;
-				yield return (method.Name, description);
-			}
-	}
-
-	public IEnumerable<(Object Target, ToolAttribute Tool, MethodInfo Method)> GetTools()
-	{
-		foreach(Object target in this._targets)
-			foreach(MethodInfo method in target.GetType().GetMethods(BindingFlags.Instance | BindingFlags.Public))
-			{
-				var attr = method.GetCustomAttribute<ToolAttribute>();
-				if(attr != null)
-					yield return (target, attr, method);
-			}
+		foreach(ToolsDiscoveryBase target in this._targets)
+			foreach(var tool in target.GetTools())
+				yield return tool;
 	}
 
 	public IEnumerable<AITool> CreateTools(String[]? permissions, EventHandler<AgentConfirmationEventArgs>? confirmationHandler)

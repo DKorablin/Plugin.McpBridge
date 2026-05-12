@@ -4,7 +4,7 @@ using SAL.Windows;
 
 namespace Plugin.McpBridge.Tools
 {
-	internal sealed class WindowsTools
+	internal sealed class WindowsTools : ToolsDiscoveryBase
 	{
 		private readonly IHostWindows _host;
 
