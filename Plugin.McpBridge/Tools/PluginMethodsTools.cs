@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Reflection;
 using System.Text;
+using Plugin.McpBridge.Data;
 using SAL.Flatbed;
 
 namespace Plugin.McpBridge.Tools
@@ -8,10 +9,12 @@ namespace Plugin.McpBridge.Tools
 	internal sealed class PluginMethodsTools
 	{
 		private readonly IHost _host;
+		private readonly XmlReflectionReader _xmlReader;
 
 		public PluginMethodsTools(IHost host)
 		{
 			this._host = host ?? throw new ArgumentNullException(nameof(host));
+			this._xmlReader = new XmlReflectionReader();
 		}
 
 		[Tool]
@@ -38,6 +41,7 @@ namespace Plugin.McpBridge.Tools
 				{
 					builder.Append("- ");
 					builder.Append(member.Name);
+					//var methodDescription = this._xmlReader.FindDocumentation(pluginDescription, member);
 
 					IPluginMethodInfo method = (IPluginMethodInfo)member;
 					Boolean firstArg = true;

@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
-using System.Diagnostics;
+using Microsoft.Extensions.AI;
+using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Events;
 using Plugin.McpBridge.Tools;
@@ -11,8 +12,10 @@ namespace Plugin.McpBridge
 	public class Plugin : IPlugin, IPluginSettings<Settings>
 	{
 		private Settings? _settings;
-
 		private AssistantAgent? _agent;
+
+		private DevUIHost? _devUIHost;
+		private ToolsMcpServer? _mcpServer;
 
 		private IMenuItem? _menuChat;
 
@@ -37,6 +40,13 @@ namespace Plugin.McpBridge
 		private void _settings_PropertyChanged(Object? sender, PropertyChangedEventArgs e)
 		{
 			this._agent = null;
+
+			this._devUIHost?.StopAsync().GetAwaiter().GetResult();
+			this._devUIHost = null;
+			this._mcpServer?.Dispose();
+			this._mcpServer = null;
+
+			this.Plugins_PluginsLoaded(sender, e);
 		}
 
 		internal IHost Host { get; }
@@ -93,25 +103,17 @@ namespace Plugin.McpBridge
 
 		internal AssistantAgent InitializeAgent(AiProviderDto provider)
 		{
-			List<Object> tools = new List<Object>()
-			{
-				new PluginSettingsTools(this.Host),
-				new PluginMethodsTools(this.Host),
-				new ShellTools(),
-			};
+			ToolsFactory toolsFactory = new ToolsFactory(this.Trace, this.Host);
 
-			if(this.HostWindows != null)
-				tools.Add(new WindowsTools(this.HostWindows));
-
-			ToolsFactory toolsFactory = new ToolsFactory(this.Trace, tools.ToArray());
 			var result = new AssistantAgent(this.Trace, this.Host, toolsFactory);
 			result.Initialize(this.Settings, provider);
-
 			return result;
 		}
 
 		Boolean IPlugin.OnConnection(ConnectMode mode)
 		{
+			this.Host.Plugins.PluginsLoaded += Plugins_PluginsLoaded;
+
 			var hostWindows = this.Host as IHostWindows;
 			if(hostWindows != null)
 			{
@@ -127,10 +129,30 @@ namespace Plugin.McpBridge
 			return true;
 		}
 
+		private void Plugins_PluginsLoaded(Object? sender, EventArgs e)
+		{
+			ToolsFactory toolsFactory = new ToolsFactory(this.Trace, this.Host);
+
+			if(this.Settings.McpServerEnabled || this.Settings.DevUIEnabled)
+			{
+				IEnumerable<AITool> bridgeTools = toolsFactory.CreateTools(this.Settings.ToolsPermission, null);
+				this._mcpServer = new ToolsMcpServer(this.Trace, this.Settings.McpServerUrl, bridgeTools);
+				this._mcpServer.Start();
+			}
+
+			if(this.Settings.DevUIEnabled)
+			{
+				this._devUIHost = new DevUIHost(this.Host);
+				Task.Run(() => this._devUIHost.StartAsync(this.Settings, this.Settings.GetSelectedProvider()));
+			}
+		}
+
 		Boolean IPlugin.OnDisconnection(DisconnectMode mode)
 		{
 			if(this._menuChat != null)
 				this.HostWindows.MainMenu.Items.Remove(this._menuChat);
+			this._devUIHost?.Dispose();
+			this._mcpServer?.Dispose();
 			return true;
 		}
 

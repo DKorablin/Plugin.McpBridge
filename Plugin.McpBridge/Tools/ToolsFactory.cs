@@ -1,9 +1,9 @@
 ﻿using System.ComponentModel;
-using System.Diagnostics;
 using System.Reflection;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Events;
 using SAL.Flatbed;
+using SAL.Windows;
 
 namespace Plugin.McpBridge.Tools;
 
@@ -12,6 +12,22 @@ internal sealed class ToolsFactory
 {
 	private readonly ITraceSource _trace;
 	private readonly Object[] _targets;
+
+	public ToolsFactory(ITraceSource trace, IHost host)
+	{
+		List<Object> tools = new List<Object>()
+			{
+				new PluginSettingsTools(host),
+				new PluginMethodsTools(host),
+				new ShellTools(),
+			};
+
+		if(host is IHostWindows hostWindows)
+			tools.Add(new WindowsTools(hostWindows));
+
+		this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
+		this._targets = tools.ToArray();
+	}
 
 	public ToolsFactory(ITraceSource trace, params Object[] toolsHosts)
 	{
@@ -48,7 +64,7 @@ internal sealed class ToolsFactory
 			}
 	}
 
-	public IEnumerable<AITool> CreateTools(String[]? permissions, EventHandler<AgentConfirmationEventArgs> confirmationHandler)
+	public IEnumerable<AITool> CreateTools(String[]? permissions, EventHandler<AgentConfirmationEventArgs>? confirmationHandler)
 	{
 		Boolean allAllowed = permissions == null || permissions.Length == 0;
 		foreach(var method in this.GetTools())
@@ -58,7 +74,7 @@ internal sealed class ToolsFactory
 
 			Delegate del = method.Method.CreateDelegate(GetDelegateType(method.Method), method.Target);
 			ToolFacade wrapper = new ToolFacade(this._trace, del);
-			if(method.Tool.ConfirmationRequired)
+			if(method.Tool.ConfirmationRequired && confirmationHandler != null)//This ignore type is added because of DevUI host (We don't need to intercept DevUI request)
 				wrapper.ConfirmationRequired += (s, e) => confirmationHandler(s, e);
 
 			yield return wrapper;

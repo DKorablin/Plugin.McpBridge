@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Tools;
 
-namespace Plugin.McpBridge
+namespace Plugin.McpBridge.Tests
 {
 	/// <summary>Scripted IChatClient for UI testing — returns predefined responses with no network or credentials.</summary>
 	/// <remarks>
@@ -10,7 +10,7 @@ namespace Plugin.McpBridge
 	///   <item><c>help</c> — markdown response with headers, lists and code.</item>
 	///   <item><c>long</c> — multi-paragraph response to exercise scrolling.</item>
 	///   <item><c>invoke</c> — simulates a MethodsInvoke tool call; triggers the confirmation panel.</item>
-	///   <item><c>events</c> — simulates a real plugin method call to get events; triggers the confirmation panel.</item>
+	///   <item><c>plugin.eventlog</c> — simulates a real plugin method call to get events; triggers the confirmation panel.</item>
 	///   <item><c>settings</c> — simulates a SettingsSet tool call; triggers the confirmation panel.</item>
 	///   <item>anything else — short default markdown response.</item>
 	/// </list>
@@ -25,7 +25,7 @@ Try typing:
 - `help` — formatted markdown
 - `long` — long response
 - `invoke` — confirmation panel (MethodsInvoke)
-- `events` - real test plugin method call (MethodsInvoke)
+- `plugin.eventlog` - real test plugin method call (MethodsInvoke)
 - `settings` — confirmation panel (SettingsSet)
 - `image` - embedded image";
 
@@ -94,12 +94,31 @@ Result:
 						{ "methodName", "StubMethod" },
 						{ "argumentsJson", "{}" },
 					}));
-				case "events":
+				case "plugin.eventlog":
 					return Task.FromResult(BuildToolCall(nameof(PluginMethodsTools.MethodsInvoke), new Dictionary<String, Object?>
 					{
 						{ "pluginId", "535b6be7-847b-45ab-bdaa-68e1e52be508" },
 						{ "methodName", "GetEvents" },
 						{ "argumentsJson", $"{{\"timeStart\":\"{DateTime.Today.AddDays(-1).ToString("s")}\", \"timeEnd\":\"{DateTime.Today.AddSeconds(-1).ToString("s")}\", \"eventLogEntryTypes\": [\"Error\",\"Warning\",\"Information\"]}}" },
+					}));
+				case "plugin.windowautomation methods":
+					return Task.FromResult(BuildToolCall(nameof(PluginMethodsTools.MethodsList), new Dictionary<String, Object?>
+					{
+						{ "pluginId", "e8d66370-032d-453a-8bbd-7dbea49feb54" },
+					}));
+				case "plugin.windowautomation.getopenedwindows":
+					return Task.FromResult(BuildToolCall(nameof(PluginMethodsTools.MethodsInvoke), new Dictionary<String, Object?>
+					{
+						{ "pluginId", "e8d66370-032d-453a-8bbd-7dbea49feb54" },
+						{ "methodName", "GetOpenedWindows" },
+						{ "argumentsJson", "{}" },
+					}));
+				case "plugin.windowautomation.getwindowbitmap":
+					return Task.FromResult(BuildToolCall(nameof(PluginMethodsTools.MethodsInvoke), new Dictionary<String, Object?>
+					{
+						{ "pluginId", "e8d66370-032d-453a-8bbd-7dbea49feb54" },
+						{ "methodName", "GetWindowBitmap" },
+						{ "argumentsJson", "{\"handleId\":1}" },
 					}));
 				case "settings":
 					return Task.FromResult(BuildToolCall(nameof(PluginSettingsTools.SettingsSet), new Dictionary<String, Object?>
@@ -121,11 +140,16 @@ Result:
 				return Task.FromResult(BuildText($"Received a message with role {lastMessage.Role} and text: {lastMessage.Text}"));
 		}
 
-		public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+		public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
 			IEnumerable<ChatMessage> messages,
 			ChatOptions? options = null,
-			CancellationToken cancellationToken = default)
-			=> throw new NotSupportedException("Stub client does not support streaming.");
+			[System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+		{
+			ChatResponse response = await this.GetResponseAsync(messages, options, cancellationToken);
+			foreach(ChatMessage msg in response.Messages)
+				foreach(AIContent content in msg.Contents)
+					yield return new ChatResponseUpdate { Role = msg.Role, Contents = [content] };
+		}
 
 		public Object? GetService(Type serviceType, Object? serviceKey = null) => null;
 

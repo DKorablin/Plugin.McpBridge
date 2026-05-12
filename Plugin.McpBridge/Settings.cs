@@ -1,7 +1,10 @@
 ﻿using System.ComponentModel;
 using System.Drawing.Design;
+using System.Net;
+using System.Net.Sockets;
 using System.Runtime.Serialization.Json;
-using Microsoft.Extensions.AI;
+using System.Security.Policy;
+using Google.Protobuf.WellKnownTypes;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.UI.PropertyGrid;
 using SAL.Flatbed;
@@ -34,6 +37,8 @@ Use available MCP tools when useful.
 Return clear user-facing responses, or a command payload only when automation is required.
 Before using relative dates (today, yesterday, last hour), obtain the current system time from the SystemInformation tool.";
 			public static readonly TimeSpan ConnectionTimeout = TimeSpan.FromSeconds(100);
+			public const String McpServerUrl = "http://localhost:5051";
+			public const String DevUiServerUrl = "http://localhost:5050";
 		}
 
 		private static DataContractJsonSerializer Serializer = new DataContractJsonSerializer(typeof(AiProviderDto[]));
@@ -41,12 +46,15 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		private String? _aiProvidersJson = null;
 		private BindingList<AiProviderDto>? _aiProviders = null;
 		private Guid? _selectedProviderId;
-		private String? _apiKey = null;
 		private String? _assistantSystemPrompt = Defaults.AssistantSystemPrompt;
 		private Int32? _maxTokens;
 		private TimeSpan _connectionTimeout = Defaults.ConnectionTimeout;
 		private String[]? _toolsPermission = null;
 		private String[]? _pluginsPermission = null;
+		private Boolean _devUIEnabled = false;
+		private String? _devUiServerUrl = null;
+		private Boolean _mcpServerEnabled = false;
+		private String? _mcpServerUrl = null;
 
 		[Browsable(false)]
 		public String? AiProvidersJson
@@ -127,7 +135,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 			}
 		}
 
-		[Category("Debugging")]
+		[Category("Security")]
 		[DefaultValue(null)]
 		[Editor(typeof(ToolsPermissionEditor), typeof(UITypeEditor))]
 		[Description("Controls which tools the assistant may use. Leave empty to allow all tools; otherwise only the listed method names are enabled.")]
@@ -143,7 +151,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 			}
 		}
 
-		[Category("Debugging")]
+		[Category("Security")]
 		[DefaultValue(null)]
 		[Editor(typeof(PluginsPermissionEditor), typeof(UITypeEditor))]
 		[TypeConverter(typeof(PluginsPermissionConverter))]
@@ -157,6 +165,74 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 					value = null;
 
 				this.SetField(ref this._pluginsPermission, value, nameof(this.PluginsPermission));
+			}
+		}
+
+		[Category("DevUI")]
+		[DefaultValue(false)]
+		[Description("When enabled, starts an embedded web server exposing the DevUI interface for local agent diagnostics. Navigate to http://localhost:<DevUIPort>/devui.")]
+		[DisplayName("DevUI Enabled")]
+		public Boolean DevUIEnabled
+		{
+			get => this._devUIEnabled;
+			set => this.SetField(ref this._devUIEnabled, value, nameof(this.DevUIEnabled));
+		}
+
+		[Category("DevUI")]
+		[DefaultValue(Defaults.DevUiServerUrl)]
+		[Description("The local port used by the embedded DevUI web server.")]
+		[DisplayName("DevUI Port")]
+		public String DevUIServerUrl
+		{
+			get
+			{
+				if(this._devUiServerUrl == null)
+					this._devUiServerUrl = Defaults.DevUiServerUrl;
+				return this._devUiServerUrl;
+			}
+			set
+			{
+				if(String.IsNullOrWhiteSpace(value) || !Uri.IsWellFormedUriString(value, UriKind.Absolute))
+					value = null!;
+
+				this.SetField(ref this._devUiServerUrl, value, nameof(this.DevUIServerUrl));
+			}
+		}
+
+		[Category("Network")]
+		[Description("When enabled, starts an MCP server that tools can connect to for execution. Requires at least one tool with 'MCP Bridge' selected as its execution mode.")]
+		public Boolean McpServerEnabled
+		{
+			get => this._mcpServerEnabled;
+			set => this.SetField(ref this._mcpServerEnabled, value, nameof(this.McpServerEnabled));
+		}
+
+		[Category("Network")]
+		[DefaultValue(Defaults.McpServerUrl)]
+		[Description("The URL of the MCP server to connect to for tool calls. If empty, the MCP server will not be used and tools will not be available.")]
+		public String McpServerUrl
+		{
+			get
+			{
+				if(this._mcpServerUrl == null)
+					this._mcpServerUrl = Defaults.McpServerUrl;
+				return this._mcpServerUrl;
+
+				Int32 FindFreePort()
+				{
+					using TcpListener probe = new TcpListener(IPAddress.Loopback, 0);
+					probe.Start();
+					Int32 port = ((IPEndPoint)probe.LocalEndpoint).Port;
+					probe.Stop();
+					return port;
+				}
+			}
+			set
+			{
+				if(String.IsNullOrWhiteSpace(value) || !Uri.IsWellFormedUriString(value, UriKind.Absolute))
+					value = null!;
+
+				this.SetField(ref this._mcpServerUrl, value, nameof(this.McpServerUrl));
 			}
 		}
 
@@ -175,6 +251,8 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		}
 
 		internal IHost Host { get; }
+
+		public Settings() : this(null!) { }
 
 		internal Settings(IHost host)
 			=> this.Host = host ?? throw new ArgumentNullException(nameof(host));
