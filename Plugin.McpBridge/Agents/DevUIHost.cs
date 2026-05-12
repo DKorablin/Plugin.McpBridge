@@ -1,8 +1,6 @@
-using System.Diagnostics;
-using System.Reflection;
+﻿using System.Diagnostics;
 using System.Runtime.Serialization.Json;
 using Plugin.McpBridge.Data;
-using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
 
 namespace Plugin.McpBridge.Agents;
@@ -12,15 +10,18 @@ internal sealed class DevUIHost : IDisposable
 {
 	private const String ExeName = "Plugin.McpBridge.DevUI.exe";
 
+	private readonly IHost _host;
+	private readonly ITraceSource _trace;
 	private Process? _process;
 
-	public Int32 Port { get; }
-
-	public DevUIHost(Int32 port = 5050)
-		=> this.Port = port;
+	public DevUIHost(IHost host)
+	{
+		this._host = host;
+		this._trace = host.Plugins.CreateTraceSource(typeof(DevUIHost).Assembly.GetName().Name + ".DevUI");
+	}
 
 	/// <summary>Serializes the current settings into a temp config file and launches the DevUI process.</summary>
-	public Task StartAsync(Settings settings, AiProviderDto provider, IHost pluginHost, String? bridgeUrl = null, CancellationToken cancellationToken = default)
+	public Task StartAsync(Settings settings, AiProviderDto provider, CancellationToken cancellationToken = default)
 	{
 		if(this._process != null)
 			this.Stop();
@@ -28,18 +29,27 @@ internal sealed class DevUIHost : IDisposable
 		String exePath = GetExePath();
 		String configPath = Path.Combine(Path.GetTempPath(), $"McpBridge.DevUI.{Guid.NewGuid():N}.json");
 
-		DevUIConfig config = BuildConfig(settings, provider, pluginHost);
+		DevUIConfig config = BuildConfig(settings, provider);
 		DataContractJsonSerializer serializer = new DataContractJsonSerializer(typeof(DevUIConfig));
 		using(FileStream stream = File.Create(configPath))
 			serializer.WriteObject(stream, config);
 
-		ProcessStartInfo psi = new ProcessStartInfo(exePath, configPath)
+		ProcessStartInfo psi = new ProcessStartInfo(exePath, $"{configPath} --parent-pid {Environment.ProcessId}")
 		{
 			UseShellExecute = false,
 			CreateNoWindow = true,
+			RedirectStandardOutput = true,
+			RedirectStandardError = true,
 		};
 
 		this._process = Process.Start(psi);
+		if(this._process != null)
+		{
+			this._process.OutputDataReceived += this.OnProcessOutputReceived;
+			this._process.ErrorDataReceived += this.OnProcessErrorReceived;
+			this._process.BeginOutputReadLine();
+			this._process.BeginErrorReadLine();
+		}
 		return Task.CompletedTask;
 	}
 
@@ -71,6 +81,18 @@ internal sealed class DevUIHost : IDisposable
 		}
 	}
 
+	private void OnProcessOutputReceived(Object sender, DataReceivedEventArgs e)
+	{
+		if(e.Data != null)
+			this._trace.TraceEvent(TraceEventType.Information, 0, e.Data);
+	}
+
+	private void OnProcessErrorReceived(Object sender, DataReceivedEventArgs e)
+	{
+		if(e.Data != null)
+			this._trace.TraceEvent(TraceEventType.Warning, 0, e.Data);
+	}
+
 	private static String GetExePath()
 	{
 		String? assemblyDir = Path.GetDirectoryName(typeof(DevUIHost).Assembly.Location);
@@ -83,45 +105,16 @@ internal sealed class DevUIHost : IDisposable
 		throw new FileNotFoundException($"DevUI executable not found. Expected alongside the plugin assembly.", ExeName);
 	}
 
-	private DevUIConfig BuildConfig(Settings settings, AiProviderDto provider, IHost pluginHost)
-	{
-		List<DevUIPluginInfo> plugins = new List<DevUIPluginInfo>();
-		Boolean allAllowed = settings.PluginsPermission == null || settings.PluginsPermission.Length == 0;
-		foreach(IPluginDescription pluginDescription in pluginHost.Plugins)
+	private DevUIConfig BuildConfig(Settings settings, AiProviderDto provider)
+		=> new DevUIConfig
 		{
-			if(!allAllowed && Array.Exists(settings.PluginsPermission!, p => p == pluginDescription.ID))
-				continue;
-			plugins.Add(new DevUIPluginInfo
-			{
-				Id = pluginDescription.ID,
-				Name = pluginDescription.Name,
-				Version = pluginDescription.Version?.ToString(),
-				HasSettings = PluginSettingsTools.HasPluginSettings(pluginDescription),
-				HasMembers = PluginMethodsTools.HasCallableMembers(pluginDescription),
-			});
-		}
-
-		return new DevUIConfig
-		{
-			Port = this.Port,
-			SystemPrompt = settings.AssistantSystemPrompt,
+			DevUiServerUrl = settings.DevUIServerUrl,
+			Instructions = AgentFactory.BuildSystemInstructions(this._host, settings),
 			MaxTokens = settings.MaxTokens,
 			ToolsPermission = settings.ToolsPermission,
 			PluginsPermission = settings.PluginsPermission,
 			ConnectionTimeout = settings.ConnectionTimeout,
-			Plugins = plugins,
-			Provider = new DevUIProviderConfig
-			{
-				ProviderType = provider.ProviderType.ToString(),
-				ModelId = provider.ModelId,
-				ApiKey = provider.ApiKey,
-				DeploymentName = provider.DeploymentName,
-				ModelEndpointUrl = provider.ModelEndpointUrl,
-				Temperature = provider.Temperature,
-				ReasoningOutput = provider.ReasoningOutput?.ToString(),
-				ReasoningEffort = provider.ReasoningEffort?.ToString(),
-			},
+			Provider = provider,
+			McpServerUrl = settings.McpServerUrl,
 		};
-	}
 }
-

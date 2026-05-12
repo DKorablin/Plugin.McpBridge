@@ -11,8 +11,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\Plugin.McpBridge\Plugin.McpBridge.csproj"
-		                  ExcludeAssets="runtime" />
+		<ProjectReference Include="..\Plugin.McpBridge\Plugin.McpBridge.csproj" ExcludeAssets="runtime" />
 		<PackageReference Include="Microsoft.Agents.AI.DevUI" />
 		<PackageReference Include="Microsoft.Agents.AI.Hosting" />
 		<PackageReference Include="Microsoft.Agents.AI.Hosting.OpenAI" />

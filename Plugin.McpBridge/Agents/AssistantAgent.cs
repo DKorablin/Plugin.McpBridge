@@ -42,15 +42,15 @@ namespace Plugin.McpBridge.Agents
 			this._session = null;
 
 			HttpClient httpClient = new HttpClient { Timeout = settings.ConnectionTimeout };
-			IChatClient chatClient = this._chatClientFactory(provider, httpClient);
-			IChatClient configuredClient = AgentFactory.ConfigureOptions(chatClient, settings, provider);
+			IChatClient chatClientRaw = this._chatClientFactory(provider, httpClient);
+			IChatClient chatClient = AgentFactory.ConfigureOptions(chatClientRaw, settings.MaxTokens, provider);
 
 			List<AITool> tools = this._toolsFactory.CreateTools(settings.ToolsPermission, (Object? s, AgentConfirmationEventArgs e) => this.OnConfirmationRequired(e)).ToList();
-			String pluginInventory = AgentFactory.ListPluginInventory(this._host, settings.PluginsPermission);
-			String instructions = AgentFactory.BuildSystemInstructions(settings, tools, pluginInventory);
-			this._agent = configuredClient.AsAIAgent(
+			String instructions = AgentFactory.BuildSystemInstructions(this._host, settings);
+			this._agent = chatClient.AsAIAgent(
 				instructions: instructions,
 				tools: tools);
+
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"Initialized AssistantAgent with instructions '{instructions}'.");
 		}
 

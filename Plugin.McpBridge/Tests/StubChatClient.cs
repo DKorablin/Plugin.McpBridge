@@ -10,7 +10,7 @@ namespace Plugin.McpBridge.Tests
 	///   <item><c>help</c> — markdown response with headers, lists and code.</item>
 	///   <item><c>long</c> — multi-paragraph response to exercise scrolling.</item>
 	///   <item><c>invoke</c> — simulates a MethodsInvoke tool call; triggers the confirmation panel.</item>
-	///   <item><c>events</c> — simulates a real plugin method call to get events; triggers the confirmation panel.</item>
+	///   <item><c>plugin.eventlog</c> — simulates a real plugin method call to get events; triggers the confirmation panel.</item>
 	///   <item><c>settings</c> — simulates a SettingsSet tool call; triggers the confirmation panel.</item>
 	///   <item>anything else — short default markdown response.</item>
 	/// </list>
@@ -25,7 +25,7 @@ Try typing:
 - `help` — formatted markdown
 - `long` — long response
 - `invoke` — confirmation panel (MethodsInvoke)
-- `events` - real test plugin method call (MethodsInvoke)
+- `plugin.eventlog` - real test plugin method call (MethodsInvoke)
 - `settings` — confirmation panel (SettingsSet)
 - `image` - embedded image";
 
@@ -140,11 +140,16 @@ Result:
 				return Task.FromResult(BuildText($"Received a message with role {lastMessage.Role} and text: {lastMessage.Text}"));
 		}
 
-		public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+		public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
 			IEnumerable<ChatMessage> messages,
 			ChatOptions? options = null,
-			CancellationToken cancellationToken = default)
-			=> throw new NotSupportedException("Stub client does not support streaming.");
+			[System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+		{
+			ChatResponse response = await this.GetResponseAsync(messages, options, cancellationToken);
+			foreach(ChatMessage msg in response.Messages)
+				foreach(AIContent content in msg.Contents)
+					yield return new ChatResponseUpdate { Role = msg.Role, Contents = [content] };
+		}
 
 		public Object? GetService(Type serviceType, Object? serviceKey = null) => null;
 

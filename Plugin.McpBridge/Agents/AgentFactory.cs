@@ -1,8 +1,7 @@
-using System.ClientModel;
+﻿using System.ClientModel;
 using System.ClientModel.Primitives;
 using System.Text;
 using Azure.AI.OpenAI;
-using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using OpenAI;
 using Plugin.McpBridge.Data;
@@ -43,12 +42,12 @@ internal static class AgentFactory
 	}
 
 	/// <summary>Wraps a <see cref="IChatClient"/> with token, temperature, and reasoning options from <paramref name="settings"/> and <paramref name="provider"/>.</summary>
-	internal static IChatClient ConfigureOptions(IChatClient chatClient, Settings settings, AiProviderDto provider)
+	internal static IChatClient ConfigureOptions(IChatClient chatClient, Int32? maxTokens, AiProviderDto provider)
 		=> new ChatClientBuilder(chatClient)
 			.ConfigureOptions(options =>
 			{
-				if(settings.MaxTokens.HasValue)
-					options.MaxOutputTokens = settings.MaxTokens.Value;
+				if(maxTokens.HasValue)
+					options.MaxOutputTokens = maxTokens.Value;
 				if(provider.Temperature.HasValue)
 					options.Temperature = (Single)provider.Temperature.Value;
 				if(provider.ReasoningOutput.HasValue || provider.ReasoningEffort.HasValue)
@@ -60,8 +59,14 @@ internal static class AgentFactory
 			})
 			.Build();
 
+	internal static String BuildSystemInstructions(IHost host, Settings settings)
+	{
+		String pluginInventory = AgentFactory.ListPluginInventory(host, settings.PluginsPermission);
+		return AgentFactory.BuildSystemInstructions(settings, pluginInventory);
+	}
+
 	/// <summary>Returns a formatted inventory of SAL plugins visible to the agent, filtered by <paramref name="disallowedPlugins"/>.</summary>
-	internal static String ListPluginInventory(IHost host, String[]? disallowedPlugins)
+	private static String ListPluginInventory(IHost host, String[]? disallowedPlugins)
 	{
 		StringBuilder pluginsText = new StringBuilder();
 		Boolean allAllowed = disallowedPlugins == null || disallowedPlugins.Length == 0;
@@ -87,7 +92,7 @@ internal static class AgentFactory
 	}
 
 	/// <summary>Builds the system prompt from <paramref name="settings"/>, the tool list, and a pre-built plugin inventory string.</summary>
-	internal static String BuildSystemInstructions(Settings settings, IReadOnlyList<AITool> tools, String pluginInventory)
+	private static String BuildSystemInstructions(Settings settings, String pluginInventory, IReadOnlyList<AITool>? tools = null)
 	{
 		StringBuilder sb = new StringBuilder(settings.AssistantSystemPrompt);
 
@@ -100,13 +105,13 @@ internal static class AgentFactory
 		} else
 			sb.AppendLine("No SAL plugins are available.");
 
-		if(tools.Count > 0)
-		{
+		/*if(tools.Count > 0)
+		{//TODO: This is redundant with the tool descriptions that DevUI will show, and may be too much info for the system prompt. Consider removing or moving to a separate "tool inventory" prompt if needed.
 			sb.AppendLine();
 			sb.AppendLine("Available AI tools:");
 			foreach(AIFunction tool in tools.OfType<AIFunction>())
 				sb.AppendLine($"- {tool.Name} : {tool.Description}");
-		}
+		}*/
 
 		return sb.ToString().TrimEnd();
 	}
