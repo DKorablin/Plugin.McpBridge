@@ -1,7 +1,5 @@
 ﻿using System.Diagnostics;
-using System.Text.Json;
 using Microsoft.Extensions.AI;
-using Plugin.McpBridge.Events;
 using SAL.Flatbed;
 
 namespace Plugin.McpBridge.Tools;
@@ -11,12 +9,18 @@ internal sealed class ToolFacade : DelegatingAIFunction
 {
 	private readonly ITraceSource _trace;
 
-	public event EventHandler<AgentConfirmationEventArgs>? ConfirmationRequired;
-
-	public ToolFacade(ITraceSource trace, Delegate method)
-		: base(AIFunctionFactory.Create(method))
+	public ToolFacade(ITraceSource trace, Delegate method, Boolean confirmationRequired = false)
+		: base(CreateFunction(method, confirmationRequired))
 	{
 		this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
+	}
+
+	private static AIFunction CreateFunction(Delegate method, Boolean confirmationRequired)
+	{
+		var function = AIFunctionFactory.Create(method);
+		return confirmationRequired
+			? new ApprovalRequiredAIFunction(function)
+			: function;
 	}
 
 	protected override async ValueTask<Object?> InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
@@ -25,13 +29,6 @@ internal sealed class ToolFacade : DelegatingAIFunction
 		this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] {this.Name} {argString}");
 		try
 		{
-			if(this.ConfirmationRequired != null)
-			{
-				Boolean confirmed = await this.RequestConfirmationAsync($"{this.Name} {argString}");
-				if(!confirmed)
-					return "Operation declined by user.";
-			}
-
 			Stopwatch sw = Stopwatch.StartNew();
 			Object? result = await base.InvokeCoreAsync(arguments, cancellationToken);
 			if(cancellationToken.IsCancellationRequested)
@@ -45,18 +42,5 @@ internal sealed class ToolFacade : DelegatingAIFunction
 			this._trace.TraceData(TraceEventType.Error, 0, exc);
 			throw;
 		}
-	}
-
-	private Task<Boolean> RequestConfirmationAsync(String actionDescription)
-	{
-		AgentConfirmationEventArgs confirmArgs = new AgentConfirmationEventArgs(actionDescription);
-		this.ConfirmationRequired?.Invoke(this, confirmArgs);
-		return confirmArgs.ConfirmationTask;
-	}
-
-	internal static String GetArgString(AIFunctionArguments arguments, String key)
-	{
-		Object? value = arguments.FirstOrDefault(kv => kv.Key == key).Value;
-		return value is JsonElement je && je.ValueKind == JsonValueKind.String ? je.GetString() ?? String.Empty : value?.ToString() ?? String.Empty;
 	}
 }

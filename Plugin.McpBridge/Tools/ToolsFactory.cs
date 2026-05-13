@@ -9,10 +9,9 @@ namespace Plugin.McpBridge.Tools;
 /// <summary>Creates <see cref="ToolFacade"/> instances from methods decorated with <see cref="ToolAttribute"/> using reflection.</summary>
 internal sealed class ToolsFactory
 {
-	private readonly ITraceSource _trace;
 	private readonly ToolsDiscoveryBase[] _targets;
 
-	public ToolsFactory(ITraceSource? trace, IHost host)
+	public ToolsFactory(IHost host)
 	{
 		List<ToolsDiscoveryBase> tools = new List<ToolsDiscoveryBase>()
 		{
@@ -24,16 +23,14 @@ internal sealed class ToolsFactory
 		if(host is IHostWindows hostWindows)
 			tools.Add(new WindowsTools(hostWindows));
 
-		this._trace = trace;
 		this._targets = tools.ToArray();
 	}
 
-	public ToolsFactory(ITraceSource trace, params ToolsDiscoveryBase[] toolsHosts)
+	public ToolsFactory(params ToolsDiscoveryBase[] toolsHosts)
 	{
 		if(toolsHosts == null || toolsHosts.Length == 0)
 			throw new ArgumentException("At least one tools host must be provided.", nameof(toolsHosts));
 
-		this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
 		this._targets = toolsHosts;
 	}
 
@@ -44,8 +41,10 @@ internal sealed class ToolsFactory
 				yield return tool;
 	}
 
-	public IEnumerable<AITool> CreateTools(String[]? permissions, EventHandler<AgentConfirmationEventArgs>? confirmationHandler)
+	public IEnumerable<AITool> CreateTools(ITraceSource trace, String[]? permissions)
 	{
+		_ = trace ?? throw new ArgumentNullException(nameof(trace));
+
 		Boolean allAllowed = permissions == null || permissions.Length == 0;
 		foreach(var method in this.GetTools())
 		{
@@ -53,9 +52,7 @@ internal sealed class ToolsFactory
 				continue;
 
 			Delegate del = method.Method.CreateDelegate(GetDelegateType(method.Method), method.Target);
-			ToolFacade wrapper = new ToolFacade(this._trace, del);
-			if(method.Tool.ConfirmationRequired && confirmationHandler != null)//This ignore type is added because of DevUI host (We don't need to intercept DevUI request)
-				wrapper.ConfirmationRequired += (s, e) => confirmationHandler(s, e);
+			ToolFacade wrapper = new ToolFacade(trace, del, method.Tool.ConfirmationRequired);
 
 			yield return wrapper;
 		}

@@ -48,6 +48,9 @@ var x = 42;
 Console.WriteLine(x);
 ```
 
+### Url
+[OpenAI](https://www.openai.com)
+
 *End of markdown test.*";
 
 		private static readonly String LongResponse = "## Long Response\n\n" +

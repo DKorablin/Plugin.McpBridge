@@ -1,4 +1,7 @@
-﻿namespace Plugin.McpBridge.Events
+﻿using Azure.Core;
+using Microsoft.Extensions.AI;
+
+namespace Plugin.McpBridge.Events
 {
 	/// <summary>Arguments for the AiResponseReceived event.</summary>
 	internal sealed class AgentResponseEventArgs : EventArgs
@@ -24,6 +27,13 @@
 
 		public AgentConfirmationEventArgs(String actionDescription)
 			=> this.ActionDescription = actionDescription ?? throw new ArgumentNullException(nameof(actionDescription));
+
+		public AgentConfirmationEventArgs(FunctionCallContent request)
+		{
+			String method = request.Name;
+			String args = String.Join(", ", request.Arguments?.Select(kv => $"{kv.Key}={kv.Value}") ?? []);
+			this.ActionDescription = $"{method} {args}";
+		}
 
 		public void Confirm(Boolean allowed)
 			=> this._tcs.TrySetResult(allowed);
