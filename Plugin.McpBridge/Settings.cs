@@ -3,9 +3,8 @@ using System.Drawing.Design;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.Serialization.Json;
-using System.Security.Policy;
-using Google.Protobuf.WellKnownTypes;
 using Plugin.McpBridge.Data;
+using Plugin.McpBridge.Tests;
 using Plugin.McpBridge.UI.PropertyGrid;
 using SAL.Flatbed;
 
@@ -178,8 +177,14 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		[DisplayName("DevUI Enabled")]
 		public Boolean DevUIEnabled
 		{
-			get => this._devUIEnabled;
-			set => this.SetField(ref this._devUIEnabled, value, nameof(this.DevUIEnabled));
+			get => this._devUIEnabled && ProcessHost.GetExePath(ProcessHost.ExeType.DevUI, false) != null;
+			set
+			{
+				if(value)
+					_ = ProcessHost.GetExePath(ProcessHost.ExeType.DevUI, true);
+
+				this.SetField(ref this._devUIEnabled, value, nameof(this.DevUIEnabled));
+			}
 		}
 
 		[Category("DevUI")]
@@ -209,8 +214,14 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		[DisplayName("AG-UI Enabled")]
 		public Boolean AgUIEnabled
 		{
-			get => this._agUIEnabled;
-			set => this.SetField(ref this._agUIEnabled, value, nameof(this.AgUIEnabled));
+			get => this._agUIEnabled && ProcessHost.GetExePath(ProcessHost.ExeType.AgUI, false) != null;
+			set
+			{
+				if(value)
+					_ = ProcessHost.GetExePath(ProcessHost.ExeType.AgUI, true);
+
+				this.SetField(ref this._agUIEnabled, value, nameof(this.AgUIEnabled));
+			}
 		}
 
 		[Category("AG-UI")]

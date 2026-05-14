@@ -10,7 +10,6 @@ namespace Plugin.McpBridge.Tests;
 internal sealed class ProcessHost : IDisposable
 {
 	private const String ExeNameArgs1 = "Plugin.McpBridge.{0}.exe";
-	private String ExeName => String.Format(ExeNameArgs1, this._exeType);
 	private String ConfigName => $"McpBridge.{_exeType}.{Guid.NewGuid():N}.json";
 	private String TraceName => $"{typeof(ProcessHost).Assembly.GetName().Name}.{this._exeType}";
 
@@ -75,7 +74,7 @@ internal sealed class ProcessHost : IDisposable
 	public void Dispose()
 		=> this.Stop();
 
-	public static String? GetExePath(ExeType type)
+	public static String? GetExePath(ExeType type, Boolean throwException = false)
 	{
 		String exeName = String.Format(ExeNameArgs1, type);
 		String? assemblyDir = Path.GetDirectoryName(typeof(ProcessHost).Assembly.Location);
@@ -85,7 +84,10 @@ internal sealed class ProcessHost : IDisposable
 			if(File.Exists(candidate))
 				return candidate;
 		}
-		return null;
+
+		return throwException
+			? throw new FileNotFoundException($"{0} executable not found. Expected alongside the plugin assembly.", exeName)
+			: null;
 	}
 
 	private void Stop()
@@ -119,8 +121,7 @@ internal sealed class ProcessHost : IDisposable
 	}
 
 	private String GetExePath()
-		=> GetExePath(this._exeType)
-			?? throw new FileNotFoundException($"{0} executable not found. Expected alongside the plugin assembly.", this.ExeName);
+		=> GetExePath(this._exeType, true);
 
 	private ProcessConfig BuildConfig(Settings settings, AiProviderDto provider)
 	{
