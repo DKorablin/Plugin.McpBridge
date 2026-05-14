@@ -6,10 +6,10 @@ using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
 using SAL.Flatbed;
 
-namespace Plugin.McpBridge.Agents;
+namespace Plugin.McpBridge.Mcp;
 
 /// <summary>MCP-compliant HTTP/SSE server (JSON-RPC 2.0) that exposes plugin tools to the out-of-process DevUI executable.</summary>
-internal sealed class ToolsMcpServer : IDisposable
+internal sealed class McpServer : IDisposable
 {
 	private readonly ITraceSource _trace;
 	private readonly String _mcpServerUrl;
@@ -27,7 +27,7 @@ internal sealed class ToolsMcpServer : IDisposable
 		InternalError = -32603,
 	}
 
-	public ToolsMcpServer(ITraceSource trace, String mcpServerUrl, IEnumerable<AITool> tools)
+	public McpServer(ITraceSource trace, String mcpServerUrl, IEnumerable<AITool> tools)
 	{
 		this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
 		this._mcpServerUrl = mcpServerUrl ?? throw new ArgumentNullException(nameof(mcpServerUrl));
@@ -171,8 +171,8 @@ internal sealed class ToolsMcpServer : IDisposable
 	private JsonObject HandleInitialize()
 		=> new JsonObject
 		{
-			["protocolVersion"] = "2024-11-05",
-			["serverInfo"] = new JsonObject { ["name"] = "Plugin.McpBridge", ["version"] = "1.0" },
+			["protocolVersion"] = "2025-03-26",
+			["serverInfo"] = new JsonObject { ["name"] = typeof(McpServer).Assembly.GetName().Name, ["version"] = "1.0" },
 			["capabilities"] = new JsonObject { ["tools"] = new JsonObject() },
 		};
 
@@ -181,11 +181,17 @@ internal sealed class ToolsMcpServer : IDisposable
 		JsonArray toolsArray = new JsonArray();
 		foreach(AIFunction tool in this._tools.Values)
 		{
+			//(2025-03-26 MCP) destructiveHint - Tool may perform destructive updates (default: true)
+			Boolean destructiveHint = tool.AdditionalProperties.TryGetValue("destructiveHint", out Object? v) && v is true;
 			toolsArray.Add(new JsonObject
 			{
 				["name"] = tool.Name,
 				["description"] = tool.Description ?? String.Empty,
 				["inputSchema"] = JsonNode.Parse(tool.JsonSchema.GetRawText()),
+				["annotations"] = new JsonObject
+				{
+					["destructiveHint"] = destructiveHint,
+				},
 			});
 		}
 		return new JsonObject { ["tools"] = toolsArray };
@@ -210,7 +216,7 @@ internal sealed class ToolsMcpServer : IDisposable
 		{
 			["content"] = new JsonArray
 			{
-				new JsonObject { ["type"] = "text", ["text"] = result?.ToString() ?? String.Empty }
+				new JsonObject { ["type"] = "text", ["text"] = result != null ? JsonSerializer.Serialize(result) : String.Empty }
 			}
 		};
 	}

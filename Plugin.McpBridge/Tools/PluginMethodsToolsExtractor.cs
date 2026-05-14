@@ -1,5 +1,4 @@
 ﻿using System.Reflection;
-using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Data;
 using SAL.Flatbed;
 
@@ -36,7 +35,7 @@ internal class PluginMethodsToolsExtractor : ToolsDiscoveryBase
 					method,
 					docs?.Parameters);
 
-				yield return new ToolMethodDto(true, function.Name, description, new ApprovalRequiredAIFunction(function));
+				yield return new ToolMethodDto(true, function.Name, description, function);
 			}
 		}
 	}

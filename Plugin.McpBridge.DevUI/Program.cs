@@ -4,13 +4,14 @@ using Microsoft.Agents.AI.DevUI;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
-using Plugin.McpBridge.DevUI.Mcp;
+using Plugin.McpBridge.Mcp;
 using Plugin.McpBridge.Tests;
 
 namespace Plugin.McpBridge.DevUI;
 
 internal static class Program
 {
+	private static String AssemblyName => typeof(Program).Assembly.GetName().Name ?? "Plugin.McpBridge.Undefined";
 	private static async Task<Int32> Main(String[] args)
 	{
 		ProcessConfig? config = await TryLoadConfigAsync(args);
@@ -39,7 +40,7 @@ internal static class Program
 	{
 		if(args.Length == 0)
 		{
-			await Console.Error.WriteLineAsync("Usage: Plugin.McpBridge.DevUI <config-file>");
+			await Console.Error.WriteLineAsync($"Usage: {AssemblyName} <config-file>");
 			return null;
 		}
 
@@ -72,8 +73,8 @@ internal static class Program
 
 		using CancellationTokenSource timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 		HttpClient bridgeHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(10), BaseAddress = new Uri(config.McpServerUrl) };
-		IReadOnlyList<AIFunction> tools = await ToolsMcpClient.FetchAllAsync(config.McpServerUrl, bridgeHttp, timeoutCts.Token);
-		Console.WriteLine($"Bridge connected: {tools.Count} tools loaded from {config.McpServerUrl}");
+		IReadOnlyList<AIFunction> tools = await McpClient.FetchAllAsync(AssemblyName, bridgeHttp, timeoutCts.Token);
+		Console.WriteLine($"Bridge connected: {tools.Count:N0} tools loaded from {config.McpServerUrl}");
 		return tools;
 	}
 

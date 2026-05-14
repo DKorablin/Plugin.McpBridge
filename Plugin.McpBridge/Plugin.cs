@@ -3,6 +3,7 @@ using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Events;
+using Plugin.McpBridge.Mcp;
 using Plugin.McpBridge.Tests;
 using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
@@ -17,7 +18,7 @@ namespace Plugin.McpBridge
 
 		private ProcessHost? _devUIHost;
 		private ProcessHost? _agUIHost;
-		private ToolsMcpServer? _mcpServer;
+		private McpServer? _mcpServer;
 
 		private IMenuItem? _menuChat;
 
@@ -140,7 +141,7 @@ namespace Plugin.McpBridge
 			if(this.Settings.McpServerEnabled || this.Settings.DevUIEnabled || this.Settings.AgUIEnabled)
 			{
 				IEnumerable<AITool> bridgeTools = toolsFactory.CreateTools(this.Trace, this.Settings.ToolsPermission);
-				this._mcpServer = new ToolsMcpServer(this.Trace, this.Settings.McpServerUrl, bridgeTools);
+				this._mcpServer = new McpServer(this.Trace, this.Settings.McpServerUrl, bridgeTools);
 				this._mcpServer.Start();
 			}
 

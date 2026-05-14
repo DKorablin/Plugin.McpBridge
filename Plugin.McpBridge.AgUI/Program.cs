@@ -4,13 +4,15 @@ using Microsoft.Agents.AI.Hosting;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
-using Plugin.McpBridge.AgUI.Mcp;
+using Plugin.McpBridge.Mcp;
 using Plugin.McpBridge.Tests;
 
 namespace Plugin.McpBridge.AgUI;
 
 internal static class Program
 {
+	private static String AssemblyName => typeof(Program).Assembly.GetName().Name ?? "Plugin.McpBridge.Undefined";
+
 	private static async Task<Int32> Main(String[] args)
 	{
 		ProcessConfig? config = await TryLoadConfigAsync(args);
@@ -39,7 +41,7 @@ internal static class Program
 	{
 		if(args.Length == 0)
 		{
-			await Console.Error.WriteLineAsync("Usage: Plugin.McpBridge.AgUI <config-file>");
+			await Console.Error.WriteLineAsync($"Usage: {AssemblyName} <config-file>");
 			return null;
 		}
 
@@ -72,8 +74,8 @@ internal static class Program
 
 		using CancellationTokenSource timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 		HttpClient bridgeHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(10), BaseAddress = new Uri(config.McpServerUrl) };
-		IReadOnlyList<AIFunction> tools = await ToolsMcpClient.FetchAllAsync(config.McpServerUrl, bridgeHttp, timeoutCts.Token);
-		Console.WriteLine($"Bridge connected: {tools.Count} tools loaded from {config.McpServerUrl}");
+		IReadOnlyList<AIFunction> tools = await McpClient.FetchAllAsync(AssemblyName, bridgeHttp, timeoutCts.Token);
+		Console.WriteLine($"Bridge connected: {tools.Count:N0} tools loaded from {config.McpServerUrl}");
 		return tools;
 	}
 
@@ -89,6 +91,27 @@ internal static class Program
 		builder.Services.AddAGUI();
 
 		WebApplication app = builder.Build();
+		app.MapGet("/agui", async (HttpContext ctx) =>
+		{
+			ctx.Response.ContentType = "text/html; charset=utf-8";
+			using Stream stream = typeof(Program).Assembly
+				.GetManifestResourceStream(AssemblyName + ".wwwroot.index.html")!;
+			await stream.CopyToAsync(ctx.Response.Body);
+		});
+		app.MapGet("/agui-client.js", async (HttpContext ctx) =>
+		{
+			ctx.Response.ContentType = "application/javascript";
+			using Stream stream = typeof(Program).Assembly
+				.GetManifestResourceStream(AssemblyName + ".wwwroot.agui-client.js")!;
+			await stream.CopyToAsync(ctx.Response.Body);
+		});
+		app.MapGet("/favicon.ico", async (HttpContext ctx) =>
+		{
+			ctx.Response.ContentType = "image/x-icon";
+			using Stream stream = typeof(Program).Assembly
+				.GetManifestResourceStream(AssemblyName + ".wwwroot.favicon.ico")!;
+			await stream.CopyToAsync(ctx.Response.Body);
+		});
 		app.MapAGUI(agentBuilder, "/agui");
 		return app;
 	}

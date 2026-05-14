@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Microsoft.Extensions.AI;
 using SAL.Flatbed;
 
@@ -8,10 +8,17 @@ namespace Plugin.McpBridge.Tools;
 internal sealed class ToolFacade : DelegatingAIFunction
 {
 	private readonly ITraceSource _trace;
+	private readonly Dictionary<String, Object?> _additionalProperties;
+
+	public override IReadOnlyDictionary<String, Object?> AdditionalProperties => this._additionalProperties;
 
 	public ToolFacade(ITraceSource trace, AIFunction function, Boolean confirmationRequired = false)
 		: base(confirmationRequired ? new ApprovalRequiredAIFunction(function) : function)
 	{
+		this._additionalProperties = new Dictionary<String, Object?>(function.AdditionalProperties);
+		if(confirmationRequired)
+			this._additionalProperties["destructiveHint"] = true;//(MCP) destructiveHint - Tool may perform destructive updates (default: true)
+
 		this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
 	}
 
