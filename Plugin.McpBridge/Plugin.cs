@@ -3,6 +3,7 @@ using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Events;
+using Plugin.McpBridge.Tests;
 using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
 using SAL.Windows;
@@ -14,7 +15,8 @@ namespace Plugin.McpBridge
 		private Settings? _settings;
 		private AssistantAgent? _agent;
 
-		private DevUIHost? _devUIHost;
+		private ProcessHost? _devUIHost;
+		private ProcessHost? _agUIHost;
 		private ToolsMcpServer? _mcpServer;
 
 		private IMenuItem? _menuChat;
@@ -43,6 +45,8 @@ namespace Plugin.McpBridge
 
 			this._devUIHost?.StopAsync().GetAwaiter().GetResult();
 			this._devUIHost = null;
+			this._agUIHost?.StopAsync().GetAwaiter().GetResult();
+			this._agUIHost = null;
 			this._mcpServer?.Dispose();
 			this._mcpServer = null;
 
@@ -133,7 +137,7 @@ namespace Plugin.McpBridge
 		{
 			ToolsFactory toolsFactory = new ToolsFactory(this.Host);
 
-			if(this.Settings.McpServerEnabled || this.Settings.DevUIEnabled)
+			if(this.Settings.McpServerEnabled || this.Settings.DevUIEnabled || this.Settings.AgUIEnabled)
 			{
 				IEnumerable<AITool> bridgeTools = toolsFactory.CreateTools(this.Trace, this.Settings.ToolsPermission);
 				this._mcpServer = new ToolsMcpServer(this.Trace, this.Settings.McpServerUrl, bridgeTools);
@@ -142,8 +146,13 @@ namespace Plugin.McpBridge
 
 			if(this.Settings.DevUIEnabled)
 			{
-				this._devUIHost = new DevUIHost(this.Host);
+				this._devUIHost = new ProcessHost(this.Host, ProcessHost.ExeType.DevUI);
 				Task.Run(() => this._devUIHost.StartAsync(this.Settings, this.Settings.GetSelectedProvider()));
+			}
+			if(this.Settings.AgUIEnabled)
+			{
+				this._agUIHost = new ProcessHost(this.Host, ProcessHost.ExeType.AgUI);
+				Task.Run(() => this._agUIHost.StartAsync(this.Settings, this.Settings.GetSelectedProvider()));
 			}
 		}
 
@@ -152,6 +161,7 @@ namespace Plugin.McpBridge
 			if(this._menuChat != null)
 				this.HostWindows.MainMenu.Items.Remove(this._menuChat);
 			this._devUIHost?.Dispose();
+			this._agUIHost?.Dispose();
 			this._mcpServer?.Dispose();
 			return true;
 		}

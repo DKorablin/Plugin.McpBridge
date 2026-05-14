@@ -5,6 +5,7 @@ using Microsoft.Agents.AI.Hosting;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.DevUI.Mcp;
+using Plugin.McpBridge.Tests;
 
 namespace Plugin.McpBridge.DevUI;
 
@@ -12,7 +13,7 @@ internal static class Program
 {
 	private static async Task<Int32> Main(String[] args)
 	{
-		DevUIConfig? config = await TryLoadConfigAsync(args);
+		ProcessConfig? config = await TryLoadConfigAsync(args);
 		if(config is null)
 			return 1;
 
@@ -29,12 +30,12 @@ internal static class Program
 			: args[1..];
 
 		WebApplication app = BuildWebApp(remainingArgs, config, chatClient, bridgeTools);
-		Console.WriteLine($"DevUI running at {config.DevUiServerUrl}/devui");
+		Console.WriteLine($"DevUI running at {config.UiServerUrl}/devui");
 		await app.RunAsync(lifetimeCts.Token);
 		return 0;
 	}
 
-	private static async Task<DevUIConfig?> TryLoadConfigAsync(String[] args)
+	private static async Task<ProcessConfig?> TryLoadConfigAsync(String[] args)
 	{
 		if(args.Length == 0)
 		{
@@ -49,22 +50,22 @@ internal static class Program
 			return null;
 		}
 
-		DevUIConfig config;
-		DataContractJsonSerializer serializer = new DataContractJsonSerializer(typeof(DevUIConfig));
+		ProcessConfig config;
+		DataContractJsonSerializer serializer = new DataContractJsonSerializer(typeof(ProcessConfig));
 		using(FileStream stream = File.OpenRead(configPath))
-			config = (DevUIConfig)serializer.ReadObject(stream)!;
+			config = (ProcessConfig)serializer.ReadObject(stream)!;
 		File.Delete(configPath);
 		return config;
 	}
 
-	private static IChatClient BuildChatClient(DevUIConfig config)
+	private static IChatClient BuildChatClient(ProcessConfig config)
 	{
 		HttpClient httpClient = new HttpClient { Timeout = config.ConnectionTimeout };
 		IChatClient raw = AgentFactory.CreateChatClient(config.Provider, httpClient);
 		return AgentFactory.ConfigureOptions(raw, config.MaxTokens, config.Provider);
 	}
 
-	private static async Task<IReadOnlyList<AIFunction>> FetchBridgeToolsAsync(DevUIConfig config)
+	private static async Task<IReadOnlyList<AIFunction>> FetchBridgeToolsAsync(ProcessConfig config)
 	{
 		if(String.IsNullOrEmpty(config.McpServerUrl))
 			return Array.Empty<AIFunction>();
@@ -76,15 +77,16 @@ internal static class Program
 		return tools;
 	}
 
-	private static WebApplication BuildWebApp(String[] args, DevUIConfig config, IChatClient chatClient, IReadOnlyList<AIFunction> bridgeTools)
+	private static WebApplication BuildWebApp(String[] args, ProcessConfig config, IChatClient chatClient, IReadOnlyList<AIFunction> bridgeTools)
 	{
 		WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
-		((IWebHostBuilder)builder.WebHost).UseUrls(config.DevUiServerUrl);
+		((IWebHostBuilder)builder.WebHost).UseUrls(config.UiServerUrl);
 
 		IHostedAgentBuilder agentBuilder = builder.AddAIAgent("assistant", config.Instructions, chatClient);
 		if(bridgeTools.Count > 0)
 			agentBuilder.WithAITools(bridgeTools.Cast<AITool>().ToArray());
 
+		builder.Services.AddDevUI();
 		builder.Services.AddOpenAIResponses();
 		builder.Services.AddOpenAIConversations();
 

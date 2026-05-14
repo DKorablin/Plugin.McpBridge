@@ -37,8 +37,9 @@ Use available MCP tools when useful.
 Return clear user-facing responses, or a command payload only when automation is required.
 Before using relative dates (today, yesterday, last hour), obtain the current system time from the SystemInformation tool.";
 			public static readonly TimeSpan ConnectionTimeout = TimeSpan.FromSeconds(100);
-			public const String McpServerUrl = "http://localhost:5051";
-			public const String DevUiServerUrl = "http://localhost:5050";
+			public const String McpServerUrl = "http://localhost:5050";
+			public const String DevUIServerUrl = "http://localhost:5051";
+			public const String AgUIServerUrl = "http://localhost:5052";
 		}
 
 		private static DataContractJsonSerializer Serializer = new DataContractJsonSerializer(typeof(AiProviderDto[]));
@@ -51,8 +52,11 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		private TimeSpan _connectionTimeout = Defaults.ConnectionTimeout;
 		private String[]? _toolsPermission = null;
 		private String[]? _pluginsPermission = null;
+
 		private Boolean _devUIEnabled = false;
-		private String? _devUiServerUrl = null;
+		private String? _devUIServerUrl = null;
+		private Boolean _agUIEnabled = false;
+		private String? _agUIServerUrl = null;
 		private Boolean _mcpServerEnabled = false;
 		private String? _mcpServerUrl = null;
 
@@ -170,7 +174,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 
 		[Category("DevUI")]
 		[DefaultValue(false)]
-		[Description("When enabled, starts an embedded web server exposing the DevUI interface for local agent diagnostics. Navigate to http://localhost:<DevUIPort>/devui.")]
+		[Description("When enabled, starts an embedded web server exposing the DevUI interface for local agent diagnostics.")]
 		[DisplayName("DevUI Enabled")]
 		public Boolean DevUIEnabled
 		{
@@ -179,23 +183,54 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		}
 
 		[Category("DevUI")]
-		[DefaultValue(Defaults.DevUiServerUrl)]
-		[Description("The local port used by the embedded DevUI web server.")]
-		[DisplayName("DevUI Port")]
+		[DefaultValue(Defaults.DevUIServerUrl)]
+		[Description("The URL of the embedded web server for the DevUI interface. Must be a valid absolute URL. If empty, defaults to " + Defaults.DevUIServerUrl)]
+		[DisplayName("DevUI Server Url")]
 		public String DevUIServerUrl
 		{
 			get
 			{
-				if(this._devUiServerUrl == null)
-					this._devUiServerUrl = Defaults.DevUiServerUrl;
-				return this._devUiServerUrl;
+				if(this._devUIServerUrl == null)
+					this._devUIServerUrl = Defaults.DevUIServerUrl;
+				return this._devUIServerUrl;
 			}
 			set
 			{
 				if(String.IsNullOrWhiteSpace(value) || !Uri.IsWellFormedUriString(value, UriKind.Absolute))
 					value = null!;
 
-				this.SetField(ref this._devUiServerUrl, value, nameof(this.DevUIServerUrl));
+				this.SetField(ref this._devUIServerUrl, value, nameof(this.DevUIServerUrl));
+			}
+		}
+
+		[Category("AG-UI")]
+		[DefaultValue(false)]
+		[Description("When enabled, starts an embedded web server exposing the AG-UI interface for agent interaction and testing.")]
+		[DisplayName("AG-UI Enabled")]
+		public Boolean AgUIEnabled
+		{
+			get => this._agUIEnabled;
+			set => this.SetField(ref this._agUIEnabled, value, nameof(this.AgUIEnabled));
+		}
+
+		[Category("AG-UI")]
+		[DefaultValue(Defaults.AgUIServerUrl)]
+		[Description("The URL of the embedded web server for the AG-UI interface. Must be a valid absolute URL. If empty, defaults to " + Defaults.AgUIServerUrl)]
+		[DisplayName("AG-UI Server Url")]
+		public String AgUIServerUrl
+		{
+			get
+			{
+				if(this._agUIServerUrl == null)
+					this._agUIServerUrl = Defaults.AgUIServerUrl;
+				return this._agUIServerUrl;
+			}
+			set
+			{
+				if(String.IsNullOrWhiteSpace(value) || !Uri.IsWellFormedUriString(value, UriKind.Absolute))
+					value = null!;
+
+				this.SetField(ref this._agUIServerUrl, value, nameof(this.AgUIServerUrl));
 			}
 		}
 
@@ -209,7 +244,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 
 		[Category("Network")]
 		[DefaultValue(Defaults.McpServerUrl)]
-		[Description("The URL of the MCP server to connect to for tool calls. If empty, the MCP server will not be used and tools will not be available.")]
+		[Description("The URL of the MCP server that tools will connect to for execution. Must be a valid absolute URL. If empty, defaults to " + Defaults.McpServerUrl)]
 		public String McpServerUrl
 		{
 			get

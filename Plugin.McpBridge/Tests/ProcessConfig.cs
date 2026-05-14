@@ -1,12 +1,11 @@
-using System.Runtime.Serialization;
 using Plugin.McpBridge.Data;
 
-namespace Plugin.McpBridge.Agents;
+namespace Plugin.McpBridge.Tests;
 
-/// <summary>Serializable snapshot of the settings needed to start the DevUI process.</summary>
-public sealed class DevUIConfig
+/// <summary>Serializable snapshot of the settings needed to start the UI process.</summary>
+public sealed class ProcessConfig
 {
-	public String? DevUiServerUrl { get; set; }
+	public String? UiServerUrl { get; set; }
 	public String? Instructions { get; set; }
 	public Int32? MaxTokens { get; set; }
 	public String[]? ToolsPermission { get; set; }
