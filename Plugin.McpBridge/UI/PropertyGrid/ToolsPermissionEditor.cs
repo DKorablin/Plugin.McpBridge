@@ -2,6 +2,7 @@
 using System.Drawing.Design;
 using System.Reflection;
 using System.Windows.Forms.Design;
+using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Tools;
 
 namespace Plugin.McpBridge.UI.PropertyGrid;
@@ -13,12 +14,16 @@ internal sealed class ToolsPermissionEditor : UITypeEditor
 
 	public override Object EditValue(ITypeDescriptorContext? context, IServiceProvider provider, Object? value)
 	{
-		if(this._control == null)
-			this._control = new ToolPermissionControl(ToolsFactory.DiscoverTools(Assembly.GetExecutingAssembly()));
+		if(context?.Instance is Settings settings)
+		{
+			if(this._control == null)
+				this._control = new ToolPermissionControl(new ToolsFactory(settings.Host).GetTools());
 
-		this._control.SetValue(value as String[] ?? Array.Empty<String>());
-		((IWindowsFormsEditorService)provider.GetService(typeof(IWindowsFormsEditorService))!).DropDownControl(this._control);
-		return this._control.Result;
+			this._control.SetValue(value as String[] ?? Array.Empty<String>());
+			((IWindowsFormsEditorService)provider.GetService(typeof(IWindowsFormsEditorService))!).DropDownControl(this._control);
+			return this._control.Result;
+		} else
+			return value ?? Array.Empty<String>();
 	}
 
 	public override UITypeEditorEditStyle GetEditStyle(ITypeDescriptorContext? context)
@@ -42,7 +47,7 @@ internal sealed class ToolsPermissionEditor : UITypeEditor
 			}
 		}
 
-		public ToolPermissionControl(IEnumerable<(String MethodName, String Description)> tools)
+		public ToolPermissionControl(IEnumerable<ToolMethodDto> tools)
 		{
 			this.SuspendLayout();
 			this.BackColor = SystemColors.Control;
@@ -50,12 +55,12 @@ internal sealed class ToolsPermissionEditor : UITypeEditor
 			this._list.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
 			this._list.BorderStyle = BorderStyle.None;
 
-			foreach((String methodName, String description) in tools)
+			foreach(var tool in tools)
 			{
-				this._methodNames.Add(methodName);
-				String label = String.IsNullOrWhiteSpace(description)
-					? methodName
-					: $"{methodName} — {description}";
+				this._methodNames.Add(tool.Name);
+				String label = String.IsNullOrWhiteSpace(tool.Description)
+					? tool.Name
+					: $"{tool.Name} — {tool.Description}";
 				this._list.Items.Add(label);
 			}
 

@@ -1,11 +1,18 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Collections.Generic;
+using System.Diagnostics;
+using System.Text.RegularExpressions;
 
 namespace Plugin.McpBridge.UI;
 
 internal class MarkdownTextBox : RichTextBox
 {
-	private static readonly Regex _inlineMarkdown = new Regex(@"(\*\*[^*\n]+\*\*|\*[^*\n]+\*|`[^`\n]+`)", RegexOptions.Compiled);
+	private static readonly Regex _inlineMarkdown = new Regex(@"(\*\*[^*\n]+\*\*|\*[^*\n]+\*|`[^`\n]+`|\[[^\]\n]+\]\([^\)\n]+\))", RegexOptions.Compiled);
 	private static readonly Regex _inlineImage = new Regex(@"data:image/[a-zA-Z]+;base64,([A-Za-z0-9+/=]+)", RegexOptions.Compiled);
+	private static readonly Regex _markdownLink = new Regex(@"^\[([^\]\n]+)\]\(([^\)\n]+)\)$", RegexOptions.Compiled);
+
+	private readonly List<(Int32 Start, Int32 Length, String Url)> _links = new List<(Int32, Int32, String)>();
+	private readonly ToolTip _toolTip = new ToolTip();
+	private String? _lastTooltipUrl = null;
 
 	public enum MessageKind { User, Error }
 
@@ -92,7 +99,13 @@ internal class MarkdownTextBox : RichTextBox
 			else if(part.Length >= 2 && part.StartsWith("`") && part.EndsWith("`"))
 				this.AppendRun(part.Substring(1, part.Length - 2), codeFont, codeColor);
 			else
-				this.AppendRun(part, baseFont, defaultColor);
+			{
+				Match linkMatch = _markdownLink.Match(part);
+				if(linkMatch.Success)
+					this.AppendLink(linkMatch.Groups[1].Value, linkMatch.Groups[2].Value, baseFont);
+				else
+					this.AppendRun(part, baseFont, defaultColor);
+			}
 		}
 	}
 
@@ -111,6 +124,18 @@ internal class MarkdownTextBox : RichTextBox
 		this.AppendText(Environment.NewLine);
 	}
 
+	private void AppendLink(String label, String url, Font baseFont)
+	{
+		Int32 start = this.TextLength;
+		using Font linkFont = new Font(baseFont, FontStyle.Underline);
+		this.SelectionStart = start;
+		this.SelectionLength = 0;
+		this.SelectionFont = linkFont;
+		this.SelectionColor = Color.FromArgb(0, 102, 204);
+		this.AppendText(label);
+		_links.Add((start, label.Length, url));
+	}
+
 	private void AppendRun(String text, Font font, Color color)
 	{
 		this.SelectionStart = this.TextLength;
@@ -118,5 +143,44 @@ internal class MarkdownTextBox : RichTextBox
 		this.SelectionFont = font;
 		this.SelectionColor = color;
 		this.AppendText(text);
+	}
+
+	protected override void OnMouseUp(System.Windows.Forms.MouseEventArgs e)
+	{
+		base.OnMouseUp(e);
+		if(e.Button != MouseButtons.Left || this.SelectionLength > 0)
+			return;
+		Int32 charIndex = this.GetCharIndexFromPosition(e.Location);
+		foreach((Int32 Start, Int32 Length, String Url) link in _links)
+		{
+			if(charIndex >= link.Start && charIndex < link.Start + link.Length)
+			{
+				Process.Start(new ProcessStartInfo(link.Url) { UseShellExecute = true });
+				break;
+			}
+		}
+	}
+
+	protected override void OnMouseMove(MouseEventArgs e)
+	{
+		base.OnMouseMove(e);
+		Int32 charIndex = this.GetCharIndexFromPosition(e.Location);
+		String? hoveredUrl = null;
+		foreach((Int32 Start, Int32 Length, String Url) link in _links)
+		{
+			if(charIndex >= link.Start && charIndex < link.Start + link.Length)
+			{
+				hoveredUrl = link.Url;
+				break;
+			}
+		}
+		this.Cursor = hoveredUrl != null ? Cursors.Hand : Cursors.IBeam;
+		if(hoveredUrl != this._lastTooltipUrl)
+		{
+			this._lastTooltipUrl = hoveredUrl;
+			this._toolTip.Hide(this);
+			if(hoveredUrl != null)
+				this._toolTip.Show(hoveredUrl, this, e.Location.X + 16, e.Location.Y + 16);
+		}
 	}
 }

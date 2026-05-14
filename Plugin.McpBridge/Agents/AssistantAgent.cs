@@ -7,158 +7,174 @@ using Plugin.McpBridge.Events;
 using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
 
-namespace Plugin.McpBridge.Agents
+namespace Plugin.McpBridge.Agents;
+
+/// <summary>Manages the MAF AIAgent instance and drives the multi-turn agent loop.</summary>
+internal sealed class AssistantAgent
 {
-	/// <summary>Manages the MAF AIAgent instance and drives the multi-turn agent loop.</summary>
-	internal sealed class AssistantAgent
+	private readonly ITraceSource _trace;
+	private readonly IHost _host;
+	private readonly ToolsFactory _toolsFactory;
+	private readonly Func<AiProviderDto, HttpClient, IChatClient> _chatClientFactory;
+	private ChatClientAgent? _agent;
+	private AgentSession? _session;
+
+	public event EventHandler<AgentResponseEventArgs>? AiResponseReceived;
+	public event EventHandler<AgentConfirmationEventArgs>? ConfirmationRequired;
+
+	public AssistantAgent(
+		ITraceSource trace,
+		IHost host,
+		ToolsFactory toolsFactory,
+		Func<AiProviderDto, HttpClient, IChatClient>? chatClientFactory = null)
 	{
-		private readonly ITraceSource _trace;
-		private readonly IHost _host;
-		private readonly ToolsFactory _toolsFactory;
-		private readonly Func<AiProviderDto, HttpClient, IChatClient> _chatClientFactory;
-		private ChatClientAgent? _agent;
-		private AgentSession? _session;
+		this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
+		this._host = host ?? throw new ArgumentNullException(nameof(host));
+		this._toolsFactory = toolsFactory ?? throw new ArgumentNullException(nameof(toolsFactory));
+		this._chatClientFactory = chatClientFactory ?? AgentFactory.CreateChatClient;
+	}
 
-		public event EventHandler<AgentResponseEventArgs>? AiResponseReceived;
-		public event EventHandler<AgentConfirmationEventArgs>? ConfirmationRequired;
+	public void Initialize(Settings settings, AiProviderDto provider)
+	{
+		_ = settings ?? throw new ArgumentNullException(nameof(settings));
+		_ = provider ?? throw new ArgumentNullException(nameof(provider));
 
-		public AssistantAgent(
-			ITraceSource trace,
-			IHost host,
-			ToolsFactory toolsFactory,
-			Func<AiProviderDto, HttpClient, IChatClient>? chatClientFactory = null)
+		this._session = null;
+
+		HttpClient httpClient = new HttpClient { Timeout = settings.ConnectionTimeout };
+		IChatClient chatClientRaw = this._chatClientFactory(provider, httpClient);
+		IChatClient chatClient = AgentFactory.ConfigureOptions(chatClientRaw, settings.MaxTokens, provider);
+
+		List<AITool> tools = this._toolsFactory.CreateTools(this._trace, settings.ToolsPermission).ToList();
+		String instructions = AgentFactory.BuildSystemInstructions(this._host, settings);
+		this._agent = chatClient.AsAIAgent(
+			instructions: instructions,
+			tools: tools);
+
+		this._trace.TraceEvent(TraceEventType.Verbose, 0, $"Initialized AssistantAgent with instructions '{instructions}'.");
+	}
+
+	public async Task InvokeMessageAsync(String message, DataContent[]? images = null, CancellationToken cancellationToken = default)
+	{
+		if(String.IsNullOrWhiteSpace(message))
 		{
-			this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
-			this._host = host ?? throw new ArgumentNullException(nameof(host));
-			this._toolsFactory = toolsFactory ?? throw new ArgumentNullException(nameof(toolsFactory));
-			this._chatClientFactory = chatClientFactory ?? AgentFactory.CreateChatClient;
+			this.OnAiResponseReceived(new AgentResponseEventArgs("Message is empty.", true));
+			return;
 		}
 
-		public void Initialize(Settings settings, AiProviderDto provider)
+		this._trace.TraceEvent(TraceEventType.Verbose, 0, "< " + message);
+
+		if(this._agent == null)
 		{
-			_ = settings ?? throw new ArgumentNullException(nameof(settings));
-			_ = provider ?? throw new ArgumentNullException(nameof(provider));
-
-			this._session = null;
-
-			HttpClient httpClient = new HttpClient { Timeout = settings.ConnectionTimeout };
-			IChatClient chatClientRaw = this._chatClientFactory(provider, httpClient);
-			IChatClient chatClient = AgentFactory.ConfigureOptions(chatClientRaw, settings.MaxTokens, provider);
-
-			List<AITool> tools = this._toolsFactory.CreateTools(settings.ToolsPermission, (Object? s, AgentConfirmationEventArgs e) => this.OnConfirmationRequired(e)).ToList();
-			String instructions = AgentFactory.BuildSystemInstructions(this._host, settings);
-			this._agent = chatClient.AsAIAgent(
-				instructions: instructions,
-				tools: tools);
-
-			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"Initialized AssistantAgent with instructions '{instructions}'.");
+			this.OnAiResponseReceived(new AgentResponseEventArgs("AI is not configured. Add LLM configuration options in plugin settings.", true));
+			return;
 		}
 
-		public async Task InvokeMessageAsync(String message, DataContent[]? images = null, CancellationToken cancellationToken = default)
-		{
-			if(String.IsNullOrWhiteSpace(message))
-			{
-				this.OnAiResponseReceived(new AgentResponseEventArgs("Message is empty.", true));
-				return;
-			}
-
-			this._trace.TraceEvent(TraceEventType.Verbose, 0, "< " + message);
-
-			if(this._agent == null)
-			{
-				this.OnAiResponseReceived(new AgentResponseEventArgs("AI is not configured. Add LLM configuration options in plugin settings.", true));
-				return;
-			}
-
-			if(this._session == null)
-				this._session = await this._agent.CreateSessionAsync(cancellationToken);
+		if(this._session == null)
+			this._session = await this._agent.CreateSessionAsync(cancellationToken);
 
 		try
 		{
-			AgentResponse response = await this._agent.RunAsync(AssistantAgent.BuildUserMessage(message, images), this._session, null, cancellationToken);
-			this.HandleResponse(response);
+			ChatMessage chatMessage = AssistantAgent.BuildUserMessage(message, images);
+			await this.ProcessMessage(chatMessage, cancellationToken);
 
 			/*IAsyncEnumerable <AgentResponseUpdate> stream = this._agent.RunStreamingAsync(AssistantAgent.BuildUserMessage(message, images), this._session, null, cancellationToken);
 			await this.HandleStreamingResponseAsync(stream, cancellationToken);*/
-		}
-			catch(HttpRequestException exc)
-			{
-				this._trace.TraceData(TraceEventType.Error, 0, exc);
-				this.OnAiResponseReceived(new AgentResponseEventArgs($"AI request failed: {exc.Message}", true));
-			}
-			catch(OperationCanceledException)
-			{
-				this.OnAiResponseReceived(new AgentResponseEventArgs("Operation was cancelled.", true));
-			}catch(Exception exc)
-			{
-				this._trace.TraceData(TraceEventType.Error, 0, exc);
-				throw;
-			}
-		}
-
-		private void OnAiResponseReceived(AgentResponseEventArgs e)
-			=> this.AiResponseReceived?.Invoke(this, e);
-
-		private void OnConfirmationRequired(AgentConfirmationEventArgs e)
-			=> this.ConfirmationRequired?.Invoke(this, e);
-
-		private void HandleResponse(AgentResponse response)
+		} catch(HttpRequestException exc)
 		{
-			String aiResponse = response.Text;
-			this._trace.TraceEvent(TraceEventType.Verbose, 0, "> " + aiResponse);
-			if(response.Usage != null)
-				this._trace.TraceEvent(TraceEventType.Verbose, 0, $"Tokens: {String.Join(Environment.NewLine, Utils.ParseTokenUsageCount(response.Usage))}");
+			this._trace.TraceData(TraceEventType.Error, 0, exc);
+			this.OnAiResponseReceived(new AgentResponseEventArgs($"AI request failed: {exc.Message}", true));
+		} catch(OperationCanceledException)
+		{
+			this.OnAiResponseReceived(new AgentResponseEventArgs("Operation was cancelled.", true));
+		} catch(Exception exc)
+		{
+			this._trace.TraceData(TraceEventType.Error, 0, exc);
+			throw;
+		}
+	}
 
-			this.OnAiResponseReceived(new AgentResponseEventArgs(aiResponse, true));
+	private void OnAiResponseReceived(AgentResponseEventArgs e)
+		=> this.AiResponseReceived?.Invoke(this, e);
+
+	private void OnConfirmationRequired(AgentConfirmationEventArgs e)
+		=> this.ConfirmationRequired?.Invoke(this, e);
+
+	private Task<Boolean> OnConfirmationRequiredAsync(AgentConfirmationEventArgs e)
+	{
+		this.ConfirmationRequired?.Invoke(this, e);
+		return e.ConfirmationTask;
+	}
+
+	private async Task ProcessMessage(ChatMessage message, CancellationToken token)
+	{
+		AgentResponse response = await this._agent.RunAsync(message, this._session, null, token);
+		while(response.FinishReason == ChatFinishReason.ToolCalls)
+		{
+			ToolApprovalRequestContent request = (ToolApprovalRequestContent)response.Messages[^1].Contents[0];
+			if(request.ToolCall is FunctionCallContent function)
+			{
+				Boolean approved = await this.OnConfirmationRequiredAsync(new AgentConfirmationEventArgs(function));
+				ToolApprovalResponseContent approvalResponse = request.CreateResponse(approved);
+				ChatMessage approvalMessage = new ChatMessage(ChatRole.User, [approvalResponse]);
+				response = await this._agent.RunAsync(approvalMessage, this._session, null, token);
+			}
 		}
 
-		private async Task HandleStreamingResponseAsync(IAsyncEnumerable<AgentResponseUpdate> stream, CancellationToken cancellationToken)
-		{
-			StringBuilder textBuilder = new StringBuilder();
-			Boolean hasReasoning = false;
-			UsageDetails? usage = null;
+		this._trace.TraceEvent(TraceEventType.Verbose, 0, "> " + response.ToString());
+		String aiResponse = response.Text;
+		if(response.Usage != null)
+			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"Tokens: {String.Join(Environment.NewLine, Utils.ParseTokenUsageCount(response.Usage))}");
 
-			await foreach(AgentResponseUpdate update in stream.WithCancellation(cancellationToken))
+		this.OnAiResponseReceived(new AgentResponseEventArgs(aiResponse, true));
+	}
+
+	private async Task HandleStreamingResponseAsync(IAsyncEnumerable<AgentResponseUpdate> stream, CancellationToken cancellationToken)
+	{
+		StringBuilder textBuilder = new StringBuilder();
+		Boolean hasReasoning = false;
+		UsageDetails? usage = null;
+
+		await foreach(AgentResponseUpdate update in stream.WithCancellation(cancellationToken))
+		{
+			if(update.Contents == null)
+				continue;
+			foreach(AIContent content in update.Contents)
 			{
-				if(update.Contents == null)
-					continue;
-				foreach(AIContent content in update.Contents)
+				if(content is TextReasoningContent reasoningContent && !String.IsNullOrEmpty(reasoningContent.Text))
 				{
-					if(content is TextReasoningContent reasoningContent && !String.IsNullOrEmpty(reasoningContent.Text))
+					if(!hasReasoning)
 					{
-						if(!hasReasoning)
-						{
-							hasReasoning = true;
-							this.OnAiResponseReceived(new AgentResponseEventArgs("> *Thinking...*\n\n", false));
-						}
-						this.OnAiResponseReceived(new AgentResponseEventArgs(reasoningContent.Text, false));
+						hasReasoning = true;
+						this.OnAiResponseReceived(new AgentResponseEventArgs("> *Thinking...*\n\n", false));
 					}
-					else if(content is TextContent textContent && !String.IsNullOrEmpty(textContent.Text))
-						textBuilder.Append(textContent.Text);
-					else if(content is UsageContent usageContent)
-						usage = usageContent.Details;
+					this.OnAiResponseReceived(new AgentResponseEventArgs(reasoningContent.Text, false));
 				}
+				else if(content is TextContent textContent && !String.IsNullOrEmpty(textContent.Text))
+					textBuilder.Append(textContent.Text);
+				else if(content is UsageContent usageContent)
+					usage = usageContent.Details;
 			}
-
-			String aiResponse = textBuilder.ToString();
-			this._trace.TraceEvent(TraceEventType.Verbose, 0, "> " + aiResponse);
-			if(usage != null)
-				this._trace.TraceEvent(TraceEventType.Verbose, 0, $"Tokens: {String.Join(Environment.NewLine, Utils.ParseTokenUsageCount(usage))}");
-
-			if(hasReasoning)
-				this.OnAiResponseReceived(new AgentResponseEventArgs("\n\n---\n\n", false));
-			this.OnAiResponseReceived(new AgentResponseEventArgs(aiResponse, true));
 		}
 
-		private static ChatMessage BuildUserMessage(String text, DataContent[]? images = null)
-		{
-			if(images == null || images.Length == 0)
-				return new ChatMessage(ChatRole.User, text);
+		String aiResponse = textBuilder.ToString();
+		this._trace.TraceEvent(TraceEventType.Verbose, 0, "> " + aiResponse);
+		if(usage != null)
+			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"Tokens: {String.Join(Environment.NewLine, Utils.ParseTokenUsageCount(usage))}");
 
-			List<AIContent> contents = new List<AIContent> { new TextContent(text) };
-			foreach(DataContent image in images)
-				contents.Add(image);
-			return new ChatMessage(ChatRole.User, contents);
-		}
+		if(hasReasoning)
+			this.OnAiResponseReceived(new AgentResponseEventArgs("\n\n---\n\n", false));
+		this.OnAiResponseReceived(new AgentResponseEventArgs(aiResponse, true));
+	}
+
+	private static ChatMessage BuildUserMessage(String text, DataContent[]? images = null)
+	{
+		if(images == null || images.Length == 0)
+			return new ChatMessage(ChatRole.User, text);
+
+		List<AIContent> contents = new List<AIContent> { new TextContent(text) };
+		foreach(DataContent image in images)
+			contents.Add(image);
+		return new ChatMessage(ChatRole.User, contents);
 	}
 }

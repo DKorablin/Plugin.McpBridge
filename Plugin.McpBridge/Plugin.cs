@@ -103,7 +103,7 @@ namespace Plugin.McpBridge
 
 		internal AssistantAgent InitializeAgent(AiProviderDto provider)
 		{
-			ToolsFactory toolsFactory = new ToolsFactory(this.Trace, this.Host);
+			ToolsFactory toolsFactory = new ToolsFactory(this.Host);
 
 			var result = new AssistantAgent(this.Trace, this.Host, toolsFactory);
 			result.Initialize(this.Settings, provider);
@@ -131,11 +131,11 @@ namespace Plugin.McpBridge
 
 		private void Plugins_PluginsLoaded(Object? sender, EventArgs e)
 		{
-			ToolsFactory toolsFactory = new ToolsFactory(this.Trace, this.Host);
+			ToolsFactory toolsFactory = new ToolsFactory(this.Host);
 
 			if(this.Settings.McpServerEnabled || this.Settings.DevUIEnabled)
 			{
-				IEnumerable<AITool> bridgeTools = toolsFactory.CreateTools(this.Settings.ToolsPermission, null);
+				IEnumerable<AITool> bridgeTools = toolsFactory.CreateTools(this.Trace, this.Settings.ToolsPermission);
 				this._mcpServer = new ToolsMcpServer(this.Trace, this.Settings.McpServerUrl, bridgeTools);
 				this._mcpServer.Start();
 			}
