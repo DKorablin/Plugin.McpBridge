@@ -2,6 +2,7 @@
 using System.Drawing.Design;
 using System.Reflection;
 using System.Windows.Forms.Design;
+using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Tools;
 
 namespace Plugin.McpBridge.UI.PropertyGrid;
@@ -46,7 +47,7 @@ internal sealed class ToolsPermissionEditor : UITypeEditor
 			}
 		}
 
-		public ToolPermissionControl(IEnumerable<(Object Target, ToolAttribute Tool, MethodInfo Method, String Description)> tools)
+		public ToolPermissionControl(IEnumerable<ToolMethodDto> tools)
 		{
 			this.SuspendLayout();
 			this.BackColor = SystemColors.Control;
@@ -54,12 +55,12 @@ internal sealed class ToolsPermissionEditor : UITypeEditor
 			this._list.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
 			this._list.BorderStyle = BorderStyle.None;
 
-			foreach((Object Target, ToolAttribute Tool, MethodInfo Method, String Description) in tools)
+			foreach(var tool in tools)
 			{
-				this._methodNames.Add(Method.Name);
-				String label = String.IsNullOrWhiteSpace(Description)
-					? Method.Name
-					: $"{Method.Name} — {Description}";
+				this._methodNames.Add(tool.Name);
+				String label = String.IsNullOrWhiteSpace(tool.Description)
+					? tool.Name
+					: $"{tool.Name} — {tool.Description}";
 				this._list.Items.Add(label);
 			}
 

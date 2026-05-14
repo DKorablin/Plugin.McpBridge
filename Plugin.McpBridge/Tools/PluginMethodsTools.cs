@@ -25,8 +25,8 @@ internal sealed class PluginMethodsTools : ToolsDiscoveryBase
 		if(pluginDescription == null)
 			return Task.FromResult($"Plugin with ID '{pluginId}' was not found.");
 
-		IEnumerable<IPluginMemberInfo> callableMembers = PluginMethodsTools.GetCallableMembers(pluginDescription);
-		if(!callableMembers.Any())
+		IPluginMemberInfo[] callableMembers = PluginMethodsTools.GetCallableMembers(pluginDescription).ToArray();
+		if(callableMembers.Length == 0)
 			return Task.FromResult($"Plugin '{pluginDescription.ID}' does not expose any callable methods.");
 
 		StringBuilder builder = new StringBuilder();
@@ -35,7 +35,7 @@ internal sealed class PluginMethodsTools : ToolsDiscoveryBase
 		builder.Append("' (");
 		builder.Append(pluginDescription.Name);
 		builder.AppendLine("):");
-		foreach(IPluginMemberInfo member in PluginMethodsTools.GetCallableMembers(pluginDescription))
+		foreach(IPluginMemberInfo member in callableMembers)
 		{
 			if(member.MemberType == MemberTypes.Method)
 			{

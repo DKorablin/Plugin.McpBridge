@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using Microsoft.Extensions.AI;
 using SAL.Flatbed;
 
@@ -9,18 +9,15 @@ internal sealed class ToolFacade : DelegatingAIFunction
 {
 	private readonly ITraceSource _trace;
 
-	public ToolFacade(ITraceSource trace, Delegate method, Boolean confirmationRequired = false)
-		: base(CreateFunction(method, confirmationRequired))
+	public ToolFacade(ITraceSource trace, AIFunction function, Boolean confirmationRequired = false)
+		: base(confirmationRequired ? new ApprovalRequiredAIFunction(function) : function)
 	{
 		this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
 	}
 
-	private static AIFunction CreateFunction(Delegate method, Boolean confirmationRequired)
+	public ToolFacade(ITraceSource trace, Delegate method, Boolean confirmationRequired = false)
+		: this(trace, AIFunctionFactory.Create(method), confirmationRequired)
 	{
-		var function = AIFunctionFactory.Create(method);
-		return confirmationRequired
-			? new ApprovalRequiredAIFunction(function)
-			: function;
 	}
 
 	protected override async ValueTask<Object?> InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
@@ -37,7 +34,7 @@ internal sealed class ToolFacade : DelegatingAIFunction
 			sw.Stop();
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool result] {result?.GetType()} Elapsed: {sw}");
 			return result;
-		}catch(Exception exc)
+		} catch(Exception exc)
 		{
 			this._trace.TraceData(TraceEventType.Error, 0, exc);
 			throw;
