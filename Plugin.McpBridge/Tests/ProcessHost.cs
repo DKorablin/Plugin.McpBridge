@@ -1,23 +1,34 @@
 ﻿using System.Diagnostics;
 using System.Runtime.Serialization.Json;
+using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Data;
 using SAL.Flatbed;
 
-namespace Plugin.McpBridge.Agents;
+namespace Plugin.McpBridge.Tests;
 
 /// <summary>Launches and manages the DevUI executable as a child process for local agent diagnostics.</summary>
-internal sealed class DevUIHost : IDisposable
+internal sealed class ProcessHost : IDisposable
 {
-	private const String ExeName = "Plugin.McpBridge.DevUI.exe";
+	private const String ExeNameArgs1 = "Plugin.McpBridge.{0}.exe";
+	private String ExeName => String.Format(ExeNameArgs1, this._exeType);
+	private String ConfigName => $"McpBridge.{_exeType}.{Guid.NewGuid():N}.json";
+	private String TraceName => $"{typeof(ProcessHost).Assembly.GetName().Name}.{this._exeType}";
 
 	private readonly IHost _host;
+	private readonly ExeType _exeType;
 	private readonly ITraceSource _trace;
 	private Process? _process;
 
-	public DevUIHost(IHost host)
+	public enum ExeType
+	{
+		DevUI,
+	}
+
+	public ProcessHost(IHost host, ExeType type)
 	{
 		this._host = host;
-		this._trace = host.Plugins.CreateTraceSource(typeof(DevUIHost).Assembly.GetName().Name + ".DevUI");
+		this._exeType = type;
+		this._trace = host.Plugins.CreateTraceSource(this.TraceName);
 	}
 
 	/// <summary>Serializes the current settings into a temp config file and launches the DevUI process.</summary>
@@ -27,10 +38,10 @@ internal sealed class DevUIHost : IDisposable
 			this.Stop();
 
 		String exePath = GetExePath();
-		String configPath = Path.Combine(Path.GetTempPath(), $"McpBridge.DevUI.{Guid.NewGuid():N}.json");
+		String configPath = Path.Combine(Path.GetTempPath(), this.ConfigName);
 
-		DevUIConfig config = BuildConfig(settings, provider);
-		DataContractJsonSerializer serializer = new DataContractJsonSerializer(typeof(DevUIConfig));
+		ProcessConfig config = BuildConfig(settings, provider);
+		DataContractJsonSerializer serializer = new DataContractJsonSerializer(typeof(ProcessConfig));
 		using(FileStream stream = File.Create(configPath))
 			serializer.WriteObject(stream, config);
 
@@ -63,6 +74,19 @@ internal sealed class DevUIHost : IDisposable
 	public void Dispose()
 		=> this.Stop();
 
+	public static String? GetExePath(ExeType type)
+	{
+		String exeName = String.Format(ExeNameArgs1, type);
+		String? assemblyDir = Path.GetDirectoryName(typeof(ProcessHost).Assembly.Location);
+		if(assemblyDir != null)
+		{
+			String candidate = Path.Combine(assemblyDir, exeName);
+			if(File.Exists(candidate))
+				return candidate;
+		}
+		return null;
+	}
+
 	private void Stop()
 	{
 		if(this._process == null)
@@ -72,9 +96,7 @@ internal sealed class DevUIHost : IDisposable
 		{
 			if(!this._process.HasExited)
 				this._process.Kill(entireProcessTree: true);
-		}
-		catch(InvalidOperationException) { }
-		finally
+		} catch(InvalidOperationException) { } finally
 		{
 			this._process.Dispose();
 			this._process = null;
@@ -93,22 +115,21 @@ internal sealed class DevUIHost : IDisposable
 			this._trace.TraceEvent(TraceEventType.Warning, 0, e.Data);
 	}
 
-	private static String GetExePath()
-	{
-		String? assemblyDir = Path.GetDirectoryName(typeof(DevUIHost).Assembly.Location);
-		if(assemblyDir != null)
-		{
-			String candidate = Path.Combine(assemblyDir, ExeName);
-			if(File.Exists(candidate))
-				return candidate;
-		}
-		throw new FileNotFoundException($"DevUI executable not found. Expected alongside the plugin assembly.", ExeName);
-	}
+	private String GetExePath()
+		=> GetExePath(this._exeType)
+			?? throw new FileNotFoundException($"{0} executable not found. Expected alongside the plugin assembly.", this.ExeName);
 
-	private DevUIConfig BuildConfig(Settings settings, AiProviderDto provider)
-		=> new DevUIConfig
+	private ProcessConfig BuildConfig(Settings settings, AiProviderDto provider)
+	{
+		String serverUrl = this._exeType switch
 		{
-			DevUiServerUrl = settings.DevUIServerUrl,
+			ExeType.DevUI => settings.DevUIServerUrl,
+			_ => throw new ArgumentOutOfRangeException(nameof(this._exeType), $"Unsupported ExeType: {this._exeType}"),
+		};
+
+		return new ProcessConfig
+		{
+			UiServerUrl = serverUrl,
 			Instructions = AgentFactory.BuildSystemInstructions(this._host, settings),
 			MaxTokens = settings.MaxTokens,
 			ToolsPermission = settings.ToolsPermission,
@@ -117,4 +138,5 @@ internal sealed class DevUIHost : IDisposable
 			Provider = provider,
 			McpServerUrl = settings.McpServerUrl,
 		};
+	}
 }

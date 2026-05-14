@@ -3,6 +3,7 @@ using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Events;
+using Plugin.McpBridge.Tests;
 using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
 using SAL.Windows;
@@ -14,7 +15,7 @@ namespace Plugin.McpBridge
 		private Settings? _settings;
 		private AssistantAgent? _agent;
 
-		private DevUIHost? _devUIHost;
+		private ProcessHost? _devUIHost;
 		private ToolsMcpServer? _mcpServer;
 
 		private IMenuItem? _menuChat;
@@ -142,7 +143,7 @@ namespace Plugin.McpBridge
 
 			if(this.Settings.DevUIEnabled)
 			{
-				this._devUIHost = new DevUIHost(this.Host);
+				this._devUIHost = new ProcessHost(this.Host, ProcessHost.ExeType.DevUI);
 				Task.Run(() => this._devUIHost.StartAsync(this.Settings, this.Settings.GetSelectedProvider()));
 			}
 		}
