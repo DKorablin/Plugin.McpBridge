@@ -212,11 +212,12 @@ internal sealed class McpServer : IDisposable
 					: (Object?)null;
 
 		Object? result = await tool.InvokeAsync(arguments, ct);
+		String jsonResult = result == null ? String.Empty : JsonSerializer.Serialize(result);
 		return new JsonObject
 		{
 			["content"] = new JsonArray
 			{
-				new JsonObject { ["type"] = "text", ["text"] = result != null ? JsonSerializer.Serialize(result) : String.Empty }
+				new JsonObject { ["type"] = "text", ["text"] = jsonResult }
 			}
 		};
 	}
