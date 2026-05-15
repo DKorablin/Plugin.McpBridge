@@ -10,6 +10,7 @@
 		"@ag-ui/core": "latest"
 	},
 	"devDependencies": {
+		"sass": "latest",
 		"typescript": "latest",
 		"vite": "latest"
 	}

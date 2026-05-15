@@ -13,6 +13,7 @@ export default defineConfig({
 		rollupOptions: {
 			output: {
 				entryFileNames: "agui-client.js",
+				assetFileNames: "index[extname]",
 			},
 		},
 	},

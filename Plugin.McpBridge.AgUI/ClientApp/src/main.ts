@@ -1,3 +1,4 @@
+import "./index.scss";
 import { HttpAgent } from "@ag-ui/client";
 import type { AssistantMessage, Message, RunAgentInput, ToolMessage } from "@ag-ui/core";
 import { EventType } from "@ag-ui/core";
