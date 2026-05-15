@@ -1,8 +1,13 @@
 using System.Diagnostics;
 using System.Runtime.Serialization.Json;
+using System.Text.Json;
+using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Options;
+using Plugin.McpBridge.AgUI.Agents;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Mcp;
 using Plugin.McpBridge.Tests;
@@ -25,7 +30,7 @@ internal static class Program
 			_ = WatchParentAsync(parentPid, lifetimeCts);
 
 		IChatClient chatClient = BuildChatClient(config);
-		IReadOnlyList<AITool> bridgeTools = await FetchBridgeToolsAsync(config);
+		AITool[] bridgeTools = await FetchBridgeToolsAsync(config);
 
 		String[] remainingArgs = parentPidIndex >= 0
 			? args[1..parentPidIndex].Concat(args[(parentPidIndex + 2)..]).ToArray()
@@ -67,26 +72,33 @@ internal static class Program
 		return AgentFactory.ConfigureOptions(raw, config.MaxTokens, config.Provider);
 	}
 
-	private static async Task<IReadOnlyList<AITool>> FetchBridgeToolsAsync(ProcessConfig config)
+	private static async Task<AITool[]> FetchBridgeToolsAsync(ProcessConfig config)
 	{
 		if(String.IsNullOrEmpty(config.McpServerUrl))
 			return Array.Empty<AIFunction>();
 
 		using CancellationTokenSource timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 		HttpClient bridgeHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(10), BaseAddress = new Uri(config.McpServerUrl) };
-		IReadOnlyList<AITool> tools = await McpClient.FetchAllAsync(AssemblyName, bridgeHttp, timeoutCts.Token);
-		Console.WriteLine($"Bridge connected: {tools.Count:N0} tools loaded from {config.McpServerUrl}");
+		AITool[] tools = await McpClient.FetchAllAsync(AssemblyName, bridgeHttp, timeoutCts.Token);
+		Console.WriteLine($"Bridge connected: {tools.Length:N0} tools loaded from {config.McpServerUrl}");
 		return tools;
 	}
 
-	private static WebApplication BuildWebApp(String[] args, ProcessConfig config, IChatClient chatClient, IReadOnlyList<AITool> bridgeTools)
+	private static WebApplication BuildWebApp(String[] args, ProcessConfig config, IChatClient chatClient, AITool[] bridgeTools)
 	{
 		WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 		((IWebHostBuilder)builder.WebHost).UseUrls(config.UiServerUrl);
 
-		IHostedAgentBuilder agentBuilder = builder.AddAIAgent("assistant", config.Instructions, chatClient);
-		if(bridgeTools.Count > 0)
-			agentBuilder.WithAITools(bridgeTools.ToArray());
+		List<AITool> toolList = bridgeTools.ToList();
+		IHostedAgentBuilder agentBuilder = builder.AddAIAgent("assistant", (sp, name) =>
+		{
+			JsonSerializerOptions jsonOptions = sp.GetRequiredService<IOptions<JsonOptions>>().Value.SerializerOptions;
+			AIAgent inner = chatClient.AsAIAgent(
+				name: name,
+				instructions: config.Instructions,
+				tools: toolList);
+			return inner.AsBuilder().UseApproval(jsonOptions).Build(sp);
+		});
 
 		builder.Services.AddAGUI();
 
@@ -103,6 +115,13 @@ internal static class Program
 			ctx.Response.ContentType = "application/javascript";
 			using Stream stream = typeof(Program).Assembly
 				.GetManifestResourceStream(AssemblyName + ".wwwroot.agui-client.js")!;
+			await stream.CopyToAsync(ctx.Response.Body);
+		});
+		app.MapGet("/index.css", async (HttpContext ctx) =>
+		{
+			ctx.Response.ContentType = "text/css";
+			using Stream stream = typeof(Program).Assembly
+				.GetManifestResourceStream(AssemblyName + ".wwwroot.index.css")!;
 			await stream.CopyToAsync(ctx.Response.Body);
 		});
 		app.MapGet("/favicon.ico", async (HttpContext ctx) =>

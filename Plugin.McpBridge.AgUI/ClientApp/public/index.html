@@ -4,18 +4,7 @@
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<title>AG-UI Chat</title>
-	<style>
-		* { box-sizing: border-box; margin: 0; padding: 0; }
-		body { font-family: system-ui, sans-serif; background: #1a1a1a; color: #eee; display: flex; flex-direction: column; height: 100vh; }
-		#messages { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
-		.msg { padding: 0.6rem 1rem; border-radius: 8px; max-width: 80%; white-space: pre-wrap; }
-		.msg.user { background: #2563eb; align-self: flex-end; }
-		.msg.assistant { background: #374151; align-self: flex-start; }
-		#input-row { display: flex; gap: 0.5rem; padding: 1rem; border-top: 1px solid #374151; }
-		#input { flex: 1; padding: 0.6rem 1rem; border-radius: 8px; border: 1px solid #374151; background: #111; color: #eee; font-size: 1rem; }
-		#send { padding: 0.6rem 1.2rem; border-radius: 8px; border: none; background: #2563eb; color: #fff; cursor: pointer; font-size: 1rem; }
-		#send:disabled { opacity: 0.5; cursor: default; }
-	</style>
+	<link rel="Stylesheet" href="/index.css" type="text/css" />
 </head>
 <body>
 	<div id="messages"></div>

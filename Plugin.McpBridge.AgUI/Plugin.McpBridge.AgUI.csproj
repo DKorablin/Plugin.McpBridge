@@ -11,6 +11,7 @@
 	</PropertyGroup>
 	<ItemGroup>
 		<EmbeddedResource Include="wwwroot\index.html" />
+		<EmbeddedResource Include="wwwroot\index.css" />
 		<EmbeddedResource Include="wwwroot\agui-client.js" />
 		<EmbeddedResource Include="..\Images.Shared\SAL.100.png" Link="wwwroot\favicon.ico">
 			<CopyToOutputDirectory>Never</CopyToOutputDirectory>

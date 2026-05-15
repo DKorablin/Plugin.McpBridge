@@ -46,7 +46,7 @@ public sealed class McpClient : AIFunction
 	}
 
 	/// <summary>Connects to the MCP server at <paramref name="baseUrl"/> via SSE and fetches all available tools.</summary>
-	public static async Task<IReadOnlyList<AITool>> FetchAllAsync(String applicationName, HttpClient http, CancellationToken cancellationToken = default)
+	public static async Task<AITool[]> FetchAllAsync(String applicationName, HttpClient http, CancellationToken cancellationToken = default)
 	{
 		McpSession session = new McpSession(http);
 		await session.ConnectAsync(cancellationToken);
@@ -94,7 +94,7 @@ public sealed class McpClient : AIFunction
 				tools.Add(aIFunction);
 			}
 
-		return tools;
+		return tools.ToArray();
 	}
 
 	private static JsonObject BuildArgsNode(AIFunctionArguments arguments)
