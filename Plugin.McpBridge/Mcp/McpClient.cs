@@ -46,7 +46,7 @@ public sealed class McpClient : AIFunction
 	}
 
 	/// <summary>Connects to the MCP server at <paramref name="baseUrl"/> via SSE and fetches all available tools.</summary>
-	public static async Task<IReadOnlyList<AIFunction>> FetchAllAsync(String applicationName, HttpClient http, CancellationToken cancellationToken = default)
+	public static async Task<IReadOnlyList<AITool>> FetchAllAsync(String applicationName, HttpClient http, CancellationToken cancellationToken = default)
 	{
 		McpSession session = new McpSession(http);
 		await session.ConnectAsync(cancellationToken);
@@ -72,7 +72,7 @@ public sealed class McpClient : AIFunction
 		JsonObject listRequest = new JsonObject { ["jsonrpc"] = "2.0", ["id"] = listId, ["method"] = "tools/list" };
 		JsonObject? listResult = await session.SendAsync(listId, listRequest, cancellationToken);
 
-		List<AIFunction> tools = new List<AIFunction>();
+		List<AITool> tools = new List<AITool>();
 		if(listResult?["tools"] is JsonArray arr)
 			foreach(JsonNode? item in arr)
 			{

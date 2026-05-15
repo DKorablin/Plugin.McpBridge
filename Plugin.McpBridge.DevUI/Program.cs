@@ -24,7 +24,7 @@ internal static class Program
 			_ = WatchParentAsync(parentPid, lifetimeCts);
 
 		IChatClient chatClient = BuildChatClient(config);
-		IReadOnlyList<AIFunction> bridgeTools = await FetchBridgeToolsAsync(config);
+		IReadOnlyList<AITool> bridgeTools = await FetchBridgeToolsAsync(config);
 
 		String[] remainingArgs = parentPidIndex >= 0
 			? args[1..parentPidIndex].Concat(args[(parentPidIndex + 2)..]).ToArray()
@@ -66,26 +66,26 @@ internal static class Program
 		return AgentFactory.ConfigureOptions(raw, config.MaxTokens, config.Provider);
 	}
 
-	private static async Task<IReadOnlyList<AIFunction>> FetchBridgeToolsAsync(ProcessConfig config)
+	private static async Task<IReadOnlyList<AITool>> FetchBridgeToolsAsync(ProcessConfig config)
 	{
 		if(String.IsNullOrEmpty(config.McpServerUrl))
-			return Array.Empty<AIFunction>();
+			return Array.Empty<AITool>();
 
 		using CancellationTokenSource timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 		HttpClient bridgeHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(10), BaseAddress = new Uri(config.McpServerUrl) };
-		IReadOnlyList<AIFunction> tools = await McpClient.FetchAllAsync(AssemblyName, bridgeHttp, timeoutCts.Token);
+		IReadOnlyList<AITool> tools = await McpClient.FetchAllAsync(AssemblyName, bridgeHttp, timeoutCts.Token);
 		Console.WriteLine($"Bridge connected: {tools.Count:N0} tools loaded from {config.McpServerUrl}");
 		return tools;
 	}
 
-	private static WebApplication BuildWebApp(String[] args, ProcessConfig config, IChatClient chatClient, IReadOnlyList<AIFunction> bridgeTools)
+	private static WebApplication BuildWebApp(String[] args, ProcessConfig config, IChatClient chatClient, IReadOnlyList<AITool> bridgeTools)
 	{
 		WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 		((IWebHostBuilder)builder.WebHost).UseUrls(config.UiServerUrl);
 
 		IHostedAgentBuilder agentBuilder = builder.AddAIAgent("assistant", config.Instructions, chatClient);
 		if(bridgeTools.Count > 0)
-			agentBuilder.WithAITools(bridgeTools.Cast<AITool>().ToArray());
+			agentBuilder.WithAITools(bridgeTools.ToArray());
 
 		builder.Services.AddDevUI();
 		builder.Services.AddOpenAIResponses();
