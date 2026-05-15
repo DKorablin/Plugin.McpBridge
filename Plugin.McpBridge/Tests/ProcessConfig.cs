@@ -6,7 +6,10 @@ namespace Plugin.McpBridge.Tests;
 public sealed class ProcessConfig
 {
 	/// <summary>Gets or sets the URL of the user interface server.</summary>
-	public String? UiServerUrl { get; set; }
+	public required String UiServerUrl { get; set; }
+
+	/// <summary>Base URL of the in-process tool bridge server (e.g. http://localhost:12345).</summary>
+	public required String McpServerUrl { get; set; }
 
 	/// <summary>Gets or sets the instructions associated with this instance.</summary>
 	public String? Instructions { get; set; }
@@ -27,7 +30,4 @@ public sealed class ProcessConfig
 
 	/// <summary>Gets or sets the AI provider configuration for this instance.</summary>
 	public required AiProviderDto Provider { get; set; }
-
-	/// <summary>Base URL of the in-process tool bridge server (e.g. http://localhost:12345). Null when the bridge is not running.</summary>
-	public String? McpServerUrl { get; set; }
 }
