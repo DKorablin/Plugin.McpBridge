@@ -14,6 +14,7 @@ namespace Plugin.McpBridge
 	{
 		OpenAI,
 		AzureOpenAI,
+		CoPilot,
 		OpenAICompatible,
 		LocalOpenAICompatible,
 		QwenCompatible,

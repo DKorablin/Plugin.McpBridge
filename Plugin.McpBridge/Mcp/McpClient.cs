@@ -88,7 +88,9 @@ public sealed class McpClient : AIFunction
 				AIFunction aIFunction = new McpClient(name, description, schema, session, props);
 
 				//(2025-03-26 MCP) destructiveHint - Tool may perform destructive updates (default: true)
-				if(aIFunction.AdditionalProperties.TryGetValue("destructiveHint", out Object? v) && v is true)
+				if(aIFunction.AdditionalProperties.TryGetValue("destructiveHint", out Object? v)
+					&& v is JsonElement e
+					&& e.GetBoolean())
 					aIFunction = new ApprovalRequiredAIFunction(aIFunction);
 
 				tools.Add(aIFunction);

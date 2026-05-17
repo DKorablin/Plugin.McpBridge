@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Runtime.Serialization.Json;
 using System.Text.Json;
 using Microsoft.Agents.AI;
@@ -90,15 +90,9 @@ internal static class Program
 		((IWebHostBuilder)builder.WebHost).UseUrls(config.UiServerUrl);
 
 		List<AITool> toolList = bridgeTools.ToList();
-		IHostedAgentBuilder agentBuilder = builder.AddAIAgent("assistant", (sp, name) =>
-		{
-			JsonSerializerOptions jsonOptions = sp.GetRequiredService<IOptions<JsonOptions>>().Value.SerializerOptions;
-			AIAgent inner = chatClient.AsAIAgent(
-				name: name,
-				instructions: config.Instructions,
-				tools: toolList);
-			return inner.AsBuilder().UseApproval(jsonOptions).Build(sp);
-		});
+		IHostedAgentBuilder agentBuilder = builder.AddAIAgent("assistant", config.Instructions, chatClient);
+		if(bridgeTools.Length > 0)
+			agentBuilder.WithAITools(toolList.ToArray());
 
 		builder.Services.AddAGUI();
 

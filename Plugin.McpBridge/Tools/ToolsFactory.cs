@@ -51,9 +51,10 @@ internal sealed class ToolsFactory
 			if(!allAllowed && Array.Exists(permissions!, p => p == method.Name))
 				continue;
 
-			ToolFacade wrapper = new ToolFacade(trace, method.Function, method.ConfirmationRequired);
-
-			yield return wrapper;
+			var tool = new ToolFacade(trace, method.Function, method.ConfirmationRequired);
+			yield return method.ConfirmationRequired
+				? new ApprovalRequiredAIFunction(tool)
+				: tool;
 		}
 	}
 }

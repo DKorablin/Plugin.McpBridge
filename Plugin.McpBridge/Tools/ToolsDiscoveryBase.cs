@@ -18,9 +18,7 @@ internal abstract class ToolsDiscoveryBase
 				String description = method.GetCustomAttribute<DescriptionAttribute>()?.Description ?? String.Empty;
 
 				Delegate del = method.CreateDelegate(GetDelegateType(method), this);
-				AIFunction function = attr.ConfirmationRequired
-					? new ApprovalRequiredAIFunction(AIFunctionFactory.Create(del))
-					: AIFunctionFactory.Create(del);
+				AIFunction function = AIFunctionFactory.Create(del);
 				yield return new ToolMethodDto(attr.ConfirmationRequired, method.Name, description, function);
 			}
 		}

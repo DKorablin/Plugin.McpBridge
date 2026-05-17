@@ -13,7 +13,7 @@ internal sealed class ToolFacade : DelegatingAIFunction
 	public override IReadOnlyDictionary<String, Object?> AdditionalProperties => this._additionalProperties;
 
 	public ToolFacade(ITraceSource trace, AIFunction function, Boolean confirmationRequired = false)
-		: base(confirmationRequired ? new ApprovalRequiredAIFunction(function) : function)
+		: base(function)
 	{
 		this._additionalProperties = new Dictionary<String, Object?>(function.AdditionalProperties);
 		if(confirmationRequired)

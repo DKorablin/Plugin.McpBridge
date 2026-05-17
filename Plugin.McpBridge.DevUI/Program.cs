@@ -2,6 +2,7 @@
 using System.Runtime.Serialization.Json;
 using Microsoft.Agents.AI.DevUI;
 using Microsoft.Agents.AI.Hosting;
+using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Mcp;
@@ -86,15 +87,30 @@ internal static class Program
 		WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 		((IWebHostBuilder)builder.WebHost).UseUrls(config.UiServerUrl);
 
-		IHostedAgentBuilder agentBuilder = builder.AddAIAgent("assistant", config.Instructions, chatClient);
+		// Force the console logger to capture detailed framework traces
+		builder.Logging.AddConsole();
+		builder.Logging.SetMinimumLevel(LogLevel.Debug); // Shows model binding/deserialization errors
+
+		/*IHostedAgentBuilder agentBuilder = builder.AddAIAgent("assistant", config.Instructions, chatClient);
 		if(bridgeTools.Length > 0)
-			agentBuilder.WithAITools(bridgeTools.ToArray());
+			agentBuilder.WithAITools(bridgeTools.ToArray());*/
+		var agent = chatClient.AsAIAgent(
+			instructions: config.Instructions,
+			tools: bridgeTools);
+
+		builder.AddWorkflow("sequential-flow", (sp, key) =>
+		{
+			return AgentWorkflowBuilder.BuildSequential(workflowName: key, agents: [agent]);
+		}).AddAsAIAgent("assistant"); // This names the workflow wrapper so DevUI can pull its definitions
 
 		builder.Services.AddDevUI();
 		builder.Services.AddOpenAIResponses();
 		builder.Services.AddOpenAIConversations();
 
 		WebApplication app = builder.Build();
+
+		app.UseDeveloperExceptionPage();
+
 		app.MapOpenAIResponses();
 		app.MapOpenAIConversations();
 		app.MapDevUI();
