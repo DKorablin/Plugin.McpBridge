@@ -15,7 +15,7 @@ internal sealed class AssistantAgent
 	private readonly ITraceSource _trace;
 	private readonly IHost _host;
 	private readonly ToolsFactory _toolsFactory;
-	private readonly Func<AiProviderDto, HttpClient, IChatClient> _chatClientFactory;
+	private readonly Func<AiProviderDto, HttpClient, Int32?, IChatClient> _chatClientFactory;
 	private ChatClientAgent? _agent;
 	private AgentSession? _session;
 
@@ -26,7 +26,7 @@ internal sealed class AssistantAgent
 		ITraceSource trace,
 		IHost host,
 		ToolsFactory toolsFactory,
-		Func<AiProviderDto, HttpClient, IChatClient>? chatClientFactory = null)
+		Func<AiProviderDto, HttpClient, Int32?, IChatClient>? chatClientFactory = null)
 	{
 		this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
 		this._host = host ?? throw new ArgumentNullException(nameof(host));
@@ -42,8 +42,7 @@ internal sealed class AssistantAgent
 		this._session = null;
 
 		HttpClient httpClient = new HttpClient { Timeout = settings.ConnectionTimeout };
-		IChatClient chatClientRaw = this._chatClientFactory(provider, httpClient);
-		IChatClient chatClient = AgentFactory.ConfigureOptions(chatClientRaw, settings.MaxTokens, provider);
+		IChatClient chatClient = this._chatClientFactory(provider, httpClient, settings.MaxTokens);
 
 		List<AITool> tools = this._toolsFactory.CreateTools(this._trace, settings.ToolsPermission).ToList();
 		String instructions = AgentFactory.BuildSystemInstructions(this._host, settings);

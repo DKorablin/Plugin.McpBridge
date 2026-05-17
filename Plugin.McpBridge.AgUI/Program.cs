@@ -68,8 +68,7 @@ internal static class Program
 	private static IChatClient BuildChatClient(ProcessConfig config)
 	{
 		HttpClient httpClient = new HttpClient { Timeout = config.ConnectionTimeout };
-		IChatClient raw = AgentFactory.CreateChatClient(config.Provider, httpClient);
-		return AgentFactory.ConfigureOptions(raw, config.MaxTokens, config.Provider);
+		return AgentFactory.CreateChatClient(config.Provider, httpClient, config.MaxTokens);
 	}
 
 	private static async Task<AITool[]> FetchBridgeToolsAsync(ProcessConfig config)
