@@ -13,6 +13,7 @@ namespace Plugin.McpBridge.DevUI;
 internal static class Program
 {
 	private static String AssemblyName => typeof(Program).Assembly.GetName().Name ?? "Plugin.McpBridge.Undefined";
+
 	private static async Task<Int32> Main(String[] args)
 	{
 		ProcessConfig? config = await TryLoadConfigAsync(args);
@@ -24,14 +25,18 @@ internal static class Program
 		if(parentPidIndex >= 0 && parentPidIndex + 1 < args.Length && Int32.TryParse(args[parentPidIndex + 1], out Int32 parentPid))
 			_ = WatchParentAsync(parentPid, lifetimeCts);
 
-		IChatClient chatClient = BuildChatClient(config);
-		AITool[] bridgeTools = await FetchBridgeToolsAsync(config);
+		var bridgeTools = await FetchBridgeToolsAsync(config);
 
-		String[] remainingArgs = parentPidIndex >= 0
+		var remainingArgs = parentPidIndex >= 0
 			? args[1..parentPidIndex].Concat(args[(parentPidIndex + 2)..]).ToArray()
 			: args[1..];
 
-		WebApplication app = BuildWebApp(remainingArgs, config, chatClient, bridgeTools);
+		await using AgentHandle handle = await new AgentFactory().CreateAgent(
+			config.Provider,
+			new HttpClient { Timeout = config.ConnectionTimeout },
+			bridgeTools,
+			config.Instructions ?? String.Empty);
+		WebApplication app = BuildWebApp(remainingArgs, config, handle);
 		Console.WriteLine($"DevUI running at {config.UiServerUrl}/devui");
 		await app.RunAsync(lifetimeCts.Token);
 		return 0;
@@ -60,18 +65,12 @@ internal static class Program
 		return config;
 	}
 
-	private static IChatClient BuildChatClient(ProcessConfig config)
-	{
-		HttpClient httpClient = new HttpClient { Timeout = config.ConnectionTimeout };
-		return AgentFactory.CreateChatClient(config.Provider, httpClient, config.MaxTokens);
-	}
-
-	private static async Task<AITool[]> FetchBridgeToolsAsync(ProcessConfig config)
+	private static async Task<AIFunction[]> FetchBridgeToolsAsync(ProcessConfig config)
 	{
 		if(String.IsNullOrEmpty(config.McpServerUrl))
-			return Array.Empty<AITool>();
+			return Array.Empty<AIFunction>();
 
-		AITool[] tools;
+		AIFunction[] tools;
 		using(CancellationTokenSource timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30)))
 		{
 			HttpClient bridgeHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(10), BaseAddress = new Uri(config.McpServerUrl) };
@@ -81,7 +80,7 @@ internal static class Program
 		return tools;
 	}
 
-	private static WebApplication BuildWebApp(String[] args, ProcessConfig config, IChatClient chatClient, AITool[] bridgeTools)
+	private static WebApplication BuildWebApp(String[] args, ProcessConfig config, AgentHandle handle)
 	{
 		WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 		((IWebHostBuilder)builder.WebHost).UseUrls(config.UiServerUrl);
@@ -90,17 +89,10 @@ internal static class Program
 		builder.Logging.AddConsole();
 		builder.Logging.SetMinimumLevel(LogLevel.Debug); // Shows model binding/deserialization errors
 
-		/*IHostedAgentBuilder agentBuilder = builder.AddAIAgent("assistant", config.Instructions, chatClient);
-		if(bridgeTools.Length > 0)
-			agentBuilder.WithAITools(bridgeTools.ToArray());*/
-		var agent = chatClient.AsAIAgent(
-			instructions: config.Instructions,
-			tools: bridgeTools);
-
 		builder.AddWorkflow("sequential-flow", (sp, key) =>
 		{
-			return AgentWorkflowBuilder.BuildSequential(workflowName: key, agents: [agent]);
-		}).AddAsAIAgent("assistant"); // This names the workflow wrapper so DevUI can pull its definitions
+			return AgentWorkflowBuilder.BuildSequential(workflowName: key, agents: [handle.Agent]);
+		}).AddAsAIAgent(handle.Agent.Name); // This names the workflow wrapper so DevUI can pull its definitions
 
 		builder.Services.AddDevUI();
 		builder.Services.AddOpenAIResponses();

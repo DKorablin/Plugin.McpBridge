@@ -1,13 +1,8 @@
 ﻿using System.Diagnostics;
 using System.Runtime.Serialization.Json;
-using System.Text.Json;
-using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
-using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Extensions.AI;
-using Microsoft.Extensions.Options;
-using Plugin.McpBridge.AgUI.Agents;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Mcp;
 using Plugin.McpBridge.Tests;
@@ -29,14 +24,18 @@ internal static class Program
 		if(parentPidIndex >= 0 && parentPidIndex + 1 < args.Length && Int32.TryParse(args[parentPidIndex + 1], out Int32 parentPid))
 			_ = WatchParentAsync(parentPid, lifetimeCts);
 
-		IChatClient chatClient = BuildChatClient(config);
-		AITool[] bridgeTools = await FetchBridgeToolsAsync(config);
+		var bridgeTools = await FetchBridgeToolsAsync(config);
 
-		String[] remainingArgs = parentPidIndex >= 0
+		var remainingArgs = parentPidIndex >= 0
 			? args[1..parentPidIndex].Concat(args[(parentPidIndex + 2)..]).ToArray()
 			: args[1..];
 
-		WebApplication app = BuildWebApp(remainingArgs, config, chatClient, bridgeTools);
+		await using AgentHandle handle = await new AgentFactory().CreateAgent(
+			config.Provider,
+			new HttpClient { Timeout = config.ConnectionTimeout },
+			bridgeTools,
+			config.Instructions ?? String.Empty);
+		WebApplication app = BuildWebApp(remainingArgs, config, handle);
 		Console.WriteLine($"AG-UI running at {config.UiServerUrl}/agui");
 		await app.RunAsync(lifetimeCts.Token);
 		return 0;
@@ -65,33 +64,31 @@ internal static class Program
 		return config;
 	}
 
-	private static IChatClient BuildChatClient(ProcessConfig config)
-	{
-		HttpClient httpClient = new HttpClient { Timeout = config.ConnectionTimeout };
-		return AgentFactory.CreateChatClient(config.Provider, httpClient, config.MaxTokens);
-	}
-
-	private static async Task<AITool[]> FetchBridgeToolsAsync(ProcessConfig config)
+	private static async Task<AIFunction[]> FetchBridgeToolsAsync(ProcessConfig config)
 	{
 		if(String.IsNullOrEmpty(config.McpServerUrl))
 			return Array.Empty<AIFunction>();
 
-		using CancellationTokenSource timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-		HttpClient bridgeHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(10), BaseAddress = new Uri(config.McpServerUrl) };
-		AITool[] tools = await McpClient.FetchAllAsync(AssemblyName, bridgeHttp, timeoutCts.Token);
+		AIFunction[] tools;
+		using(CancellationTokenSource timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30)))
+		{
+			HttpClient bridgeHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(10), BaseAddress = new Uri(config.McpServerUrl) };
+			tools = await McpClient.FetchAllAsync(AssemblyName, bridgeHttp, timeoutCts.Token);
+		}
 		Console.WriteLine($"Bridge connected: {tools.Length:N0} tools loaded from {config.McpServerUrl}");
 		return tools;
 	}
 
-	private static WebApplication BuildWebApp(String[] args, ProcessConfig config, IChatClient chatClient, AITool[] bridgeTools)
+	private static WebApplication BuildWebApp(String[] args, ProcessConfig config, AgentHandle handle)
 	{
 		WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 		((IWebHostBuilder)builder.WebHost).UseUrls(config.UiServerUrl);
 
-		List<AITool> toolList = bridgeTools.ToList();
-		IHostedAgentBuilder agentBuilder = builder.AddAIAgent("assistant", config.Instructions, chatClient);
-		if(bridgeTools.Length > 0)
-			agentBuilder.WithAITools(toolList.ToArray());
+		// Force the console logger to capture detailed framework traces
+		builder.Logging.AddConsole();
+		builder.Logging.SetMinimumLevel(LogLevel.Debug); // Shows model binding/deserialization errors
+
+		IHostedAgentBuilder agentBuilder = builder.AddAIAgent(handle.Agent.Name, (sp, name) => handle.Agent);
 
 		builder.Services.AddAGUI();
 

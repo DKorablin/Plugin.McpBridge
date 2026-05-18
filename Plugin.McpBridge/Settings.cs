@@ -15,16 +15,11 @@ namespace Plugin.McpBridge
 		OpenAI,
 		AzureOpenAI,
 		CoPilot,
-		OpenAICompatible,
-		LocalOpenAICompatible,
-		QwenCompatible,
-		GrokCompatible,
-		GeminiCompatible,
-		CustomCompatible,
-#if DEBUG
+		Local,
+		Grok,
+		Gemini,
 		/// <summary>Returns scripted responses locally. No credentials or network required. Intended for UI testing.</summary>
 		Stub,
-#endif
 	}
 
 	/// <summary>Configuration settings for the MCP Bridge plugin.</summary>
@@ -48,7 +43,6 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		private BindingList<AiProviderDto>? _aiProviders = null;
 		private Guid? _selectedProviderId;
 		private String? _assistantSystemPrompt = Defaults.AssistantSystemPrompt;
-		private Int32? _maxTokens;
 		private TimeSpan _connectionTimeout = Defaults.ConnectionTimeout;
 		private String[]? _toolsPermission = null;
 		private String[]? _pluginsPermission = null;
@@ -76,7 +70,6 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		[Description("The list of AI providers available for selection. Managed through the AI Providers Manager UI.")]
 		[DisplayName("AI Providers")]
 		[TypeConverter(typeof(BindingListConverter<AiProviderDto>))]
-		[Editor(typeof(WithDescriptionCollectionEditor), typeof(UITypeEditor))]
 		public BindingList<AiProviderDto> AiProviders
 		{
 			get
@@ -121,21 +114,6 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 					value = Defaults.AssistantSystemPrompt;
 
 				this.SetField(ref this._assistantSystemPrompt, value, nameof(this.AssistantSystemPrompt));
-			}
-		}
-
-		/// <summary>The maximum number of tokens to generate in a single response.</summary>
-		[Category("Prompt Settings")]
-		[Description("The maximum number of tokens to generate in a single response. Leave empty for the model default.")]
-		public Int32? MaxTokens
-		{
-			get => this._maxTokens;
-			set
-			{
-				if(value == null || value <= 0)
-					value = null;
-
-				this.SetField(ref this._maxTokens, value, nameof(this.MaxTokens));
 			}
 		}
 
@@ -317,12 +295,22 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 
 			SynchronizationContext.Current?.Post(_ =>
 			{
-				this._listChangedPending = false;
-
 				if(this._aiProviders == null || this._aiProviders.Count == 0)
 					this.AiProvidersJson = null;
 				else
 				{
+					Boolean morphed = false;
+					for(Int32 i = 0; i < this._aiProviders.Count; i++)
+					{
+						AiProviderDto morphedItem = AiProviderDto.Morph(this._aiProviders[i]);
+						if(!ReferenceEquals(morphedItem, this._aiProviders[i]))
+						{
+							this._aiProviders[i] = morphedItem;
+							morphed = true;
+						}
+					}
+					if(morphed)
+						this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.AiProviders)));
 					using(MemoryStream stream = new MemoryStream())
 					{
 						Serializer.WriteObject(stream, this._aiProviders.ToArray());
@@ -330,6 +318,8 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 						this.AiProvidersJson = System.Text.Encoding.UTF8.GetString(stream.ToArray());
 					}
 				}
+
+				this._listChangedPending = false;
 
 				if(this.SelectedProviderId != null && this._aiProviders?.Any(p => p.Id == this.SelectedProviderId) != true)
 					this.SelectedProviderId = null;

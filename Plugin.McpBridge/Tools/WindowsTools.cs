@@ -15,11 +15,11 @@ namespace Plugin.McpBridge.Tools
 		[Description("Get a list of all open windows and their captions.")]
 		public Task<String> WindowsGet()
 		{
-			StringBuilder result = new StringBuilder("List of opened windows (Caption):");
+			StringBuilder result = new StringBuilder("List of opened windows (PluginId - Caption):");
 
 			foreach(var window in this._host.Windows)
 			{
-				result.AppendLine($"- {window.Caption}");
+				result.AppendLine($"{window.Plugin.ID} - {window.Caption}");
 			}
 
 			return Task.FromResult(result.ToString());

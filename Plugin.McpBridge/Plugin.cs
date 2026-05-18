@@ -102,22 +102,23 @@ namespace Plugin.McpBridge
 		private AssistantAgent GetAgent(AiProviderDto provider)
 		{
 			if(this._agent == null)
-				this._agent = this.InitializeAgent(provider);
+				this._agent = Task.Run(() => this.InitializeAgent(provider)).GetAwaiter().GetResult();
 			return this._agent;
 		}
 
-		internal AssistantAgent InitializeAgent(AiProviderDto provider)
+		internal async Task<AssistantAgent> InitializeAgent(AiProviderDto provider)
 		{
-			ToolsFactory toolsFactory = new ToolsFactory(this.Host);
+			ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings);
+			AgentFactory agentFactory = new AgentFactory();
 
-			var result = new AssistantAgent(this.Trace, this.Host, toolsFactory);
-			result.Initialize(this.Settings, provider);
+			var result = new AssistantAgent(this.Trace, this.Host, toolsFactory, agentFactory);
+			await result.Initialize(this.Settings, provider);
 			return result;
 		}
 
 		Boolean IPlugin.OnConnection(ConnectMode mode)
 		{
-			this.Host.Plugins.PluginsLoaded += Plugins_PluginsLoaded;
+			this.Host.Plugins.PluginsLoaded += this.Plugins_PluginsLoaded;
 
 			var hostWindows = this.Host as IHostWindows;
 			if(hostWindows != null)
@@ -136,11 +137,11 @@ namespace Plugin.McpBridge
 
 		private void Plugins_PluginsLoaded(Object? sender, EventArgs e)
 		{
-			ToolsFactory toolsFactory = new ToolsFactory(this.Host);
+			ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings);
 
 			if(this.Settings.McpServerEnabled || this.Settings.DevUIEnabled || this.Settings.AgUIEnabled)
 			{
-				IEnumerable<AITool> bridgeTools = toolsFactory.CreateTools(this.Trace, this.Settings.ToolsPermission);
+				IEnumerable<AITool> bridgeTools = toolsFactory.CreateTools(this.Trace);
 				this._mcpServer = new McpServer(this.Trace, this.Settings.McpServerUrl, bridgeTools);
 				this._mcpServer.Start();
 			}

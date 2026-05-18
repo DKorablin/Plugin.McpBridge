@@ -64,14 +64,14 @@ public partial class PanelChat : UserControl
 		this.UpdateUiState();
 	}
 
-	private AssistantAgent GetAgent()
+	private async Task<AssistantAgent> GetAgent()
 	{
 		if(this._agent == null)
 		{
 			if(this.CurrentProvider == null)
 				throw new InvalidOperationException("No AI provider configured.");
 
-			this._agent = this.Plugin.InitializeAgent(this.CurrentProvider);
+			this._agent = await this.Plugin.InitializeAgent(this.CurrentProvider);
 			this._agent.AiResponseReceived += this.Agent_AiResponseReceived;
 			this._agent.ConfirmationRequired += this.Agent_ConfirmationRequired;
 			this.UpdateUiState();
@@ -93,12 +93,12 @@ public partial class PanelChat : UserControl
 		this.UpdateUiState();
 
 		CancellationToken token = this._cts.Token;
-		AssistantAgent agent = this.GetAgent();
 
 		Task.Run(async () =>
 		{
 			try
 			{
+				AssistantAgent agent = await this.GetAgent();
 				await agent.InvokeMessageAsync(message, images, token);
 			} catch(Exception ex)
 			{
@@ -171,8 +171,6 @@ public partial class PanelChat : UserControl
 		ToolStripMenuItem item = (ToolStripMenuItem)sender!;
 		this.Plugin.Settings.SelectedProviderId = (Guid)item.Tag;
 	}
-
-
 
 	private void tsbnSend_Click(Object sender, EventArgs e)
 	{

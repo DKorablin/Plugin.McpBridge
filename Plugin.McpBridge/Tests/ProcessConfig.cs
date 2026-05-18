@@ -12,12 +12,7 @@ public sealed class ProcessConfig
 	public required String McpServerUrl { get; set; }
 
 	/// <summary>Gets or sets the instructions associated with this instance.</summary>
-	public String? Instructions { get; set; }
-
-	/// <summary>Gets or sets the maximum number of tokens to generate in the response.</summary>
-	/// <remarks>If not set, the default maximum is used as determined by the underlying model or service. Setting
-	/// this property limits the length of the generated output.</remarks>
-	public Int32? MaxTokens { get; set; }
+	public required String Instructions { get; set; }
 
 	/// <summary>Gets or sets the list of tool permissions assigned to the user.</summary>
 	public String[]? ToolsPermission { get; set; }

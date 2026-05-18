@@ -136,7 +136,6 @@ internal sealed class ProcessHost : IDisposable
 		{
 			UiServerUrl = serverUrl,
 			Instructions = AgentFactory.BuildSystemInstructions(this._host, settings),
-			MaxTokens = settings.MaxTokens,
 			ToolsPermission = settings.ToolsPermission,
 			PluginsPermission = settings.PluginsPermission,
 			ConnectionTimeout = settings.ConnectionTimeout,

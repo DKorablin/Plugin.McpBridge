@@ -33,7 +33,9 @@
 
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Agents.AI.GitHub.Copilot" />
-		<PackageReference Include="SAL.Windows" />
+		<PackageReference Include="SAL.Windows">
+			<ExcludeAssets>runtime</ExcludeAssets>
+		</PackageReference>
 		<PackageReference Include="Azure.AI.OpenAI" />
 		<PackageReference Include="Microsoft.Agents.AI" />
 		<PackageReference Include="Microsoft.Agents.AI.Workflows" />
