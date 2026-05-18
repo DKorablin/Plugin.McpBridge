@@ -27,6 +27,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Plugin.McpBridge.Tests", "P
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Plugin.McpBridge.DevUI", "Plugin.McpBridge.DevUI\Plugin.McpBridge.DevUI.csproj", "{06FCB20A-E915-4C22-A78F-CB9074DE58E7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Plugin.McpBridge.AgUI", "Plugin.McpBridge.AgUI\Plugin.McpBridge.AgUI.csproj", "{1B2C3D4E-5F6A-7B8C-9D0E-1F2A3B4C5D6E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -73,6 +75,18 @@ Global
 		{06FCB20A-E915-4C22-A78F-CB9074DE58E7}.Release|x64.Build.0 = Release|Any CPU
 		{06FCB20A-E915-4C22-A78F-CB9074DE58E7}.Release|x86.ActiveCfg = Release|Any CPU
 		{06FCB20A-E915-4C22-A78F-CB9074DE58E7}.Release|x86.Build.0 = Release|Any CPU
+		{1B2C3D4E-5F6A-7B8C-9D0E-1F2A3B4C5D6E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1B2C3D4E-5F6A-7B8C-9D0E-1F2A3B4C5D6E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1B2C3D4E-5F6A-7B8C-9D0E-1F2A3B4C5D6E}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{1B2C3D4E-5F6A-7B8C-9D0E-1F2A3B4C5D6E}.Debug|x64.Build.0 = Debug|Any CPU
+		{1B2C3D4E-5F6A-7B8C-9D0E-1F2A3B4C5D6E}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{1B2C3D4E-5F6A-7B8C-9D0E-1F2A3B4C5D6E}.Debug|x86.Build.0 = Debug|Any CPU
+		{1B2C3D4E-5F6A-7B8C-9D0E-1F2A3B4C5D6E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1B2C3D4E-5F6A-7B8C-9D0E-1F2A3B4C5D6E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1B2C3D4E-5F6A-7B8C-9D0E-1F2A3B4C5D6E}.Release|x64.ActiveCfg = Release|Any CPU
+		{1B2C3D4E-5F6A-7B8C-9D0E-1F2A3B4C5D6E}.Release|x64.Build.0 = Release|Any CPU
+		{1B2C3D4E-5F6A-7B8C-9D0E-1F2A3B4C5D6E}.Release|x86.ActiveCfg = Release|Any CPU
+		{1B2C3D4E-5F6A-7B8C-9D0E-1F2A3B4C5D6E}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

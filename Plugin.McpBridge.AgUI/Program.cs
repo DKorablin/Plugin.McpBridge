@@ -1,14 +1,13 @@
 ﻿using System.Diagnostics;
 using System.Runtime.Serialization.Json;
-using Microsoft.Agents.AI.DevUI;
 using Microsoft.Agents.AI.Hosting;
-using Microsoft.Agents.AI.Workflows;
+using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Mcp;
 using Plugin.McpBridge.Tests;
 
-namespace Plugin.McpBridge.DevUI;
+namespace Plugin.McpBridge.AgUI;
 
 internal static class Program
 {
@@ -37,7 +36,7 @@ internal static class Program
 			bridgeTools,
 			config.Instructions ?? String.Empty);
 		WebApplication app = BuildWebApp(remainingArgs, config, handle);
-		Console.WriteLine($"DevUI running at {config.UiServerUrl}/devui");
+		Console.WriteLine($"AG-UI running at {config.UiServerUrl}/agui");
 		await app.RunAsync(lifetimeCts.Token);
 		return 0;
 	}
@@ -89,22 +88,40 @@ internal static class Program
 		builder.Logging.AddConsole();
 		builder.Logging.SetMinimumLevel(LogLevel.Debug); // Shows model binding/deserialization errors
 
-		builder.AddWorkflow("sequential-flow", (sp, key) =>
-		{
-			return AgentWorkflowBuilder.BuildSequential(workflowName: key, agents: [handle.Agent]);
-		}).AddAsAIAgent(handle.Agent.Name); // This names the workflow wrapper so DevUI can pull its definitions
+		IHostedAgentBuilder agentBuilder = builder.AddAIAgent(handle.Agent.Name, (sp, name) => handle.Agent);
 
-		builder.Services.AddDevUI();
-		builder.Services.AddOpenAIResponses();
-		builder.Services.AddOpenAIConversations();
+		builder.Services.AddAGUI();
 
 		WebApplication app = builder.Build();
-
-		app.UseDeveloperExceptionPage();
-
-		app.MapOpenAIResponses();
-		app.MapOpenAIConversations();
-		app.MapDevUI();
+		app.MapGet("/agui", async (HttpContext ctx) =>
+		{
+			ctx.Response.ContentType = "text/html; charset=utf-8";
+			using Stream stream = typeof(Program).Assembly
+				.GetManifestResourceStream(AssemblyName + ".wwwroot.index.html")!;
+			await stream.CopyToAsync(ctx.Response.Body);
+		});
+		app.MapGet("/agui-client.js", async (HttpContext ctx) =>
+		{
+			ctx.Response.ContentType = "application/javascript";
+			using Stream stream = typeof(Program).Assembly
+				.GetManifestResourceStream(AssemblyName + ".wwwroot.agui-client.js")!;
+			await stream.CopyToAsync(ctx.Response.Body);
+		});
+		app.MapGet("/index.css", async (HttpContext ctx) =>
+		{
+			ctx.Response.ContentType = "text/css";
+			using Stream stream = typeof(Program).Assembly
+				.GetManifestResourceStream(AssemblyName + ".wwwroot.index.css")!;
+			await stream.CopyToAsync(ctx.Response.Body);
+		});
+		app.MapGet("/favicon.ico", async (HttpContext ctx) =>
+		{
+			ctx.Response.ContentType = "image/x-icon";
+			using Stream stream = typeof(Program).Assembly
+				.GetManifestResourceStream(AssemblyName + ".wwwroot.favicon.ico")!;
+			await stream.CopyToAsync(ctx.Response.Body);
+		});
+		app.MapAGUI(agentBuilder, "/agui");
 		return app;
 	}
 

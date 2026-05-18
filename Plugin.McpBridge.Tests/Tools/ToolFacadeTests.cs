@@ -22,31 +22,7 @@ namespace Plugin.McpBridge.Tests.Tools
 
 		#endregion
 
-		#region Confirmation
-
-		[Fact]
-		public async Task ConfirmationDeclined_ReturnsDeclinedMessage()
-		{
-			(IHost _, PluginSettingsTools _, PluginMethodsTools methods, ShellTools _) = TestUtils.CreateDependencies();
-			ToolFacade wrapper = new ToolFacade(TestUtils.Trace, (Func<String, String, String, CancellationToken, Task<Object?>>)methods.MethodsInvoke);
-			wrapper.ConfirmationRequired += (s, e) => e.Confirm(false);
-
-			Object? result = await wrapper.InvokeAsync();
-
-			result.Should().Be("Operation declined by user.");
-		}
-
-		[Fact]
-		public async Task ConfirmationApproved_InvokesInnerFunction()
-		{
-			Boolean invoked = false;
-			ToolFacade wrapper = new ToolFacade(TestUtils.Trace, (Func<Task<String>>)(() => { invoked = true; return Task.FromResult("ok"); }));
-			wrapper.ConfirmationRequired += (s, e) => e.Confirm(true);
-
-			await wrapper.InvokeAsync();
-
-			invoked.Should().BeTrue();
-		}
+		#region Invocation
 
 		[Fact]
 		public async Task NoConfirmationSubscriber_InvokesInnerFunctionDirectly()
@@ -57,18 +33,6 @@ namespace Plugin.McpBridge.Tests.Tools
 			await wrapper.InvokeAsync();
 
 			invoked.Should().BeTrue();
-		}
-
-		[Fact]
-		public async Task ConfirmationRequired_EventIsFired()
-		{
-			Boolean eventFired = false;
-			ToolFacade wrapper = new ToolFacade(TestUtils.Trace, (Func<Task<String>>)(() => Task.FromResult("ok")));
-			wrapper.ConfirmationRequired += (s, e) => { eventFired = true; e.Confirm(true); };
-
-			await wrapper.InvokeAsync();
-
-			eventFired.Should().BeTrue();
 		}
 
 		#endregion
@@ -98,18 +62,6 @@ namespace Plugin.McpBridge.Tests.Tools
 
 			result.Should().BeOfType<System.Text.Json.JsonElement>()
 				.Which.GetString().Should().Be("expected");
-		}
-
-		[Fact]
-		public async Task ConfirmationApproved_PassesThroughInnerReturnValue()
-		{
-			ToolFacade wrapper = new ToolFacade(TestUtils.Trace, (Func<Task<String>>)(() => Task.FromResult("payload")));
-			wrapper.ConfirmationRequired += (s, e) => e.Confirm(true);
-
-			Object? result = await wrapper.InvokeAsync();
-
-			result.Should().BeOfType<System.Text.Json.JsonElement>()
-				.Which.GetString().Should().Be("payload");
 		}
 
 		#endregion

@@ -9,14 +9,15 @@ namespace Plugin.McpBridge.Tools;
 internal sealed class ToolsFactory
 {
 	private readonly ToolsDiscoveryBase[] _targets;
+	private readonly Settings _settings;
 
-	public ToolsFactory(IHost host)
+	public ToolsFactory(IHost host, Settings settings)
 	{
 		List<ToolsDiscoveryBase> tools = new List<ToolsDiscoveryBase>()
 		{
 			new PluginSettingsTools(host),
 			//new PluginMethodsTools(host),
-			new PluginMethodsToolsExtractor(host),
+			new PluginMethodsToolsExtractor(host, settings),
 			new ShellTools(),
 		};
 
@@ -24,6 +25,7 @@ internal sealed class ToolsFactory
 			tools.Add(new WindowsTools(hostWindows));
 
 		this._targets = tools.ToArray();
+		this._settings = settings;
 	}
 
 	public ToolsFactory(params ToolsDiscoveryBase[] toolsHosts)
@@ -41,19 +43,21 @@ internal sealed class ToolsFactory
 				yield return tool;
 	}
 
-	public IEnumerable<AITool> CreateTools(ITraceSource trace, String[]? permissions)
+	public IEnumerable<AIFunction> CreateTools(ITraceSource trace)
 	{
 		_ = trace ?? throw new ArgumentNullException(nameof(trace));
 
-		Boolean allAllowed = permissions == null || permissions.Length == 0;
+		String[]? disallowedTools = this._settings.ToolsPermission;
+		Boolean allAllowed = disallowedTools == null || disallowedTools.Length == 0;
 		foreach(var method in this.GetTools())
 		{
-			if(!allAllowed && Array.Exists(permissions!, p => p == method.Name))
+			if(!allAllowed && Array.Exists(disallowedTools!, p => p == method.Name))
 				continue;
 
-			ToolFacade wrapper = new ToolFacade(trace, method.Function, method.ConfirmationRequired);
-
-			yield return wrapper;
+			var tool = new ToolFacade(trace, method.Function, method.ConfirmationRequired);
+			yield return method.ConfirmationRequired
+				? new ApprovalRequiredAIFunction(tool)
+				: tool;
 		}
 	}
 }

@@ -1,0 +1,17 @@
+{
+	"name": "agui-client",
+	"private": true,
+	"scripts": {
+		"build": "vite build --outDir ../wwwroot",
+		"dev": "vite"
+	},
+	"dependencies": {
+		"@ag-ui/client": "latest",
+		"@ag-ui/core": "latest"
+	},
+	"devDependencies": {
+		"sass": "latest",
+		"typescript": "latest",
+		"vite": "latest"
+	}
+}

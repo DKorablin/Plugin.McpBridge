@@ -1,10 +1,15 @@
 ﻿using System.ComponentModel;
+using System.Reflection;
 using System.Runtime.Serialization;
 using Microsoft.Extensions.AI;
 
 namespace Plugin.McpBridge.Data;
 
 [DataContract]
+[KnownType(typeof(CoPilotProviderDto))]
+[KnownType(typeof(NetworkProviderDto))]
+[KnownType(typeof(AzureProviderDto))]
+[KnownType(typeof(StubProviderDto))]
 [TypeConverter(typeof(ExpandableObjectConverter))]
 public record AiProviderDto : INotifyPropertyChanged
 {
@@ -15,10 +20,9 @@ public record AiProviderDto : INotifyPropertyChanged
 
 	private AiProviderType _providerType = Defaults.ProviderType;
 	private String? _modelId = null;
-	private String? _apiKey;
-	private String? _deploymentName;
 	private String? _modelEndpointUrl = null;
 	private Double? _temperature;
+	private Int32? _maxTokens;
 
 	private ReasoningOutput? _reasoningOutput = null;
 	private ReasoningEffort? _reasoningEffort = null;
@@ -56,41 +60,6 @@ public record AiProviderDto : INotifyPropertyChanged
 		}
 	}
 
-	/// <summary>The API key used to authenticate with the AI provider.</summary>
-	[DataMember]
-	[Category("AI Provider")]
-	[Description("The API key used to authenticate with the AI provider.")]
-	[DefaultValue(null)]
-	public String? ApiKey
-	{
-		get => _apiKey;
-		set
-		{
-			if(String.IsNullOrWhiteSpace(value))
-				value = null;
-
-			this.SetField(ref _apiKey, value, nameof(this.ApiKey));
-		}
-	}
-
-	/// <summary>The Azure OpenAI deployment name found in Azure OpenAI Studio under Deployments or organization identifier supported by some OpenAI-compatible providers.</summary>
-	[DataMember]
-	[Category("AI Provider")]
-	[DisplayName("Deplymanet Name / Organization ID")]
-	[Description("The deployment name from Azure OpenAI Studio (Deployments section). Required when using the Azure OpenAI provider.\r\nOrganization identifier supported by some OpenAI-compatible providers.")]
-	[DefaultValue(null)]
-	public String? DeploymentName
-	{
-		get => _deploymentName;
-		set
-		{
-			if(String.IsNullOrWhiteSpace(value))
-				value = null;
-
-			this.SetField(ref _deploymentName, value, nameof(this.DeploymentName));
-		}
-	}
-
 	/// <summary>Optional custom OpenAI-compatible chat completions endpoint URL.</summary>
 	[DataMember]
 	[Category("AI Provider")]
@@ -118,6 +87,21 @@ public record AiProviderDto : INotifyPropertyChanged
 	{
 		get => this._temperature;
 		set => this.SetField(ref this._temperature, value, nameof(this.Temperature));
+	}
+
+	/// <summary>The maximum number of tokens to generate in a single response.</summary>
+	[Category("Debugging")]
+	[Description("The maximum number of tokens to generate in a single response. Leave empty for the model default.")]
+	public Int32? MaxTokens
+	{
+		get => this._maxTokens;
+		set
+		{
+			if(value == null || value <= 0)
+				value = null;
+
+			this.SetField(ref this._maxTokens, value, nameof(this.MaxTokens));
+		}
 	}
 
 	[DataMember]
@@ -155,9 +139,38 @@ public record AiProviderDto : INotifyPropertyChanged
 			? this.ProviderType.ToString()
 			: $"{this.ProviderType} ({this.ModelId})";
 
+	/// <summary>Returns a new instance of the appropriate derived type for <paramref name="source"/>.ProviderType, with base properties copied.</summary>
+	internal static AiProviderDto Morph(AiProviderDto source)
+	{
+		Type targetType = source.ProviderType switch
+		{
+			AiProviderType.CoPilot => typeof(CoPilotProviderDto),
+			AiProviderType.AzureOpenAI => typeof(AzureProviderDto),
+			AiProviderType.Gemini => typeof(NetworkProviderDto),
+			AiProviderType.Grok => typeof(NetworkProviderDto),
+			AiProviderType.OpenAI => typeof(NetworkProviderDto),
+			AiProviderType.Stub => typeof(StubProviderDto),
+			_ => typeof(AiProviderDto)
+		};
+		if(source.GetType() == targetType)
+			return source;
+
+		AiProviderDto result = (AiProviderDto?)Activator.CreateInstance(targetType)
+			?? throw new InvalidOperationException($"Failed to create instance of type {targetType.FullName}.");
+
+		result.ProviderType = source.ProviderType;
+		foreach(PropertyInfo prop in source.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
+		{
+			PropertyInfo? target = result.GetType().GetProperty(prop.Name, BindingFlags.Public | BindingFlags.Instance);
+			if(target?.CanWrite == true)
+				target.SetValue(result, prop.GetValue(source));
+		}
+		return result;
+	}
+
 	#region INotifyPropertyChanged
 	public event PropertyChangedEventHandler? PropertyChanged;
-	private Boolean SetField<T>(ref T field, T value, String propertyName)
+	protected Boolean SetField<T>(ref T field, T value, String propertyName)
 	{
 		if(EqualityComparer<T>.Default.Equals(field, value))
 			return false;

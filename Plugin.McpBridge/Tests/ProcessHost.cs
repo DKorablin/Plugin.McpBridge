@@ -10,7 +10,6 @@ namespace Plugin.McpBridge.Tests;
 internal sealed class ProcessHost : IDisposable
 {
 	private const String ExeNameArgs1 = "Plugin.McpBridge.{0}.exe";
-	private String ExeName => String.Format(ExeNameArgs1, this._exeType);
 	private String ConfigName => $"McpBridge.{_exeType}.{Guid.NewGuid():N}.json";
 	private String TraceName => $"{typeof(ProcessHost).Assembly.GetName().Name}.{this._exeType}";
 
@@ -22,6 +21,7 @@ internal sealed class ProcessHost : IDisposable
 	public enum ExeType
 	{
 		DevUI,
+		AgUI,
 	}
 
 	public ProcessHost(IHost host, ExeType type)
@@ -74,7 +74,7 @@ internal sealed class ProcessHost : IDisposable
 	public void Dispose()
 		=> this.Stop();
 
-	public static String? GetExePath(ExeType type)
+	public static String? GetExePath(ExeType type, Boolean throwException = false)
 	{
 		String exeName = String.Format(ExeNameArgs1, type);
 		String? assemblyDir = Path.GetDirectoryName(typeof(ProcessHost).Assembly.Location);
@@ -84,7 +84,10 @@ internal sealed class ProcessHost : IDisposable
 			if(File.Exists(candidate))
 				return candidate;
 		}
-		return null;
+
+		return throwException
+			? throw new FileNotFoundException($"{0} executable not found. Expected alongside the plugin assembly.", exeName)
+			: null;
 	}
 
 	private void Stop()
@@ -96,7 +99,9 @@ internal sealed class ProcessHost : IDisposable
 		{
 			if(!this._process.HasExited)
 				this._process.Kill(entireProcessTree: true);
-		} catch(InvalidOperationException) { } finally
+		}
+		catch(InvalidOperationException) { }
+		finally
 		{
 			this._process.Dispose();
 			this._process = null;
@@ -116,14 +121,14 @@ internal sealed class ProcessHost : IDisposable
 	}
 
 	private String GetExePath()
-		=> GetExePath(this._exeType)
-			?? throw new FileNotFoundException($"{0} executable not found. Expected alongside the plugin assembly.", this.ExeName);
+		=> GetExePath(this._exeType, true);
 
 	private ProcessConfig BuildConfig(Settings settings, AiProviderDto provider)
 	{
 		String serverUrl = this._exeType switch
 		{
 			ExeType.DevUI => settings.DevUIServerUrl,
+			ExeType.AgUI => settings.AgUIServerUrl,
 			_ => throw new ArgumentOutOfRangeException(nameof(this._exeType), $"Unsupported ExeType: {this._exeType}"),
 		};
 
@@ -131,7 +136,6 @@ internal sealed class ProcessHost : IDisposable
 		{
 			UiServerUrl = serverUrl,
 			Instructions = AgentFactory.BuildSystemInstructions(this._host, settings),
-			MaxTokens = settings.MaxTokens,
 			ToolsPermission = settings.ToolsPermission,
 			PluginsPermission = settings.PluginsPermission,
 			ConnectionTimeout = settings.ConnectionTimeout,

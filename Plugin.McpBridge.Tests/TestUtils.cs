@@ -32,13 +32,13 @@ internal static class TestUtils
 	public static ToolsFactory CreateToolFactory(IPluginDescription? pluginDescription = null, TimeProvider? timeProvider = null)
 	{
 		(IHost _, PluginSettingsTools settings, PluginMethodsTools methods, ShellTools shell) = CreateDependencies(pluginDescription, timeProvider);
-		return new ToolsFactory(Trace, shell, settings, methods);
+		return new ToolsFactory(shell, settings, methods);
 	}
 
 	public static AssistantAgent CreateSut(IPluginDescription? pluginDescription = null)
 	{
 		(IHost host, PluginSettingsTools settings, PluginMethodsTools methods, ShellTools shell) = CreateDependencies(pluginDescription);
-		ToolsFactory toolFactory = new ToolsFactory(Trace, shell, settings, methods);
+		ToolsFactory toolFactory = new ToolsFactory(shell, settings, methods);
 		return new AssistantAgent(Trace, host, toolFactory);
 	}
 
@@ -48,7 +48,7 @@ internal static class TestUtils
 		Mock<IChatClient>? mockChatClient = null)
 	{
 		(IHost host, PluginSettingsTools settingsTools, PluginMethodsTools methodsTools, ShellTools shellTools) = CreateDependencies(pluginDescription, timeProvider);
-		ToolsFactory toolFactory = new ToolsFactory(Trace, shellTools, settingsTools, methodsTools);
+		ToolsFactory toolFactory = new ToolsFactory(shellTools, settingsTools, methodsTools);
 		mockChatClient ??= new Mock<IChatClient>();
 
 		Settings settings = new Settings(host);

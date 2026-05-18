@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Text;
+using System.Threading.Tasks;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Data;
@@ -10,13 +11,13 @@ using SAL.Flatbed;
 namespace Plugin.McpBridge.Agents;
 
 /// <summary>Manages the MAF AIAgent instance and drives the multi-turn agent loop.</summary>
-internal sealed class AssistantAgent
+internal sealed class AssistantAgent : IDisposable
 {
 	private readonly ITraceSource _trace;
 	private readonly IHost _host;
 	private readonly ToolsFactory _toolsFactory;
-	private readonly Func<AiProviderDto, HttpClient, IChatClient> _chatClientFactory;
-	private ChatClientAgent? _agent;
+	private readonly AgentFactory _agentFactory;
+	private AgentHandle? _handle;
 	private AgentSession? _session;
 
 	public event EventHandler<AgentResponseEventArgs>? AiResponseReceived;
@@ -26,30 +27,27 @@ internal sealed class AssistantAgent
 		ITraceSource trace,
 		IHost host,
 		ToolsFactory toolsFactory,
-		Func<AiProviderDto, HttpClient, IChatClient>? chatClientFactory = null)
+		AgentFactory? agentFactory)
 	{
 		this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
 		this._host = host ?? throw new ArgumentNullException(nameof(host));
 		this._toolsFactory = toolsFactory ?? throw new ArgumentNullException(nameof(toolsFactory));
-		this._chatClientFactory = chatClientFactory ?? AgentFactory.CreateChatClient;
+		this._agentFactory = agentFactory ?? throw new ArgumentNullException(nameof(agentFactory));
 	}
 
-	public void Initialize(Settings settings, AiProviderDto provider)
+	public async Task Initialize(Settings settings, AiProviderDto provider)
 	{
 		_ = settings ?? throw new ArgumentNullException(nameof(settings));
 		_ = provider ?? throw new ArgumentNullException(nameof(provider));
 
 		this._session = null;
+		this._handle?.Dispose();
 
 		HttpClient httpClient = new HttpClient { Timeout = settings.ConnectionTimeout };
-		IChatClient chatClientRaw = this._chatClientFactory(provider, httpClient);
-		IChatClient chatClient = AgentFactory.ConfigureOptions(chatClientRaw, settings.MaxTokens, provider);
 
-		List<AITool> tools = this._toolsFactory.CreateTools(this._trace, settings.ToolsPermission).ToList();
-		String instructions = AgentFactory.BuildSystemInstructions(this._host, settings);
-		this._agent = chatClient.AsAIAgent(
-			instructions: instructions,
-			tools: tools);
+		var tools = this._toolsFactory.CreateTools(this._trace).ToArray();
+		var instructions = AgentFactory.BuildSystemInstructions(this._host, settings);
+		this._handle = await this._agentFactory.CreateAgent(provider, httpClient, tools, instructions);
 
 		this._trace.TraceEvent(TraceEventType.Verbose, 0, $"Initialized AssistantAgent with instructions '{instructions}'.");
 	}
@@ -64,19 +62,19 @@ internal sealed class AssistantAgent
 
 		this._trace.TraceEvent(TraceEventType.Verbose, 0, "< " + message);
 
-		if(this._agent == null)
+		if(this._handle == null)
 		{
 			this.OnAiResponseReceived(new AgentResponseEventArgs("AI is not configured. Add LLM configuration options in plugin settings.", true));
 			return;
 		}
 
 		if(this._session == null)
-			this._session = await this._agent.CreateSessionAsync(cancellationToken);
+			this._session = await this._handle.Agent.CreateSessionAsync(cancellationToken);
 
 		try
 		{
 			ChatMessage chatMessage = AssistantAgent.BuildUserMessage(message, images);
-			await this.ProcessMessage(chatMessage, cancellationToken);
+			await this.ProcessMessage(chatMessage, this._handle.Agent, cancellationToken);
 
 			/*IAsyncEnumerable <AgentResponseUpdate> stream = this._agent.RunStreamingAsync(AssistantAgent.BuildUserMessage(message, images), this._session, null, cancellationToken);
 			await this.HandleStreamingResponseAsync(stream, cancellationToken);*/
@@ -106,9 +104,9 @@ internal sealed class AssistantAgent
 		return e.ConfirmationTask;
 	}
 
-	private async Task ProcessMessage(ChatMessage message, CancellationToken token)
+	private async Task ProcessMessage(ChatMessage message, AIAgent agent, CancellationToken token)
 	{
-		AgentResponse response = await this._agent.RunAsync(message, this._session, null, token);
+		AgentResponse response = await agent.RunAsync(message, this._session, null, token);
 		while(response.FinishReason == ChatFinishReason.ToolCalls)
 		{
 			ToolApprovalRequestContent request = (ToolApprovalRequestContent)response.Messages[^1].Contents[0];
@@ -117,7 +115,7 @@ internal sealed class AssistantAgent
 				Boolean approved = await this.OnConfirmationRequiredAsync(new AgentConfirmationEventArgs(function));
 				ToolApprovalResponseContent approvalResponse = request.CreateResponse(approved);
 				ChatMessage approvalMessage = new ChatMessage(ChatRole.User, [approvalResponse]);
-				response = await this._agent.RunAsync(approvalMessage, this._session, null, token);
+				response = await agent.RunAsync(approvalMessage, this._session, null, token);
 			}
 		}
 
@@ -177,4 +175,8 @@ internal sealed class AssistantAgent
 			contents.Add(image);
 		return new ChatMessage(ChatRole.User, contents);
 	}
+
+	/// <inheritdoc/>
+	public void Dispose()
+		=> this._handle?.Dispose();
 }

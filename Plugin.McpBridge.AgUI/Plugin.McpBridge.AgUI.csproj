@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+	<PropertyGroup>
+		<TargetFramework>net8.0-windows</TargetFramework>
+		<OutputType>Exe</OutputType>
+		<LangVersion>latest</LangVersion>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+		<SelfContained>false</SelfContained>
+		<ApplicationIcon />
+	</PropertyGroup>
+	<ItemGroup>
+		<EmbeddedResource Include="wwwroot\index.html" />
+		<EmbeddedResource Include="wwwroot\index.css" />
+		<EmbeddedResource Include="wwwroot\agui-client.js" />
+		<EmbeddedResource Include="..\Images.Shared\SAL.100.png" Link="wwwroot\favicon.ico">
+			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</EmbeddedResource>
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Plugin.McpBridge\Plugin.McpBridge.csproj" ExcludeAssets="runtime" />
+		<PackageReference Include="Azure.AI.OpenAI" />
+		<PackageReference Include="Microsoft.Agents.AI.Hosting" />
+		<PackageReference Include="Microsoft.Agents.AI.Hosting.AGUI.AspNetCore" />
+		<PackageReference Include="Microsoft.Agents.AI.GitHub.Copilot" />
+		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
+	</ItemGroup>
+
+	<Target Name="NpmInstall" BeforeTargets="NpmBuild" Inputs="ClientApp\package.json" Outputs="ClientApp\node_modules\.package-lock.json">
+		<Exec Command="npm install" WorkingDirectory="$(MSBuildProjectDirectory)\ClientApp" />
+	</Target>
+
+	<Target Name="NpmBuild" BeforeTargets="CoreCompile">
+		<Exec Command="npm run build" WorkingDirectory="$(MSBuildProjectDirectory)\ClientApp" />
+	</Target>
+</Project>

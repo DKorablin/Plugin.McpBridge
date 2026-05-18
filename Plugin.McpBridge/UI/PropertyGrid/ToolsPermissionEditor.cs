@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel;
 using System.Drawing.Design;
-using System.Reflection;
 using System.Windows.Forms.Design;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Tools;
@@ -17,7 +16,7 @@ internal sealed class ToolsPermissionEditor : UITypeEditor
 		if(context?.Instance is Settings settings)
 		{
 			if(this._control == null)
-				this._control = new ToolPermissionControl(new ToolsFactory(settings.Host).GetTools());
+				this._control = new ToolPermissionControl(new ToolsFactory(settings.Host, settings).GetTools());
 
 			this._control.SetValue(value as String[] ?? Array.Empty<String>());
 			((IWindowsFormsEditorService)provider.GetService(typeof(IWindowsFormsEditorService))!).DropDownControl(this._control);

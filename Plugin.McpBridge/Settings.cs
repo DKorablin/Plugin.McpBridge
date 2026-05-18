@@ -3,9 +3,8 @@ using System.Drawing.Design;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.Serialization.Json;
-using System.Security.Policy;
-using Google.Protobuf.WellKnownTypes;
 using Plugin.McpBridge.Data;
+using Plugin.McpBridge.Tests;
 using Plugin.McpBridge.UI.PropertyGrid;
 using SAL.Flatbed;
 
@@ -15,16 +14,12 @@ namespace Plugin.McpBridge
 	{
 		OpenAI,
 		AzureOpenAI,
-		OpenAICompatible,
-		LocalOpenAICompatible,
-		QwenCompatible,
-		GrokCompatible,
-		GeminiCompatible,
-		CustomCompatible,
-#if DEBUG
+		CoPilot,
+		Local,
+		Grok,
+		Gemini,
 		/// <summary>Returns scripted responses locally. No credentials or network required. Intended for UI testing.</summary>
 		Stub,
-#endif
 	}
 
 	/// <summary>Configuration settings for the MCP Bridge plugin.</summary>
@@ -37,8 +32,9 @@ Use available MCP tools when useful.
 Return clear user-facing responses, or a command payload only when automation is required.
 Before using relative dates (today, yesterday, last hour), obtain the current system time from the SystemInformation tool.";
 			public static readonly TimeSpan ConnectionTimeout = TimeSpan.FromSeconds(100);
-			public const String McpServerUrl = "http://localhost:5051";
-			public const String DevUiServerUrl = "http://localhost:5050";
+			public const String McpServerUrl = "http://localhost:5050";
+			public const String DevUIServerUrl = "http://localhost:5051";
+			public const String AgUIServerUrl = "http://localhost:5052";
 		}
 
 		private static DataContractJsonSerializer Serializer = new DataContractJsonSerializer(typeof(AiProviderDto[]));
@@ -47,12 +43,14 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		private BindingList<AiProviderDto>? _aiProviders = null;
 		private Guid? _selectedProviderId;
 		private String? _assistantSystemPrompt = Defaults.AssistantSystemPrompt;
-		private Int32? _maxTokens;
 		private TimeSpan _connectionTimeout = Defaults.ConnectionTimeout;
 		private String[]? _toolsPermission = null;
 		private String[]? _pluginsPermission = null;
+
 		private Boolean _devUIEnabled = false;
-		private String? _devUiServerUrl = null;
+		private String? _devUIServerUrl = null;
+		private Boolean _agUIEnabled = false;
+		private String? _agUIServerUrl = null;
 		private Boolean _mcpServerEnabled = false;
 		private String? _mcpServerUrl = null;
 
@@ -72,7 +70,6 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		[Description("The list of AI providers available for selection. Managed through the AI Providers Manager UI.")]
 		[DisplayName("AI Providers")]
 		[TypeConverter(typeof(BindingListConverter<AiProviderDto>))]
-		[Editor(typeof(WithDescriptionCollectionEditor), typeof(UITypeEditor))]
 		public BindingList<AiProviderDto> AiProviders
 		{
 			get
@@ -120,21 +117,6 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 			}
 		}
 
-		/// <summary>The maximum number of tokens to generate in a single response.</summary>
-		[Category("Prompt Settings")]
-		[Description("The maximum number of tokens to generate in a single response. Leave empty for the model default.")]
-		public Int32? MaxTokens
-		{
-			get => this._maxTokens;
-			set
-			{
-				if(value == null || value <= 0)
-					value = null;
-
-				this.SetField(ref this._maxTokens, value, nameof(this.MaxTokens));
-			}
-		}
-
 		[Category("Security")]
 		[DefaultValue(null)]
 		[Editor(typeof(ToolsPermissionEditor), typeof(UITypeEditor))]
@@ -170,32 +152,75 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 
 		[Category("DevUI")]
 		[DefaultValue(false)]
-		[Description("When enabled, starts an embedded web server exposing the DevUI interface for local agent diagnostics. Navigate to http://localhost:<DevUIPort>/devui.")]
+		[Description("When enabled, starts an embedded web server exposing the DevUI interface for local agent diagnostics.")]
 		[DisplayName("DevUI Enabled")]
 		public Boolean DevUIEnabled
 		{
-			get => this._devUIEnabled;
-			set => this.SetField(ref this._devUIEnabled, value, nameof(this.DevUIEnabled));
+			get => this._devUIEnabled && ProcessHost.GetExePath(ProcessHost.ExeType.DevUI, false) != null;
+			set
+			{
+				if(value)
+					_ = ProcessHost.GetExePath(ProcessHost.ExeType.DevUI, true);
+
+				this.SetField(ref this._devUIEnabled, value, nameof(this.DevUIEnabled));
+			}
 		}
 
 		[Category("DevUI")]
-		[DefaultValue(Defaults.DevUiServerUrl)]
-		[Description("The local port used by the embedded DevUI web server.")]
-		[DisplayName("DevUI Port")]
+		[DefaultValue(Defaults.DevUIServerUrl)]
+		[Description("The URL of the embedded web server for the DevUI interface. Must be a valid absolute URL. If empty, defaults to " + Defaults.DevUIServerUrl)]
+		[DisplayName("DevUI Server Url")]
 		public String DevUIServerUrl
 		{
 			get
 			{
-				if(this._devUiServerUrl == null)
-					this._devUiServerUrl = Defaults.DevUiServerUrl;
-				return this._devUiServerUrl;
+				if(this._devUIServerUrl == null)
+					this._devUIServerUrl = Defaults.DevUIServerUrl;
+				return this._devUIServerUrl;
 			}
 			set
 			{
 				if(String.IsNullOrWhiteSpace(value) || !Uri.IsWellFormedUriString(value, UriKind.Absolute))
 					value = null!;
 
-				this.SetField(ref this._devUiServerUrl, value, nameof(this.DevUIServerUrl));
+				this.SetField(ref this._devUIServerUrl, value, nameof(this.DevUIServerUrl));
+			}
+		}
+
+		[Category("AG-UI")]
+		[DefaultValue(false)]
+		[Description("When enabled, starts an embedded web server exposing the AG-UI interface for agent interaction and testing.")]
+		[DisplayName("AG-UI Enabled")]
+		public Boolean AgUIEnabled
+		{
+			get => this._agUIEnabled && ProcessHost.GetExePath(ProcessHost.ExeType.AgUI, false) != null;
+			set
+			{
+				if(value)
+					_ = ProcessHost.GetExePath(ProcessHost.ExeType.AgUI, true);
+
+				this.SetField(ref this._agUIEnabled, value, nameof(this.AgUIEnabled));
+			}
+		}
+
+		[Category("AG-UI")]
+		[DefaultValue(Defaults.AgUIServerUrl)]
+		[Description("The URL of the embedded web server for the AG-UI interface. Must be a valid absolute URL. If empty, defaults to " + Defaults.AgUIServerUrl)]
+		[DisplayName("AG-UI Server Url")]
+		public String AgUIServerUrl
+		{
+			get
+			{
+				if(this._agUIServerUrl == null)
+					this._agUIServerUrl = Defaults.AgUIServerUrl;
+				return this._agUIServerUrl;
+			}
+			set
+			{
+				if(String.IsNullOrWhiteSpace(value) || !Uri.IsWellFormedUriString(value, UriKind.Absolute))
+					value = null!;
+
+				this.SetField(ref this._agUIServerUrl, value, nameof(this.AgUIServerUrl));
 			}
 		}
 
@@ -209,7 +234,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 
 		[Category("Network")]
 		[DefaultValue(Defaults.McpServerUrl)]
-		[Description("The URL of the MCP server to connect to for tool calls. If empty, the MCP server will not be used and tools will not be available.")]
+		[Description("The URL of the MCP server that tools will connect to for execution. Must be a valid absolute URL. If empty, defaults to " + Defaults.McpServerUrl)]
 		public String McpServerUrl
 		{
 			get
@@ -270,12 +295,22 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 
 			SynchronizationContext.Current?.Post(_ =>
 			{
-				this._listChangedPending = false;
-
 				if(this._aiProviders == null || this._aiProviders.Count == 0)
 					this.AiProvidersJson = null;
 				else
 				{
+					Boolean morphed = false;
+					for(Int32 i = 0; i < this._aiProviders.Count; i++)
+					{
+						AiProviderDto morphedItem = AiProviderDto.Morph(this._aiProviders[i]);
+						if(!ReferenceEquals(morphedItem, this._aiProviders[i]))
+						{
+							this._aiProviders[i] = morphedItem;
+							morphed = true;
+						}
+					}
+					if(morphed)
+						this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.AiProviders)));
 					using(MemoryStream stream = new MemoryStream())
 					{
 						Serializer.WriteObject(stream, this._aiProviders.ToArray());
@@ -283,6 +318,8 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 						this.AiProvidersJson = System.Text.Encoding.UTF8.GetString(stream.ToArray());
 					}
 				}
+
+				this._listChangedPending = false;
 
 				if(this.SelectedProviderId != null && this._aiProviders?.Any(p => p.Id == this.SelectedProviderId) != true)
 					this.SelectedProviderId = null;

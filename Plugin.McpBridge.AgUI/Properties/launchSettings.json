@@ -1,0 +1,12 @@
+{
+	"profiles": {
+		"Plugin.McpBridge.AgUI": {
+			"commandName": "Project",
+			"launchBrowser": false,
+			"environmentVariables": {
+				"ASPNETCORE_ENVIRONMENT": "Development"
+			},
+			"applicationUrl": "https://localhost:54525;http://localhost:54526"
+		}
+	}
+}

@@ -2,25 +2,28 @@
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
 
-namespace Plugin.McpBridge.DevUI.Mcp;
+namespace Plugin.McpBridge.Mcp;
 
-internal sealed class ToolsMcpClient : AIFunction
+public sealed class McpClient : AIFunction
 {
 	private readonly String _name;
 	private readonly String _description;
 	private readonly JsonElement _schema;
 	private readonly McpSession _session;
+	private readonly Dictionary<String, Object?> _additionalProperties;
 
 	public override String Name => this._name;
 	public override String Description => this._description;
 	public override JsonElement JsonSchema => this._schema;
+	public override IReadOnlyDictionary<String, Object?> AdditionalProperties => this._additionalProperties;
 
-	private ToolsMcpClient(String name, String description, JsonElement schema, McpSession session)
+	private McpClient(String name, String description, JsonElement schema, McpSession session, Dictionary<String, Object?> additionalProperties)
 	{
 		this._name = name;
 		this._description = description;
 		this._schema = schema;
 		this._session = session;
+		this._additionalProperties = additionalProperties;
 	}
 
 	protected override async ValueTask<Object?> InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
@@ -43,7 +46,7 @@ internal sealed class ToolsMcpClient : AIFunction
 	}
 
 	/// <summary>Connects to the MCP server at <paramref name="baseUrl"/> via SSE and fetches all available tools.</summary>
-	internal static async Task<IReadOnlyList<AIFunction>> FetchAllAsync(String baseUrl, HttpClient http, CancellationToken cancellationToken = default)
+	public static async Task<AIFunction[]> FetchAllAsync(String applicationName, HttpClient http, CancellationToken cancellationToken = default)
 	{
 		McpSession session = new McpSession(http);
 		await session.ConnectAsync(cancellationToken);
@@ -56,7 +59,7 @@ internal sealed class ToolsMcpClient : AIFunction
 			["params"] = new JsonObject
 			{
 				["protocolVersion"] = "2024-11-05",
-				["clientInfo"] = new JsonObject { ["name"] = "Plugin.McpBridge.DevUI", ["version"] = "1.0" },
+				["clientInfo"] = new JsonObject { ["name"] = applicationName, ["version"] = "1.0" },
 				["capabilities"] = new JsonObject(),
 			},
 		};
@@ -69,17 +72,31 @@ internal sealed class ToolsMcpClient : AIFunction
 		JsonObject listRequest = new JsonObject { ["jsonrpc"] = "2.0", ["id"] = listId, ["method"] = "tools/list" };
 		JsonObject? listResult = await session.SendAsync(listId, listRequest, cancellationToken);
 
-		List<ToolsMcpClient> tools = new List<ToolsMcpClient>();
+		List<AIFunction> tools = new List<AIFunction>();
 		if(listResult?["tools"] is JsonArray arr)
 			foreach(JsonNode? item in arr)
 			{
 				String name = item?["name"]?.GetValue<String>() ?? String.Empty;
 				String description = item?["description"]?.GetValue<String>() ?? String.Empty;
 				JsonElement schema = JsonSerializer.Deserialize<JsonElement>(item?["inputSchema"]?.ToJsonString() ?? "{}");
-				tools.Add(new ToolsMcpClient(name, description, schema, session));
+
+				Dictionary<String, Object?> props = new Dictionary<String, Object?>();
+				if(item?["annotations"] is JsonObject annotations)
+					foreach(KeyValuePair<String, JsonNode?> kv in annotations)
+						props[kv.Key] = kv.Value?.GetValue<Object>();
+
+				AIFunction aIFunction = new McpClient(name, description, schema, session, props);
+
+				//(2025-03-26 MCP) destructiveHint - Tool may perform destructive updates (default: true)
+				if(aIFunction.AdditionalProperties.TryGetValue("destructiveHint", out Object? v)
+					&& v is JsonElement e
+					&& e.GetBoolean())
+					aIFunction = new ApprovalRequiredAIFunction(aIFunction);
+
+				tools.Add(aIFunction);
 			}
 
-		return tools;
+		return tools.ToArray();
 	}
 
 	private static JsonObject BuildArgsNode(AIFunctionArguments arguments)

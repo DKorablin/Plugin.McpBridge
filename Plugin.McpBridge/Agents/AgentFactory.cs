@@ -2,6 +2,7 @@
 using System.ClientModel.Primitives;
 using System.Text;
 using Azure.AI.OpenAI;
+using GitHub.Copilot.SDK;
 using Microsoft.Extensions.AI;
 using OpenAI;
 using Plugin.McpBridge.Data;
@@ -11,43 +12,84 @@ using SAL.Flatbed;
 namespace Plugin.McpBridge.Agents;
 
 /// <summary>Shared factory methods for building AI agent components, usable by both the WinForms chat path and DevUI.</summary>
-internal static class AgentFactory
+internal class AgentFactory
 {
-	/// <summary>Creates a raw <see cref="IChatClient"/> for the given provider using the supplied <see cref="HttpClient"/>.</summary>
-	internal static IChatClient CreateChatClient(AiProviderDto provider, HttpClient httpClient)
+	public async Task<AgentHandle> CreateAgent(AiProviderDto providerSettings, HttpClient httpClient, AIFunction[] tools, String systemInstructions, CancellationToken token = default)
 	{
-#if DEBUG
-		if(provider.ProviderType == AiProviderType.Stub)
-			return new Tests.StubChatClient();
-#endif
-		HttpClientPipelineTransport transport = new HttpClientPipelineTransport(httpClient);
-		switch(provider.ProviderType)
+		switch(providerSettings.ProviderType)
 		{
-		case AiProviderType.AzureOpenAI:
-			return new AzureOpenAIClient(
-				new Uri(provider.ModelEndpointUrl!),
-				new ApiKeyCredential(provider.ApiKey!),
-				new AzureOpenAIClientOptions { Transport = transport })
-				.GetChatClient(provider.DeploymentName ?? provider.ModelId)
-				.AsIChatClient();
-		default:
-			OpenAIClientOptions clientOptions = new OpenAIClientOptions { Transport = transport };
-			if(provider.ModelEndpointUrl != null)
-				clientOptions.Endpoint = new Uri(provider.ModelEndpointUrl);
+		case AiProviderType.CoPilot:
+			CoPilotProviderDto copilotSettings = (CoPilotProviderDto)providerSettings;
+			CopilotClientOptions options = new CopilotClientOptions()
+			{
+				CliPath = copilotSettings.CoPilotPath,
+				GitHubToken = copilotSettings.GitHubToken,
+				//UseLoggedInUser = true,
+			};
+			CopilotClient copilotClient = new CopilotClient(options);
 
-			return new OpenAIClient(new ApiKeyCredential(provider.ApiKey ?? "local-no-key"), clientOptions)
-				.GetChatClient(provider.ModelId)
-				.AsIChatClient();
+			await copilotClient.StartAsync(token);
+			var sessionConfig = new SessionConfig
+			{
+				OnPermissionRequest = PermissionHandler.ApproveAll,
+				Tools = tools,
+				SystemMessage = new SystemMessageConfig()
+				{
+					Mode = SystemMessageMode.Append,
+					Content = systemInstructions,
+				}
+			};
+
+			return AgentHandle.FromCopilotClient(copilotClient.AsAIAgent(sessionConfig), copilotClient);
+		default:
+			IChatClient chatClient = AgentFactory.CreateChatClient(providerSettings, httpClient);
+			return AgentHandle.FromChatClient(
+				chatClient.AsAIAgent(instructions: systemInstructions, tools: tools, name: "assistant"),
+				chatClient);
 		}
 	}
 
+	/// <summary>Creates a raw <see cref="IChatClient"/> for the given provider using the supplied <see cref="HttpClient"/>.</summary>
+	internal static IChatClient CreateChatClient(AiProviderDto providerSettings, HttpClient httpClient)
+	{
+		IChatClient chatClient;
+		HttpClientPipelineTransport transport = new HttpClientPipelineTransport(httpClient);
+
+		switch(providerSettings.ProviderType)
+		{
+		case AiProviderType.Stub:
+			chatClient = new Tests.StubChatClient();
+			break;
+		case AiProviderType.AzureOpenAI:
+			var azureSettings = (AzureProviderDto)providerSettings;
+			chatClient = new AzureOpenAIClient(
+				new Uri(providerSettings.ModelEndpointUrl!),
+				new ApiKeyCredential(azureSettings.ApiKey!),
+				new AzureOpenAIClientOptions { Transport = transport })
+				.GetChatClient(azureSettings.DeploymentName)
+				.AsIChatClient();
+			break;
+		default:
+			var networkSettings = (NetworkProviderDto)providerSettings;
+			OpenAIClientOptions clientOptions = new OpenAIClientOptions { Transport = transport };
+			if(providerSettings.ModelEndpointUrl != null)
+				clientOptions.Endpoint = new Uri(networkSettings.ModelEndpointUrl);
+
+			chatClient = new OpenAIClient(new ApiKeyCredential(networkSettings.ApiKey ?? "local-no-key"), clientOptions)
+				.GetChatClient(providerSettings.ModelId)
+				.AsIChatClient();
+			break;
+		}
+		return ConfigureOptions(chatClient, providerSettings);
+	}
+
 	/// <summary>Wraps a <see cref="IChatClient"/> with token, temperature, and reasoning options from <paramref name="settings"/> and <paramref name="provider"/>.</summary>
-	internal static IChatClient ConfigureOptions(IChatClient chatClient, Int32? maxTokens, AiProviderDto provider)
+	private static IChatClient ConfigureOptions(IChatClient chatClient, AiProviderDto provider)
 		=> new ChatClientBuilder(chatClient)
 			.ConfigureOptions(options =>
 			{
-				if(maxTokens.HasValue)
-					options.MaxOutputTokens = maxTokens.Value;
+				if(provider.MaxTokens.HasValue)
+					options.MaxOutputTokens = provider.MaxTokens.Value;
 				if(provider.Temperature.HasValue)
 					options.Temperature = (Single)provider.Temperature.Value;
 				if(provider.ReasoningOutput.HasValue || provider.ReasoningEffort.HasValue)
@@ -58,6 +100,20 @@ internal static class AgentFactory
 					};
 			})
 			.Build();
+
+	private static String? ResolveFromPath(String exeName)
+	{
+		String? pathVar = Environment.GetEnvironmentVariable("PATH");
+		if(pathVar == null)
+			return null;
+		foreach(String dir in pathVar.Split(Path.PathSeparator))
+		{
+			String full = Path.Combine(dir.Trim(), exeName);
+			if(File.Exists(full))
+				return full;
+		}
+		return null;
+	}
 
 	internal static String BuildSystemInstructions(IHost host, Settings settings)
 	{

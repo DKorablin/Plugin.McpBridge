@@ -62,7 +62,7 @@ namespace Plugin.McpBridge.Tests.Agents
 				.ReturnsAsync(new ChatResponse(new ChatMessage(ChatRole.Assistant, "ok")));
 
 			(IHost host, PluginSettingsTools settings, PluginMethodsTools methods, ShellTools shell) = TestUtils.CreateDependencies();
-			ToolsFactory factory = new ToolsFactory(TestUtils.Trace, shell, settings, methods);
+			ToolsFactory factory = new ToolsFactory(shell, settings, methods);
 			AssistantAgent sut = new AssistantAgent(TestUtils.Trace, host, factory, (s, h) => mockClient.Object);
 			Settings agentSettings = new Settings(host);
 			AiProviderDto provider = new AiProviderDto { ProviderType = AiProviderType.LocalOpenAICompatible };
@@ -178,7 +178,7 @@ namespace Plugin.McpBridge.Tests.Agents
 		{
 			Mock<IChatClient> mockClient = new Mock<IChatClient>();
 			mockClient.SetupSequence(x => x.GetResponseAsync(It.IsAny<IEnumerable<ChatMessage>>(), It.IsAny<ChatOptions?>(), It.IsAny<CancellationToken>()))
-				.ReturnsAsync(new ChatResponse(new ChatMessage(ChatRole.Assistant, [new FunctionCallContent("call-1", nameof(PluginSettingsTools.SettingsSet), new Dictionary<String, Object?> { ["pluginId"] = TestUtils.PluginId, ["settingName"] = "Value", ["valueJson"] = "\"x\"" })])))
+				.ReturnsAsync(new ChatResponse(new ChatMessage(ChatRole.Assistant, [new FunctionCallContent("call-1", nameof(PluginSettingsTools.SettingsSet), new Dictionary<String, Object?> { ["pluginId"] = TestUtils.PluginId, ["settingName"] = "Value", ["valueJson"] = "\"x\"" })])) { FinishReason = ChatFinishReason.ToolCalls })
 				.ReturnsAsync(new ChatResponse(new ChatMessage(ChatRole.Assistant, "done")));
 
 			AssistantAgent sut = TestUtils.CreateInitializedSut(TestUtils.CreateSettingsPlugin(new SimpleSettings()), mockChatClient: mockClient);

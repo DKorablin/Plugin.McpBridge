@@ -3,6 +3,7 @@ using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Events;
+using Plugin.McpBridge.Mcp;
 using Plugin.McpBridge.Tests;
 using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
@@ -16,7 +17,8 @@ namespace Plugin.McpBridge
 		private AssistantAgent? _agent;
 
 		private ProcessHost? _devUIHost;
-		private ToolsMcpServer? _mcpServer;
+		private ProcessHost? _agUIHost;
+		private McpServer? _mcpServer;
 
 		private IMenuItem? _menuChat;
 
@@ -44,6 +46,8 @@ namespace Plugin.McpBridge
 
 			this._devUIHost?.StopAsync().GetAwaiter().GetResult();
 			this._devUIHost = null;
+			this._agUIHost?.StopAsync().GetAwaiter().GetResult();
+			this._agUIHost = null;
 			this._mcpServer?.Dispose();
 			this._mcpServer = null;
 
@@ -98,22 +102,23 @@ namespace Plugin.McpBridge
 		private AssistantAgent GetAgent(AiProviderDto provider)
 		{
 			if(this._agent == null)
-				this._agent = this.InitializeAgent(provider);
+				this._agent = Task.Run(() => this.InitializeAgent(provider)).GetAwaiter().GetResult();
 			return this._agent;
 		}
 
-		internal AssistantAgent InitializeAgent(AiProviderDto provider)
+		internal async Task<AssistantAgent> InitializeAgent(AiProviderDto provider)
 		{
-			ToolsFactory toolsFactory = new ToolsFactory(this.Host);
+			ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings);
+			AgentFactory agentFactory = new AgentFactory();
 
-			var result = new AssistantAgent(this.Trace, this.Host, toolsFactory);
-			result.Initialize(this.Settings, provider);
+			var result = new AssistantAgent(this.Trace, this.Host, toolsFactory, agentFactory);
+			await result.Initialize(this.Settings, provider);
 			return result;
 		}
 
 		Boolean IPlugin.OnConnection(ConnectMode mode)
 		{
-			this.Host.Plugins.PluginsLoaded += Plugins_PluginsLoaded;
+			this.Host.Plugins.PluginsLoaded += this.Plugins_PluginsLoaded;
 
 			var hostWindows = this.Host as IHostWindows;
 			if(hostWindows != null)
@@ -132,12 +137,12 @@ namespace Plugin.McpBridge
 
 		private void Plugins_PluginsLoaded(Object? sender, EventArgs e)
 		{
-			ToolsFactory toolsFactory = new ToolsFactory(this.Host);
+			ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings);
 
-			if(this.Settings.McpServerEnabled || this.Settings.DevUIEnabled)
+			if(this.Settings.McpServerEnabled || this.Settings.DevUIEnabled || this.Settings.AgUIEnabled)
 			{
-				IEnumerable<AITool> bridgeTools = toolsFactory.CreateTools(this.Trace, this.Settings.ToolsPermission);
-				this._mcpServer = new ToolsMcpServer(this.Trace, this.Settings.McpServerUrl, bridgeTools);
+				IEnumerable<AITool> bridgeTools = toolsFactory.CreateTools(this.Trace);
+				this._mcpServer = new McpServer(this.Trace, this.Settings.McpServerUrl, bridgeTools);
 				this._mcpServer.Start();
 			}
 
@@ -146,6 +151,11 @@ namespace Plugin.McpBridge
 				this._devUIHost = new ProcessHost(this.Host, ProcessHost.ExeType.DevUI);
 				Task.Run(() => this._devUIHost.StartAsync(this.Settings, this.Settings.GetSelectedProvider()));
 			}
+			if(this.Settings.AgUIEnabled)
+			{
+				this._agUIHost = new ProcessHost(this.Host, ProcessHost.ExeType.AgUI);
+				Task.Run(() => this._agUIHost.StartAsync(this.Settings, this.Settings.GetSelectedProvider()));
+			}
 		}
 
 		Boolean IPlugin.OnDisconnection(DisconnectMode mode)
@@ -153,6 +163,7 @@ namespace Plugin.McpBridge
 			if(this._menuChat != null)
 				this.HostWindows.MainMenu.Items.Remove(this._menuChat);
 			this._devUIHost?.Dispose();
+			this._agUIHost?.Dispose();
 			this._mcpServer?.Dispose();
 			return true;
 		}

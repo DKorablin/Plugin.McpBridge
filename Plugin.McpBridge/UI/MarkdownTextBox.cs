@@ -145,7 +145,7 @@ internal class MarkdownTextBox : RichTextBox
 		this.AppendText(text);
 	}
 
-	protected override void OnMouseUp(System.Windows.Forms.MouseEventArgs e)
+	protected override void OnMouseUp(MouseEventArgs e)
 	{
 		base.OnMouseUp(e);
 		if(e.Button != MouseButtons.Left || this.SelectionLength > 0)
