@@ -7,7 +7,7 @@
 		<Nullable>enable</Nullable>
 		<GenerateAssemblyInfo>False</GenerateAssemblyInfo>
 		<SelfContained>false</SelfContained>
-		<ApplicationIcon />
+		<ApplicationIcon>..\Images.Shared\SAL.ico</ApplicationIcon>
 	</PropertyGroup>
 	<ItemGroup>
 		<EmbeddedResource Include="wwwroot\index.html" />

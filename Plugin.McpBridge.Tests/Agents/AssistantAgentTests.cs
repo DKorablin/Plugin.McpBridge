@@ -9,6 +9,7 @@ using Moq;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Events;
+using Plugin.McpBridge.Tests.Helpers;
 using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
 using Xunit;
@@ -25,7 +26,7 @@ namespace Plugin.McpBridge.Tests.Agents
 			(IHost host, PluginSettingsTools _, PluginMethodsTools _, ShellTools _) = TestUtils.CreateDependencies();
 			ToolsFactory factory = TestUtils.CreateToolFactory();
 
-			Action act = () => _ = new AssistantAgent(null!, host, factory);
+			Action act = () => _ = new AssistantAgent(null!, host, factory, new AgentFactory());
 
 			act.Should().Throw<ArgumentNullException>().WithParameterName("trace");
 		}
@@ -35,7 +36,7 @@ namespace Plugin.McpBridge.Tests.Agents
 		{
 			ToolsFactory factory = TestUtils.CreateToolFactory();
 
-			Action act = () => _ = new AssistantAgent(TestUtils.Trace, null!, factory);
+			Action act = () => _ = new AssistantAgent(TestUtils.Trace, null!, factory, new AgentFactory());
 
 			act.Should().Throw<ArgumentNullException>().WithParameterName("host");
 		}
@@ -45,7 +46,7 @@ namespace Plugin.McpBridge.Tests.Agents
 		{
 			(IHost host, PluginSettingsTools _, PluginMethodsTools _, ShellTools _) = TestUtils.CreateDependencies();
 
-			Action act = () => _ = new AssistantAgent(TestUtils.Trace, host, null!);
+			Action act = () => _ = new AssistantAgent(TestUtils.Trace, host, null!, new AgentFactory());
 
 			act.Should().Throw<ArgumentNullException>().WithParameterName("toolsFactory");
 		}
@@ -63,9 +64,9 @@ namespace Plugin.McpBridge.Tests.Agents
 
 			(IHost host, PluginSettingsTools settings, PluginMethodsTools methods, ShellTools shell) = TestUtils.CreateDependencies();
 			ToolsFactory factory = new ToolsFactory(shell, settings, methods);
-			AssistantAgent sut = new AssistantAgent(TestUtils.Trace, host, factory, (s, h) => mockClient.Object);
+			AssistantAgent sut = new AssistantAgent(TestUtils.Trace, host, factory, new StubAgentFactory(mockClient.Object));
 			Settings agentSettings = new Settings(host);
-			AiProviderDto provider = new AiProviderDto { ProviderType = AiProviderType.LocalOpenAICompatible };
+			AiProviderDto provider = new AiProviderDto { ProviderType = AiProviderType.Local };
 
 			sut.Initialize(agentSettings, provider);
 			sut.Initialize(agentSettings, provider);

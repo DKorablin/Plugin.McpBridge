@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 	<PropertyGroup>
 		<TargetFramework>net8.0-windows</TargetFramework>
 		<OutputType>Exe</OutputType>
@@ -7,7 +7,7 @@
 		<Nullable>enable</Nullable>
 		<GenerateAssemblyInfo>False</GenerateAssemblyInfo>
 		<SelfContained>false</SelfContained>
-		<ApplicationIcon />
+		<ApplicationIcon>..\Images.Shared\SAL.ico</ApplicationIcon>
 	</PropertyGroup>
 
 	<ItemGroup>

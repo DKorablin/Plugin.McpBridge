@@ -16,31 +16,31 @@ The plugin also exposes its tool set as an MCP server (JSON-RPC 2.0 over HTTP/SS
 ```
 User ──► PanelChat ──► AssistantAgent (Microsoft.Agents.AI)
                               │
-                    ┌─────────▼─────────────────────────────┐
-                    │  AIAgent + AgentSession               │
-                    │  ┌──────────────────────────────────┐ │
-                    │  │  AI tools (function calling)     │ │
-                    │  │  - SettingsList                  │ │
-                    │  │  - SettingsGet                   │ │
-                    │  │  - SettingsSet  ← confirmation   │ │
-                    │  │  - MethodsList                   │ │
-                    │  │  - MethodsInvoke ← confirmation  │ │
-                    │  │  - SystemInformation             │ │
-                    │  │  - WindowsGet   (IHostWindows)   │ │
-                    │  │  - WindowClose  (IHostWindows)   │ │
-                    │  └──────────────────────────────────┘ │
-                    └───────────────────────────────────────┘
-                                      │
-                      ┌───────────────▼─────────────────────┐
-                      │   McpServer (HTTP/SSE JSON-RPC 2.0) │  ← optional, localhost:5050
-                      └───────────────┬─────────────────────┘
-                                      │
-                         ┌────────────┴─────────────┐
-                         │                          │
-                ┌────────▼─────────┐       ┌────────▼──────────┐
-                │      DevUI       │       │      AG-UI        │
-                │ (localhost:5051) │       │ (localhost: 5052) │
-                └──────────────────┘       └───────────────────┘
+            ┌─────────────────▼─────────────────────┐
+            │  AIAgent + AgentSession               │
+            │  ┌──────────────────────────────────┐ │
+            │  │  AI tools (function calling)     │ │
+            │  │  - SettingsList                  │ │
+            │  │  - SettingsGet                   │ │
+            │  │  - SettingsSet  ← confirmation   │ │
+            │  │  - MethodsList                   │ │
+            │  │  - MethodsInvoke ← confirmation  │ │
+            │  │  - SystemInformation             │ │
+            │  │  - WindowsGet   (IHostWindows)   │ │
+            │  │  - WindowClose  (IHostWindows)   │ │
+            │  └──────────────────────────────────┘ │
+            └───────────────────────────────────────┘
+                              │
+              ┌───────────────▼─────────────────────┐
+              │   McpServer (HTTP/SSE JSON-RPC 2.0) │  ← optional, localhost:5050
+              └───────────────┬─────────────────────┘
+                              │
+                 ┌────────────┴─────────────┐
+                 │                          │
+        ┌────────▼─────────┐       ┌────────▼─────────┐
+        │      DevUI       │       │      AG-UI       │
+        │ (localhost:5051) │       │ (localhost:5052) │
+        └──────────────────┘       └──────────────────┘
 ```
 
 ## Features

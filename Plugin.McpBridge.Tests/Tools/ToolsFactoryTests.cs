@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
@@ -50,7 +50,7 @@ namespace Plugin.McpBridge.Tests.Tools
 		{
 			ToolsFactory sut = new ToolsFactory(new StubToolHost());
 
-			IList<AITool> tools = sut.CreateTools(TestUtils.Trace, null).ToList();
+			IList<AIFunction> tools = sut.CreateTools(TestUtils.Trace, null).ToList();
 
 			tools.Should().HaveCount(2);
 		}
@@ -60,7 +60,7 @@ namespace Plugin.McpBridge.Tests.Tools
 		{
 			ToolsFactory sut = new ToolsFactory(new StubToolHost());
 
-			IList<AITool> tools = sut.CreateTools(TestUtils.Trace, new String[] { "SystemInformation" }).ToList();
+			IList<AIFunction> tools = sut.CreateTools(TestUtils.Trace, new String[] { "SystemInformation" }).ToList();
 
 			tools.Should().HaveCount(2);
 		}
@@ -70,7 +70,7 @@ namespace Plugin.McpBridge.Tests.Tools
 		{
 			ToolsFactory sut = new ToolsFactory(new StubToolHost());
 
-			IList<AITool> tools = sut.CreateTools(TestUtils.Trace, new String[] { nameof(StubToolHost.NoConfirmTool) }).ToList();
+			IList<AIFunction> tools = sut.CreateTools(TestUtils.Trace, new String[] { nameof(StubToolHost.NoConfirmTool) }).ToList();
 
 			tools.Should().HaveCount(1);
 			tools[0].Should().BeAssignableTo<AIFunction>();
@@ -82,7 +82,7 @@ namespace Plugin.McpBridge.Tests.Tools
 		{
 			ToolsFactory sut = new ToolsFactory(new StubToolHost());
 
-			IList<AITool> tools = sut.CreateTools(TestUtils.Trace, new String[] { nameof(StubToolHost.NoConfirmTool), nameof(StubToolHost.ConfirmTool) }).ToList();
+			IList<AIFunction> tools = sut.CreateTools(TestUtils.Trace, new String[] { nameof(StubToolHost.NoConfirmTool), nameof(StubToolHost.ConfirmTool) }).ToList();
 
 			tools.Should().BeEmpty();
 		}
@@ -92,7 +92,7 @@ namespace Plugin.McpBridge.Tests.Tools
 		{
 			ToolsFactory sut = new ToolsFactory(new StubToolHost());
 
-			IList<AITool> tools = sut.CreateTools(TestUtils.Trace, new String[] { nameof(StubToolHost.ConfirmTool) }).ToList();
+			IList<AIFunction> tools = sut.CreateTools(TestUtils.Trace, new String[] { nameof(StubToolHost.ConfirmTool) }).ToList();
 
 			tools.Should().HaveCount(1);
 			((AIFunction)tools[0]).Name.Should().Be(nameof(StubToolHost.NoConfirmTool));
@@ -108,7 +108,7 @@ namespace Plugin.McpBridge.Tests.Tools
 			(IHost _, PluginSettingsTools settingsTools, PluginMethodsTools methodsTools, ShellTools shellTools) = TestUtils.CreateDependencies();
 			ToolsFactory sut = new ToolsFactory(shellTools, settingsTools, methodsTools);
 
-			IList<AITool> tools = sut.CreateTools(TestUtils.Trace, Array.Empty<String>()).ToList();
+			IList<AIFunction> tools = sut.CreateTools(TestUtils.Trace, Array.Empty<String>()).ToList();
 
 			tools.Should().HaveCount(6);
 		}
@@ -119,7 +119,7 @@ namespace Plugin.McpBridge.Tests.Tools
 			(IHost _, PluginSettingsTools settingsTools, PluginMethodsTools methodsTools, ShellTools shellTools) = TestUtils.CreateDependencies();
 			ToolsFactory sut = new ToolsFactory(shellTools, settingsTools, methodsTools);
 
-			IList<AITool> tools = sut.CreateTools(TestUtils.Trace, new String[] { nameof(ShellTools.SystemInformation), nameof(PluginSettingsTools.SettingsList) }).ToList();
+			IList<AIFunction> tools = sut.CreateTools(TestUtils.Trace, new String[] { nameof(ShellTools.SystemInformation), nameof(PluginSettingsTools.SettingsList) }).ToList();
 
 			tools.Should().HaveCount(4);
 		}

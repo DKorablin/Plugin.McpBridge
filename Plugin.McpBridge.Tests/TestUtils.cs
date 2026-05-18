@@ -5,6 +5,7 @@ using Microsoft.Extensions.AI;
 using Moq;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Data;
+using Plugin.McpBridge.Tests.Helpers;
 using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
 
@@ -39,7 +40,7 @@ internal static class TestUtils
 	{
 		(IHost host, PluginSettingsTools settings, PluginMethodsTools methods, ShellTools shell) = CreateDependencies(pluginDescription);
 		ToolsFactory toolFactory = new ToolsFactory(shell, settings, methods);
-		return new AssistantAgent(Trace, host, toolFactory);
+		return new AssistantAgent(Trace, host, toolFactory, new AgentFactory());
 	}
 
 	public static AssistantAgent CreateInitializedSut(
@@ -52,9 +53,9 @@ internal static class TestUtils
 		mockChatClient ??= new Mock<IChatClient>();
 
 		Settings settings = new Settings(host);
-		AiProviderDto provider = new AiProviderDto { ProviderType = AiProviderType.LocalOpenAICompatible };
+		AiProviderDto provider = new AiProviderDto { ProviderType = AiProviderType.Local };
 
-		AssistantAgent agent = new AssistantAgent(Trace, host, toolFactory, (s, h) => mockChatClient.Object);
+		AssistantAgent agent = new AssistantAgent(Trace, host, toolFactory, new StubAgentFactory(mockChatClient.Object));
 		agent.Initialize(settings, provider);
 		return agent;
 	}

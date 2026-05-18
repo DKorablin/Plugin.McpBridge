@@ -4,6 +4,7 @@ using Microsoft.Agents.AI.Hosting;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
+using Plugin.McpBridge.AgUI.Agents;
 using Plugin.McpBridge.Mcp;
 using Plugin.McpBridge.Tests;
 
@@ -19,25 +20,27 @@ internal static class Program
 		if(config is null)
 			return 1;
 
-		using CancellationTokenSource lifetimeCts = new CancellationTokenSource();
-		Int32 parentPidIndex = Array.IndexOf(args, "--parent-pid");
-		if(parentPidIndex >= 0 && parentPidIndex + 1 < args.Length && Int32.TryParse(args[parentPidIndex + 1], out Int32 parentPid))
-			_ = WatchParentAsync(parentPid, lifetimeCts);
+		using(CancellationTokenSource lifetimeCts = new CancellationTokenSource())
+		{
+			Int32 parentPidIndex = Array.IndexOf(args, "--parent-pid");
+			if(parentPidIndex >= 0 && parentPidIndex + 1 < args.Length && Int32.TryParse(args[parentPidIndex + 1], out Int32 parentPid))
+				_ = WatchParentAsync(parentPid, lifetimeCts);
 
-		var bridgeTools = await FetchBridgeToolsAsync(config);
+			var bridgeTools = await FetchBridgeToolsAsync(config);
 
-		var remainingArgs = parentPidIndex >= 0
-			? args[1..parentPidIndex].Concat(args[(parentPidIndex + 2)..]).ToArray()
-			: args[1..];
+			var remainingArgs = parentPidIndex >= 0
+				? args[1..parentPidIndex].Concat(args[(parentPidIndex + 2)..]).ToArray()
+				: args[1..];
 
-		await using AgentHandle handle = await new AgentFactory().CreateAgent(
-			config.Provider,
-			new HttpClient { Timeout = config.ConnectionTimeout },
-			bridgeTools,
-			config.Instructions ?? String.Empty);
-		WebApplication app = BuildWebApp(remainingArgs, config, handle);
-		Console.WriteLine($"AG-UI running at {config.UiServerUrl}/agui");
-		await app.RunAsync(lifetimeCts.Token);
+			await using AgentHandle handle = await new AgentFactory().CreateAgent(
+				config.Provider,
+				new HttpClient { Timeout = config.ConnectionTimeout },
+				bridgeTools,
+				config.Instructions ?? String.Empty);
+			WebApplication app = BuildWebApp(remainingArgs, config, handle);
+			Console.WriteLine($"AG-UI running at {config.UiServerUrl}/agui");
+			await app.RunAsync(lifetimeCts.Token);
+		}
 		return 0;
 	}
 
@@ -88,7 +91,9 @@ internal static class Program
 		builder.Logging.AddConsole();
 		builder.Logging.SetMinimumLevel(LogLevel.Debug); // Shows model binding/deserialization errors
 
-		IHostedAgentBuilder agentBuilder = builder.AddAIAgent(handle.Agent.Name, (sp, name) => handle.Agent);
+		IHostedAgentBuilder agentBuilder = builder
+			.AddAIAgent(handle.Agent.Name, (sp, name) => handle.Agent)
+			.WithSessionStore(new FileSystemAgentSessionStore());// Persist sessions to disk so they survive server restarts
 
 		builder.Services.AddAGUI();
 

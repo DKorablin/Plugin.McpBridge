@@ -14,7 +14,7 @@ namespace Plugin.McpBridge.Agents;
 /// <summary>Shared factory methods for building AI agent components, usable by both the WinForms chat path and DevUI.</summary>
 internal class AgentFactory
 {
-	public async Task<AgentHandle> CreateAgent(AiProviderDto providerSettings, HttpClient httpClient, AIFunction[] tools, String systemInstructions, CancellationToken token = default)
+	public virtual async Task<AgentHandle> CreateAgent(AiProviderDto providerSettings, HttpClient httpClient, AIFunction[] tools, String systemInstructions, CancellationToken token = default)
 	{
 		switch(providerSettings.ProviderType)
 		{
@@ -37,14 +37,17 @@ internal class AgentFactory
 				{
 					Mode = SystemMessageMode.Append,
 					Content = systemInstructions,
-				}
+				},
 			};
 
 			return AgentHandle.FromCopilotClient(copilotClient.AsAIAgent(sessionConfig), copilotClient);
 		default:
 			IChatClient chatClient = AgentFactory.CreateChatClient(providerSettings, httpClient);
 			return AgentHandle.FromChatClient(
-				chatClient.AsAIAgent(instructions: systemInstructions, tools: tools, name: "assistant"),
+				chatClient.AsAIAgent(
+					instructions: systemInstructions,
+					tools: tools,
+					name: "assistant"),
 				chatClient);
 		}
 	}
@@ -65,7 +68,7 @@ internal class AgentFactory
 			chatClient = new AzureOpenAIClient(
 				new Uri(providerSettings.ModelEndpointUrl!),
 				new ApiKeyCredential(azureSettings.ApiKey!),
-				new AzureOpenAIClientOptions { Transport = transport })
+				new AzureOpenAIClientOptions { Transport = transport, })
 				.GetChatClient(azureSettings.DeploymentName)
 				.AsIChatClient();
 			break;

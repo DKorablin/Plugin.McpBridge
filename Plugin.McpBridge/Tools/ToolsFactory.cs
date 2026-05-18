@@ -9,7 +9,7 @@ namespace Plugin.McpBridge.Tools;
 internal sealed class ToolsFactory
 {
 	private readonly ToolsDiscoveryBase[] _targets;
-	private readonly Settings _settings;
+	private readonly Settings? _settings;
 
 	public ToolsFactory(IHost host, Settings settings)
 	{
@@ -44,14 +44,16 @@ internal sealed class ToolsFactory
 	}
 
 	public IEnumerable<AIFunction> CreateTools(ITraceSource trace)
+		=> this.CreateTools(trace, this._settings?.ToolsPermission);
+
+	public IEnumerable<AIFunction> CreateTools(ITraceSource trace, String[]? exclusionList)
 	{
 		_ = trace ?? throw new ArgumentNullException(nameof(trace));
 
-		String[]? disallowedTools = this._settings.ToolsPermission;
-		Boolean allAllowed = disallowedTools == null || disallowedTools.Length == 0;
+		Boolean allAllowed = exclusionList == null || exclusionList.Length == 0;
 		foreach(var method in this.GetTools())
 		{
-			if(!allAllowed && Array.Exists(disallowedTools!, p => p == method.Name))
+			if(!allAllowed && Array.Exists(exclusionList!, p => p == method.Name))
 				continue;
 
 			var tool = new ToolFacade(trace, method.Function, method.ConfirmationRequired);

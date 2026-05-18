@@ -1,10 +1,11 @@
 ﻿using System.Reflection;
 using System.Windows.Forms;
 using System.Xml;
+using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Extenders;
 using SAL.Flatbed;
 
-namespace Plugin.McpBridge.Data;
+namespace Plugin.McpBridge.Tools;
 
 internal class XmlReflectionReader
 {
