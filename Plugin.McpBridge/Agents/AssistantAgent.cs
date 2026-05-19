@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Text;
-using System.Threading.Tasks;
+using System.Text.Json;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Data;
@@ -35,7 +35,7 @@ internal sealed class AssistantAgent : IDisposable
 		this._agentFactory = agentFactory ?? throw new ArgumentNullException(nameof(agentFactory));
 	}
 
-	public async Task Initialize(Settings settings, AiProviderDto provider)
+	public async Task Initialize(Settings settings, AiProviderDto provider, String? sessionJson = null)
 	{
 		_ = settings ?? throw new ArgumentNullException(nameof(settings));
 		_ = provider ?? throw new ArgumentNullException(nameof(provider));
@@ -49,7 +49,27 @@ internal sealed class AssistantAgent : IDisposable
 		var instructions = AgentFactory.BuildSystemInstructions(this._host, settings);
 		this._handle = await this._agentFactory.CreateAgent(provider, httpClient, tools, instructions);
 
+		if(sessionJson != null)
+			this._session = await this._handle.Agent.DeserializeSessionAsync(
+				JsonSerializer.Deserialize<JsonElement>(sessionJson),
+				cancellationToken: CancellationToken.None);
+
 		this._trace.TraceEvent(TraceEventType.Verbose, 0, $"Initialized AssistantAgent with instructions '{instructions}'.");
+	}
+
+	/// <summary>Asynchronously retrieves the current session state as a JSON string.</summary>
+	/// <param name="token">
+	/// A cancellation token that can be used to cancel the asynchronous operation.
+	/// The default value is <see cref="CancellationToken.None"/>.
+	/// </param>
+	/// <returns>A JSON string representing the current session state, or <see langword="null"/> if there is no active session.</returns>
+	public async Task<String?> GetSessionState(CancellationToken token = default)
+	{
+		if(this._handle == null || this._session == null)
+			return null;
+
+		var json = await this._handle.Agent.SerializeSessionAsync(this._session, cancellationToken: token);
+		return json.ToString();
 	}
 
 	public async Task InvokeMessageAsync(String message, DataContent[]? images = null, CancellationToken cancellationToken = default)
@@ -94,9 +114,6 @@ internal sealed class AssistantAgent : IDisposable
 
 	private void OnAiResponseReceived(AgentResponseEventArgs e)
 		=> this.AiResponseReceived?.Invoke(this, e);
-
-	private void OnConfirmationRequired(AgentConfirmationEventArgs e)
-		=> this.ConfirmationRequired?.Invoke(this, e);
 
 	private Task<Boolean> OnConfirmationRequiredAsync(AgentConfirmationEventArgs e)
 	{

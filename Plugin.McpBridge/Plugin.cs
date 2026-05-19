@@ -106,13 +106,13 @@ namespace Plugin.McpBridge
 			return this._agent;
 		}
 
-		internal async Task<AssistantAgent> InitializeAgent(AiProviderDto provider)
+		internal async Task<AssistantAgent> InitializeAgent(AiProviderDto provider, String? sessionJson = null)
 		{
 			ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings);
 			AgentFactory agentFactory = new AgentFactory();
 
 			var result = new AssistantAgent(this.Trace, this.Host, toolsFactory, agentFactory);
-			await result.Initialize(this.Settings, provider);
+			await result.Initialize(this.Settings, provider, sessionJson);
 			return result;
 		}
 

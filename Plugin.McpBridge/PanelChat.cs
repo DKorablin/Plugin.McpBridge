@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Drawing.Imaging;
+using System.Text.Json;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Data;
@@ -30,6 +31,42 @@ public partial class PanelChat : UserControl
 		this.Plugin.Settings.PropertyChanged += this.Settings_PropertyChanged;
 		base.OnCreateControl();
 		this.UpdateUiState();
+
+		Task.Run(async () =>
+		{
+			String? sessionJson = null;
+			using(Stream stream = this.Plugin.Host.Plugins.Settings(this.Plugin).LoadAssemblyBlob("agentState.json"))
+				if(stream != null)
+					sessionJson = new StreamReader(stream).ReadToEnd();
+
+			if(sessionJson != null)
+				this.LoadSessionHistory(sessionJson);
+		});
+	}
+
+	private void LoadSessionHistory(String sessionJson)
+	{
+		using JsonDocument doc = JsonDocument.Parse(sessionJson);
+		JsonElement root = doc.RootElement;
+		if(!root.TryGetProperty("stateBag", out JsonElement stateBag) ||
+		   !stateBag.TryGetProperty("InMemoryChatHistoryProvider", out JsonElement historyState) ||
+		   !historyState.TryGetProperty("messages", out JsonElement messagesElement))
+		{
+			this.Plugin.Trace.TraceEvent(System.Diagnostics.TraceEventType.Warning, 0, "Failed to load session history: Invalid format.");
+			return;
+		}
+
+		List<ChatMessage>? messages = JsonSerializer.Deserialize<List<ChatMessage>>(messagesElement, AIJsonUtilities.DefaultOptions);
+		if(messages == null)
+			return;
+
+		foreach(ChatMessage msg in messages)
+		{
+			if(msg.Role == ChatRole.User)
+				this.Invoke(() => mdResponse.AppendMessage(msg.Text, MarkdownTextBox.MessageKind.User));
+			else if(msg.Role == ChatRole.Assistant)
+				this.Invoke(() => mdResponse.AppendMarkdown(msg.Text));
+		}
 	}
 
 	private void Window_Closed(Object? sender, EventArgs e)
@@ -71,7 +108,11 @@ public partial class PanelChat : UserControl
 			if(this.CurrentProvider == null)
 				throw new InvalidOperationException("No AI provider configured.");
 
-			this._agent = await this.Plugin.InitializeAgent(this.CurrentProvider);
+			String? sessionJson = null;
+			using(Stream stream = this.Plugin.Host.Plugins.Settings(this.Plugin).LoadAssemblyBlob("agentState.json"))
+				if(stream != null)
+					sessionJson = await new StreamReader(stream).ReadToEndAsync();
+			this._agent = await this.Plugin.InitializeAgent(this.CurrentProvider, sessionJson);
 			this._agent.AiResponseReceived += this.Agent_AiResponseReceived;
 			this._agent.ConfirmationRequired += this.Agent_ConfirmationRequired;
 			this.UpdateUiState();
@@ -80,40 +121,30 @@ public partial class PanelChat : UserControl
 		return this._agent;
 	}
 
-	private void InvokeMessage(String message, DataContent[] images)
+	private async Task InvokeMessage(String message, DataContent[] images)
 	{
-		if(String.IsNullOrWhiteSpace(message))
-			return;
-
 		pnlConfirmation.Dismiss();
 		this._streamingActive = false;
-		this._cts?.Dispose();
-		this._cts = new CancellationTokenSource();
-
 		this.UpdateUiState();
 
+		this._cts?.Dispose();
+		this._cts = new CancellationTokenSource();
 		CancellationToken token = this._cts.Token;
 
-		Task.Run(async () =>
+		try
 		{
-			try
-			{
-				AssistantAgent agent = await this.GetAgent();
-				await agent.InvokeMessageAsync(message, images, token);
-			} catch(Exception ex)
-			{
-				this.Invoke(() => mdResponse.AppendMessage(ex.Message, MarkdownTextBox.MessageKind.Error));
-			} finally
-			{
-				this.Invoke(() =>
-					{
-						this._cts?.Dispose();
-						this._cts = null;
+			AssistantAgent agent = await this.GetAgent();
+			await agent.InvokeMessageAsync(message, images, token);
+		} catch(Exception ex)
+		{
+			this.Invoke(() => mdResponse.AppendMessage(ex.Message, MarkdownTextBox.MessageKind.Error));
+		} finally
+		{
+			this._cts?.Dispose();
+			this._cts = null;
 
-						this.UpdateUiState();
-					});
-			}
-		});
+			this.UpdateUiState();
+		}
 	}
 
 	private void Agent_AiResponseReceived(Object? sender, AgentResponseEventArgs e)
@@ -132,6 +163,17 @@ public partial class PanelChat : UserControl
 				this._cts?.Dispose();
 				this._cts = null;
 				this.UpdateUiState();
+				AssistantAgent? agent = this._agent;
+				if(agent != null)
+					_ = Task.Run(async () =>
+					{
+						String? json = await agent.GetSessionState();
+						if(json != null)
+						{
+							using MemoryStream ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json));
+							this.Plugin.Host.Plugins.Settings(this.Plugin).SaveAssemblyBlob("agentState.json", ms);
+						}
+					});
 			}
 		});
 	}
@@ -146,7 +188,10 @@ public partial class PanelChat : UserControl
 	}
 
 	private void bnNewConversation_Click(Object sender, EventArgs e)
-		=> this.ResetAgent();
+	{
+		this.Plugin.Host.Plugins.Settings(this.Plugin).SaveAssemblyBlob("agentState.json", null);
+		this.ResetAgent();
+	}
 
 	private void tsbnSend_DropDownOpening(Object sender, EventArgs e)
 	{
@@ -194,7 +239,7 @@ public partial class PanelChat : UserControl
 		foreach(Image img in rawImages)
 			img.Dispose();
 
-		this.InvokeMessage(request, images);
+		Task.Run(async () => await this.InvokeMessage(request, images));
 	}
 
 	private void txtRequest_KeyDown(Object sender, KeyEventArgs e)
@@ -238,6 +283,12 @@ public partial class PanelChat : UserControl
 
 	private void UpdateUiState()
 	{
+		if(this.InvokeRequired)
+		{
+			this.Invoke(this.UpdateUiState);
+			return;
+		}
+
 		Boolean isProcessing = _cts != null;
 		Boolean needsConfirmation = pnlConfirmation.Visible; // Assuming a property exists
 		Boolean hasProvider = this.CurrentProvider != null;
