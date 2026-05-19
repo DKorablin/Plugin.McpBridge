@@ -3,7 +3,7 @@
 namespace Plugin.McpBridge.Tests;
 
 /// <summary>Serializable snapshot of the settings needed to start the UI process.</summary>
-public sealed class ProcessConfig
+public sealed class SettingsDto
 {
 	/// <summary>Gets or sets the URL of the user interface server.</summary>
 	public required String UiServerUrl { get; set; }
@@ -23,6 +23,14 @@ public sealed class ProcessConfig
 	/// <summary>Gets or sets the maximum interval to wait while establishing a connection before the attempt times out.</summary>
 	public TimeSpan ConnectionTimeout { get; set; } = TimeSpan.FromSeconds(100);
 
-	/// <summary>Gets or sets the AI provider configuration for this instance.</summary>
-	public required AiProviderDto Provider { get; set; }
+	/// <summary>Gets or sets the collection of available AI providers.</summary>
+	public required AiProviderDto[] AiProviders { get; set; }
+
+	/// <summary>Gets or sets the selected AI provider configuration for this instance.</summary>
+	public required Guid? SelectedProviderId { get; set; }
+
+	public AiProviderDto? GetSelectedProvider()
+		=> this.SelectedProviderId.HasValue
+			? this.AiProviders.FirstOrDefault(p => p.Id == this.SelectedProviderId.Value)
+			: null;
 }

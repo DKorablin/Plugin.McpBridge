@@ -38,7 +38,6 @@
 		</PackageReference>
 		<PackageReference Include="Azure.AI.OpenAI" />
 		<PackageReference Include="Microsoft.Agents.AI" />
-		<PackageReference Include="Microsoft.Agents.AI.Workflows" />
 		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
 	</ItemGroup>
 

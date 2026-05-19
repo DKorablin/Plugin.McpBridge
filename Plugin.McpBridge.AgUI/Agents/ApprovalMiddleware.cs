@@ -88,13 +88,26 @@ internal static class ApprovalMiddleware
 		if(approvalResult is null)
 			return messages;
 
-		if((approvalResult.Result as JsonElement?)?.Deserialize<ApprovalResponse>(jsonOptions) is not ApprovalResponse response)
+		ApprovalResponse? response = approvalResult.Result switch
+		{
+			JsonElement je => je.Deserialize<ApprovalResponse>(jsonOptions),
+			String s => JsonSerializer.Deserialize<ApprovalResponse>(s, jsonOptions),
+			_ => null,
+		};
+		if(response is null)
 			return messages;
 
 		FunctionCallContent originalToolCall = approvalToolCalls[approvalResult.CallId];
-		if(originalToolCall.Arguments?.TryGetValue("request", out Object? reqObj) != true
-		   || reqObj is not String reqJson
-		   || JsonSerializer.Deserialize<ApprovalRequest>(reqJson, jsonOptions) is not ApprovalRequest approvalRequest)
+		if(originalToolCall.Arguments?.TryGetValue("request", out Object? reqObj) != true)
+			return messages;
+
+		String? reqJson = reqObj switch
+		{
+			String s => s,
+			JsonElement je when je.ValueKind == JsonValueKind.String => je.GetString(),
+			_ => null,
+		};
+		if(reqJson is null || JsonSerializer.Deserialize<ApprovalRequest>(reqJson, jsonOptions) is not ApprovalRequest approvalRequest)
 			return messages;
 
 		Dictionary<String, Object?>? functionArguments = approvalRequest.FunctionArguments is { } args

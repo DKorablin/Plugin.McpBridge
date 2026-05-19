@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Threading.Tasks;
 using Microsoft.Extensions.AI;
 using Moq;
 using Plugin.McpBridge.Agents;
@@ -43,7 +44,7 @@ internal static class TestUtils
 		return new AssistantAgent(Trace, host, toolFactory, new AgentFactory());
 	}
 
-	public static AssistantAgent CreateInitializedSut(
+	public static async Task<AssistantAgent> CreateInitializedSut(
 		IPluginDescription? pluginDescription = null,
 		TimeProvider? timeProvider = null,
 		Mock<IChatClient>? mockChatClient = null)
@@ -52,11 +53,11 @@ internal static class TestUtils
 		ToolsFactory toolFactory = new ToolsFactory(shellTools, settingsTools, methodsTools);
 		mockChatClient ??= new Mock<IChatClient>();
 
-		Settings settings = new Settings(host);
+		Settings settings = new Settings();
 		AiProviderDto provider = new AiProviderDto { ProviderType = AiProviderType.Local };
 
 		AssistantAgent agent = new AssistantAgent(Trace, host, toolFactory, new StubAgentFactory(mockChatClient.Object));
-		agent.Initialize(settings, provider);
+		await agent.Initialize(settings, provider);
 		return agent;
 	}
 

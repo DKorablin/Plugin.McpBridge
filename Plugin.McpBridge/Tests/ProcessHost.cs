@@ -32,7 +32,7 @@ internal sealed class ProcessHost : IDisposable
 	}
 
 	/// <summary>Serializes the current settings into a temp config file and launches the DevUI process.</summary>
-	public Task StartAsync(Settings settings, AiProviderDto provider, CancellationToken cancellationToken = default)
+	public Task StartAsync(Settings settings, CancellationToken cancellationToken = default)
 	{
 		if(this._process != null)
 			this.Stop();
@@ -40,8 +40,8 @@ internal sealed class ProcessHost : IDisposable
 		String exePath = GetExePath();
 		String configPath = Path.Combine(Path.GetTempPath(), this.ConfigName);
 
-		ProcessConfig config = BuildConfig(settings, provider);
-		DataContractJsonSerializer serializer = new DataContractJsonSerializer(typeof(ProcessConfig));
+		SettingsDto config = this.BuildConfig(settings);
+		DataContractJsonSerializer serializer = new DataContractJsonSerializer(typeof(SettingsDto));
 		using(FileStream stream = File.Create(configPath))
 			serializer.WriteObject(stream, config);
 
@@ -100,7 +100,6 @@ internal sealed class ProcessHost : IDisposable
 			if(!this._process.HasExited)
 				this._process.Kill(entireProcessTree: true);
 		}
-		catch(InvalidOperationException) { }
 		finally
 		{
 			this._process.Dispose();
@@ -121,25 +120,26 @@ internal sealed class ProcessHost : IDisposable
 	}
 
 	private String GetExePath()
-		=> GetExePath(this._exeType, true);
+		=> GetExePath(this._exeType, true)!;
 
-	private ProcessConfig BuildConfig(Settings settings, AiProviderDto provider)
+	private SettingsDto BuildConfig(Settings settings)
 	{
 		String serverUrl = this._exeType switch
 		{
 			ExeType.DevUI => settings.DevUIServerUrl,
 			ExeType.AgUI => settings.AgUIServerUrl,
-			_ => throw new ArgumentOutOfRangeException(nameof(this._exeType), $"Unsupported ExeType: {this._exeType}"),
+			_ => throw new InvalidOperationException($"Unsupported executable: {this._exeType}"),
 		};
 
-		return new ProcessConfig
+		return new SettingsDto
 		{
 			UiServerUrl = serverUrl,
 			Instructions = AgentFactory.BuildSystemInstructions(this._host, settings),
 			ToolsPermission = settings.ToolsPermission,
 			PluginsPermission = settings.PluginsPermission,
 			ConnectionTimeout = settings.ConnectionTimeout,
-			Provider = provider,
+			AiProviders = settings.AiProviders.ToArray(),
+			SelectedProviderId = settings.SelectedProviderId,
 			McpServerUrl = settings.McpServerUrl,
 		};
 	}

@@ -34,11 +34,7 @@ public partial class PanelChat : UserControl
 
 		Task.Run(async () =>
 		{
-			String? sessionJson = null;
-			using(Stream stream = this.Plugin.Host.Plugins.Settings(this.Plugin).LoadAssemblyBlob("agentState.json"))
-				if(stream != null)
-					sessionJson = new StreamReader(stream).ReadToEnd();
-
+			String? sessionJson = this.Plugin.Settings.LoadAgentSession();
 			if(sessionJson != null)
 				this.LoadSessionHistory(sessionJson);
 		});
@@ -49,8 +45,8 @@ public partial class PanelChat : UserControl
 		using JsonDocument doc = JsonDocument.Parse(sessionJson);
 		JsonElement root = doc.RootElement;
 		if(!root.TryGetProperty("stateBag", out JsonElement stateBag) ||
-		   !stateBag.TryGetProperty("InMemoryChatHistoryProvider", out JsonElement historyState) ||
-		   !historyState.TryGetProperty("messages", out JsonElement messagesElement))
+			!stateBag.TryGetProperty("InMemoryChatHistoryProvider", out JsonElement historyState) ||
+			!historyState.TryGetProperty("messages", out JsonElement messagesElement))
 		{
 			this.Plugin.Trace.TraceEvent(System.Diagnostics.TraceEventType.Warning, 0, "Failed to load session history: Invalid format.");
 			return;
@@ -60,13 +56,16 @@ public partial class PanelChat : UserControl
 		if(messages == null)
 			return;
 
-		foreach(ChatMessage msg in messages)
+		this.Invoke(() =>
 		{
-			if(msg.Role == ChatRole.User)
-				this.Invoke(() => mdResponse.AppendMessage(msg.Text, MarkdownTextBox.MessageKind.User));
-			else if(msg.Role == ChatRole.Assistant)
-				this.Invoke(() => mdResponse.AppendMarkdown(msg.Text));
-		}
+			foreach(ChatMessage msg in messages)
+			{
+				if(msg.Role == ChatRole.User)
+					mdResponse.AppendMessage(msg.Text, MarkdownTextBox.MessageKind.User);
+				else if(msg.Role == ChatRole.Assistant)
+					mdResponse.AppendMarkdown(msg.Text);
+			}
+		});
 	}
 
 	private void Window_Closed(Object? sender, EventArgs e)
@@ -108,10 +107,7 @@ public partial class PanelChat : UserControl
 			if(this.CurrentProvider == null)
 				throw new InvalidOperationException("No AI provider configured.");
 
-			String? sessionJson = null;
-			using(Stream stream = this.Plugin.Host.Plugins.Settings(this.Plugin).LoadAssemblyBlob("agentState.json"))
-				if(stream != null)
-					sessionJson = await new StreamReader(stream).ReadToEndAsync();
+			String? sessionJson = this.Plugin.Settings.LoadAgentSession();
 			this._agent = await this.Plugin.InitializeAgent(this.CurrentProvider, sessionJson);
 			this._agent.AiResponseReceived += this.Agent_AiResponseReceived;
 			this._agent.ConfirmationRequired += this.Agent_ConfirmationRequired;
@@ -169,10 +165,7 @@ public partial class PanelChat : UserControl
 					{
 						String? json = await agent.GetSessionState();
 						if(json != null)
-						{
-							using MemoryStream ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json));
-							this.Plugin.Host.Plugins.Settings(this.Plugin).SaveAssemblyBlob("agentState.json", ms);
-						}
+							this.Plugin.Settings.SaveAgentSession(json);
 					});
 			}
 		});
@@ -189,7 +182,7 @@ public partial class PanelChat : UserControl
 
 	private void bnNewConversation_Click(Object sender, EventArgs e)
 	{
-		this.Plugin.Host.Plugins.Settings(this.Plugin).SaveAssemblyBlob("agentState.json", null);
+		this.Plugin.Settings.SaveAgentSession(null);
 		this.ResetAgent();
 	}
 

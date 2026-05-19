@@ -32,7 +32,7 @@ namespace Plugin.McpBridge
 			{
 				if(this._settings == null)
 				{
-					this._settings = new Settings(this.Host);
+					this._settings = new Settings(this);
 					this.Host.Plugins.Settings(this).LoadAssemblyParameters(this._settings);
 					this._settings.PropertyChanged += _settings_PropertyChanged;
 				}
@@ -139,7 +139,7 @@ namespace Plugin.McpBridge
 		{
 			ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings);
 
-			if(this.Settings.McpServerEnabled || this.Settings.DevUIEnabled || this.Settings.AgUIEnabled)
+			if(this.Settings.McpServerEnabled)
 			{
 				IEnumerable<AITool> bridgeTools = toolsFactory.CreateTools(this.Trace);
 				this._mcpServer = new McpServer(this.Trace, this.Settings.McpServerUrl, bridgeTools);
@@ -149,12 +149,12 @@ namespace Plugin.McpBridge
 			if(this.Settings.DevUIEnabled)
 			{
 				this._devUIHost = new ProcessHost(this.Host, ProcessHost.ExeType.DevUI);
-				Task.Run(() => this._devUIHost.StartAsync(this.Settings, this.Settings.GetSelectedProvider()));
+				Task.Run(() => this._devUIHost.StartAsync(this.Settings));
 			}
 			if(this.Settings.AgUIEnabled)
 			{
 				this._agUIHost = new ProcessHost(this.Host, ProcessHost.ExeType.AgUI);
-				Task.Run(() => this._agUIHost.StartAsync(this.Settings, this.Settings.GetSelectedProvider()));
+				Task.Run(() => this._agUIHost.StartAsync(this.Settings));
 			}
 		}
 

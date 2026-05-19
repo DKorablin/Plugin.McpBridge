@@ -43,11 +43,9 @@ internal sealed class AssistantAgent : IDisposable
 		this._session = null;
 		this._handle?.Dispose();
 
-		HttpClient httpClient = new HttpClient { Timeout = settings.ConnectionTimeout };
-
 		var tools = this._toolsFactory.CreateTools(this._trace).ToArray();
 		var instructions = AgentFactory.BuildSystemInstructions(this._host, settings);
-		this._handle = await this._agentFactory.CreateAgent(provider, httpClient, tools, instructions);
+		this._handle = await this._agentFactory.CreateAgent(provider, settings.ConnectionTimeout, tools, instructions);
 
 		if(sessionJson != null)
 			this._session = await this._handle.Agent.DeserializeSessionAsync(

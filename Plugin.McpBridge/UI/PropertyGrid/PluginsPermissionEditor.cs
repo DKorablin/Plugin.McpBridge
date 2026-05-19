@@ -12,7 +12,7 @@ internal sealed class PluginsPermissionEditor : UITypeEditor
 	{
 		if(context?.Instance is Settings settings)
 		{
-			IEnumerable<(String Id, String Name)> plugins = GetPlugins(settings.Host.Plugins);
+			IEnumerable<(String Id, String Name)> plugins = GetPlugins(settings.Plugin.Host.Plugins);
 			PluginPermissionControl control = new PluginPermissionControl(plugins);
 			control.SetValue(value as String[] ?? Array.Empty<String>());
 			((IWindowsFormsEditorService)provider.GetService(typeof(IWindowsFormsEditorService))!).DropDownControl(control);
@@ -89,7 +89,7 @@ internal sealed class PluginsPermissionConverter : ArrayConverter
 			return baseProps;
 
 		Dictionary<String, String> idToName = new Dictionary<String, String>(StringComparer.Ordinal);
-		foreach(IPluginDescription plugin in settings.Host.Plugins)
+		foreach(IPluginDescription plugin in settings.Plugin.Host.Plugins)
 			if(!String.IsNullOrWhiteSpace(plugin.Name))
 				idToName[plugin.ID] = plugin.Name;
 

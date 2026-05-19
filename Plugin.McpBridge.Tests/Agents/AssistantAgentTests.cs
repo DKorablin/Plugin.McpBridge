@@ -65,7 +65,7 @@ namespace Plugin.McpBridge.Tests.Agents
 			(IHost host, PluginSettingsTools settings, PluginMethodsTools methods, ShellTools shell) = TestUtils.CreateDependencies();
 			ToolsFactory factory = new ToolsFactory(shell, settings, methods);
 			AssistantAgent sut = new AssistantAgent(TestUtils.Trace, host, factory, new StubAgentFactory(mockClient.Object));
-			Settings agentSettings = new Settings(host);
+			Settings agentSettings = new Settings();
 			AiProviderDto provider = new AiProviderDto { ProviderType = AiProviderType.Local };
 
 			sut.Initialize(agentSettings, provider);
@@ -127,7 +127,7 @@ namespace Plugin.McpBridge.Tests.Agents
 			mockClient.Setup(x => x.GetResponseAsync(It.IsAny<IEnumerable<ChatMessage>>(), It.IsAny<ChatOptions?>(), It.IsAny<CancellationToken>()))
 				.ThrowsAsync(new HttpRequestException("network failure"));
 
-			AssistantAgent sut = TestUtils.CreateInitializedSut(mockChatClient: mockClient);
+			AssistantAgent sut = await TestUtils.CreateInitializedSut(mockChatClient: mockClient);
 			AgentResponseEventArgs? received = null;
 			sut.AiResponseReceived += (s, e) => received = e;
 
@@ -145,7 +145,7 @@ namespace Plugin.McpBridge.Tests.Agents
 			mockClient.Setup(x => x.GetResponseAsync(It.IsAny<IEnumerable<ChatMessage>>(), It.IsAny<ChatOptions?>(), It.IsAny<CancellationToken>()))
 				.ThrowsAsync(new OperationCanceledException());
 
-			AssistantAgent sut = TestUtils.CreateInitializedSut(mockChatClient: mockClient);
+			AssistantAgent sut = await TestUtils.CreateInitializedSut(mockChatClient: mockClient);
 			AgentResponseEventArgs? received = null;
 			sut.AiResponseReceived += (s, e) => received = e;
 
@@ -163,7 +163,7 @@ namespace Plugin.McpBridge.Tests.Agents
 			mockClient.Setup(x => x.GetResponseAsync(It.IsAny<IEnumerable<ChatMessage>>(), It.IsAny<ChatOptions?>(), It.IsAny<CancellationToken>()))
 				.ReturnsAsync(new ChatResponse(new ChatMessage(ChatRole.Assistant, "Hello, world!")));
 
-			AssistantAgent sut = TestUtils.CreateInitializedSut(mockChatClient: mockClient);
+			AssistantAgent sut = await TestUtils.CreateInitializedSut(mockChatClient: mockClient);
 			AgentResponseEventArgs? received = null;
 			sut.AiResponseReceived += (s, e) => received = e;
 
@@ -182,7 +182,7 @@ namespace Plugin.McpBridge.Tests.Agents
 				.ReturnsAsync(new ChatResponse(new ChatMessage(ChatRole.Assistant, [new FunctionCallContent("call-1", nameof(PluginSettingsTools.SettingsSet), new Dictionary<String, Object?> { ["pluginId"] = TestUtils.PluginId, ["settingName"] = "Value", ["valueJson"] = "\"x\"" })])) { FinishReason = ChatFinishReason.ToolCalls })
 				.ReturnsAsync(new ChatResponse(new ChatMessage(ChatRole.Assistant, "done")));
 
-			AssistantAgent sut = TestUtils.CreateInitializedSut(TestUtils.CreateSettingsPlugin(new SimpleSettings()), mockChatClient: mockClient);
+			AssistantAgent sut = await TestUtils.CreateInitializedSut(TestUtils.CreateSettingsPlugin(new SimpleSettings()), mockChatClient: mockClient);
 			Boolean confirmationFired = false;
 			sut.ConfirmationRequired += (s, e) => { confirmationFired = true; e.Confirm(false); };
 

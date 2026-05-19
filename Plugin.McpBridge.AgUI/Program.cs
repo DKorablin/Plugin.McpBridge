@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Runtime.Serialization.Json;
+using System.Text.Json;
+using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
 using Microsoft.Extensions.AI;
@@ -16,7 +18,7 @@ internal static class Program
 
 	private static async Task<Int32> Main(String[] args)
 	{
-		ProcessConfig? config = await TryLoadConfigAsync(args);
+		SettingsDto? config = await TryLoadConfigAsync(args);
 		if(config is null)
 			return 1;
 
@@ -33,8 +35,8 @@ internal static class Program
 				: args[1..];
 
 			await using AgentHandle handle = await new AgentFactory().CreateAgent(
-				config.Provider,
-				new HttpClient { Timeout = config.ConnectionTimeout },
+				config.GetSelectedProvider(),
+				config.ConnectionTimeout,
 				bridgeTools,
 				config.Instructions ?? String.Empty);
 			WebApplication app = BuildWebApp(remainingArgs, config, handle);
@@ -44,7 +46,7 @@ internal static class Program
 		return 0;
 	}
 
-	private static async Task<ProcessConfig?> TryLoadConfigAsync(String[] args)
+	private static async Task<SettingsDto?> TryLoadConfigAsync(String[] args)
 	{
 		if(args.Length == 0)
 		{
@@ -59,15 +61,15 @@ internal static class Program
 			return null;
 		}
 
-		ProcessConfig config;
-		DataContractJsonSerializer serializer = new DataContractJsonSerializer(typeof(ProcessConfig));
+		SettingsDto config;
+		DataContractJsonSerializer serializer = new DataContractJsonSerializer(typeof(SettingsDto));
 		using(FileStream stream = File.OpenRead(configPath))
-			config = (ProcessConfig)serializer.ReadObject(stream)!;
+			config = (SettingsDto)serializer.ReadObject(stream)!;
 		File.Delete(configPath);
 		return config;
 	}
 
-	private static async Task<AIFunction[]> FetchBridgeToolsAsync(ProcessConfig config)
+	private static async Task<AIFunction[]> FetchBridgeToolsAsync(SettingsDto config)
 	{
 		if(String.IsNullOrEmpty(config.McpServerUrl))
 			return Array.Empty<AIFunction>();
@@ -82,7 +84,7 @@ internal static class Program
 		return tools;
 	}
 
-	private static WebApplication BuildWebApp(String[] args, ProcessConfig config, AgentHandle handle)
+	private static WebApplication BuildWebApp(String[] args, SettingsDto config, AgentHandle handle)
 	{
 		WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 		((IWebHostBuilder)builder.WebHost).UseUrls(config.UiServerUrl);
@@ -91,8 +93,9 @@ internal static class Program
 		builder.Logging.AddConsole();
 		builder.Logging.SetMinimumLevel(LogLevel.Debug); // Shows model binding/deserialization errors
 
+		JsonSerializerOptions jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 		IHostedAgentBuilder agentBuilder = builder
-			.AddAIAgent(handle.Agent.Name, (sp, name) => handle.Agent)
+			.AddAIAgent(handle.Agent.Name, (sp, name) => handle.Agent.AsBuilder().UseApproval(jsonOptions).Build(sp))
 			.WithSessionStore(new FileSystemAgentSessionStore());// Persist sessions to disk so they survive server restarts
 
 		builder.Services.AddAGUI();

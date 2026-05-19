@@ -14,8 +14,10 @@ namespace Plugin.McpBridge.Agents;
 /// <summary>Shared factory methods for building AI agent components, usable by both the WinForms chat path and DevUI.</summary>
 internal class AgentFactory
 {
-	public virtual async Task<AgentHandle> CreateAgent(AiProviderDto providerSettings, HttpClient httpClient, AIFunction[] tools, String systemInstructions, CancellationToken token = default)
+	public virtual async Task<AgentHandle> CreateAgent(AiProviderDto providerSettings, TimeSpan connectionTimeout, AIFunction[] tools, String systemInstructions, CancellationToken token = default)
 	{
+		_ = providerSettings ?? throw new ArgumentNullException(nameof(providerSettings));
+
 		switch(providerSettings.ProviderType)
 		{
 		case AiProviderType.CoPilot:
@@ -42,6 +44,7 @@ internal class AgentFactory
 
 			return AgentHandle.FromCopilotClient(copilotClient.AsAIAgent(sessionConfig), copilotClient);
 		default:
+			var httpClient = new HttpClient { Timeout = connectionTimeout };
 			IChatClient chatClient = AgentFactory.CreateChatClient(providerSettings, httpClient);
 			return AgentHandle.FromChatClient(
 				chatClient.AsAIAgent(
@@ -63,7 +66,7 @@ internal class AgentFactory
 		case AiProviderType.Stub:
 			chatClient = new Tests.StubChatClient();
 			break;
-		case AiProviderType.AzureOpenAI:
+		case AiProviderType.Azure:
 			var azureSettings = (AzureProviderDto)providerSettings;
 			chatClient = new AzureOpenAIClient(
 				new Uri(providerSettings.ModelEndpointUrl!),

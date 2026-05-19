@@ -145,7 +145,7 @@ public record AiProviderDto : INotifyPropertyChanged
 		Type targetType = source.ProviderType switch
 		{
 			AiProviderType.CoPilot => typeof(CoPilotProviderDto),
-			AiProviderType.AzureOpenAI => typeof(AzureProviderDto),
+			AiProviderType.Azure => typeof(AzureProviderDto),
 			AiProviderType.Gemini => typeof(NetworkProviderDto),
 			AiProviderType.Grok => typeof(NetworkProviderDto),
 			AiProviderType.OpenAI => typeof(NetworkProviderDto),

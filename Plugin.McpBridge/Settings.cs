@@ -10,10 +10,16 @@ using SAL.Flatbed;
 
 namespace Plugin.McpBridge
 {
+	/// <summary>Specifies the available AI provider types that can be used for generating responses.</summary>
+	/// <remarks>
+	/// Use this enumeration to select the AI service or backend for processing requests.
+	/// The available options include cloud-based providers, local engines, and a stub for testing purposes.
+	/// The choice of provider may affect capabilities, required credentials, and network connectivity.
+	/// </remarks>
 	public enum AiProviderType
 	{
 		OpenAI,
-		AzureOpenAI,
+		Azure,
 		CoPilot,
 		Local,
 		Grok,
@@ -35,6 +41,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 			public const String McpServerUrl = "http://localhost:5050";
 			public const String DevUIServerUrl = "http://localhost:5051";
 			public const String AgUIServerUrl = "http://localhost:5052";
+			public const String AgentStateFileName = "agentState.json";
 		}
 
 		private static DataContractJsonSerializer Serializer = new DataContractJsonSerializer(typeof(AiProviderDto[]));
@@ -228,7 +235,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		[Description("When enabled, starts an MCP server that tools can connect to for execution. Requires at least one tool with 'MCP Bridge' selected as its execution mode.")]
 		public Boolean McpServerEnabled
 		{
-			get => this._mcpServerEnabled;
+			get => this._mcpServerEnabled || this._devUIEnabled || this._agUIEnabled;
 			set => this.SetField(ref this._mcpServerEnabled, value, nameof(this.McpServerEnabled));
 		}
 
@@ -275,15 +282,32 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 			}
 		}
 
-		internal IHost Host { get; }
+		internal Plugin Plugin { get; }
 
 		public Settings() : this(null!) { }
 
-		internal Settings(IHost host)
-			=> this.Host = host ?? throw new ArgumentNullException(nameof(host));
+		internal Settings(Plugin plugin)
+			=> this.Plugin = plugin ?? throw new ArgumentNullException(nameof(plugin));
 
 		internal AiProviderDto? GetSelectedProvider()
 			=> this.AiProviders.FirstOrDefault(x => x.Id == this.SelectedProviderId) ?? this.AiProviders.FirstOrDefault();
+
+		internal void SaveAgentSession(String? sessionJson)
+		{
+			if(String.IsNullOrWhiteSpace(sessionJson))
+				this.Plugin.Host.Plugins.Settings(this.Plugin).RemoveAssemblyBlob(Defaults.AgentStateFileName);
+			else
+				using(MemoryStream ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(sessionJson)))
+					this.Plugin.Host.Plugins.Settings(this.Plugin).SaveAssemblyBlob(Defaults.AgentStateFileName, ms);
+		}
+
+		internal String? LoadAgentSession()
+		{
+			using(Stream stream = this.Plugin.Host.Plugins.Settings(this.Plugin).LoadAssemblyBlob(Defaults.AgentStateFileName))
+				return stream == null
+					? null
+					: new StreamReader(stream).ReadToEnd();
+		}
 
 		private Boolean _listChangedPending = false;
 
