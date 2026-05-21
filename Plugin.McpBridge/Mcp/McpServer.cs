@@ -181,8 +181,8 @@ internal sealed class McpServer : IDisposable
 		JsonArray toolsArray = new JsonArray();
 		foreach(AIFunction tool in this._tools.Values)
 		{
-			//(2025-03-26 MCP) destructiveHint - Tool may perform destructive updates (default: true)
-			Boolean destructiveHint = tool.AdditionalProperties.TryGetValue("destructiveHint", out Object? v) && v is true;
+			//(2025-03-26 MCP) requiresApproval - Tool may perform destructive updates (default: true)
+			Boolean requiresApproval = tool.AdditionalProperties.TryGetValue("requiresApproval", out Object? v) && v is true;
 			toolsArray.Add(new JsonObject
 			{
 				["name"] = tool.Name,
@@ -190,7 +190,7 @@ internal sealed class McpServer : IDisposable
 				["inputSchema"] = JsonNode.Parse(tool.JsonSchema.GetRawText()),
 				["annotations"] = new JsonObject
 				{
-					["destructiveHint"] = destructiveHint,
+					["requiresApproval"] = requiresApproval,
 				},
 			});
 		}

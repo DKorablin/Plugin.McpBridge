@@ -34,11 +34,20 @@ internal static class Program
 				? args[1..parentPidIndex].Concat(args[(parentPidIndex + 2)..]).ToArray()
 				: args[1..];
 
+			const String ApprovalInstruction =
+				"Before calling any tool that modifies data, deletes files, executes shell commands, or performs any other " +
+				"irreversible action, you MUST first call the `request_approval` tool with the name and intended arguments " +
+				"of the tool you want to invoke. Only call the original tool after the user approves.";
+			String userInstructions = config.Instructions ?? String.Empty;
+			String fullInstructions = String.IsNullOrEmpty(userInstructions)
+				? ApprovalInstruction
+				: userInstructions + "\n\n" + ApprovalInstruction;
+
 			await using AgentHandle handle = await new AgentFactory().CreateAgent(
 				config.GetSelectedProvider(),
 				config.ConnectionTimeout,
 				bridgeTools,
-				config.Instructions ?? String.Empty);
+				fullInstructions);
 			WebApplication app = BuildWebApp(remainingArgs, config, handle);
 			Console.WriteLine($"AG-UI running at {config.UiServerUrl}/agui");
 			await app.RunAsync(lifetimeCts.Token);
@@ -96,7 +105,7 @@ internal static class Program
 		var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 		var sessionStore = new FileSystemAgentSessionStore(jsonOptions);
 		var agentBuilder = builder
-			.AddAIAgent(handle.Agent.Name, (sp, name) => handle.Agent.AsBuilder().UseApproval(jsonOptions).Build(sp))
+			.AddAIAgent(handle.Agent.Name, (sp, name) => handle.Agent.AsBuilder().Build(sp))
 			.WithSessionStore(sessionStore);// Persist sessions to disk so they survive server restarts
 
 		builder.Services.AddAGUI();

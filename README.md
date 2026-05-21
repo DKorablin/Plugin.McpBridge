@@ -192,7 +192,7 @@ The assistant interacts with SAL plugins and the host through AI tools registere
 | `ToolsFactory` | Creates the `AIFunction[]` array from discovered tool classes; applies `ToolsPermission` and `PluginsPermission` filters. |
 | `ToolsDiscoveryBase` | Abstract base; reflects `[Tool]`-decorated methods and converts them to typed `AIFunction` delegates. |
 | `ToolAttribute` | Marks a method as an AI tool; carries the `ConfirmationRequired` flag. |
-| `ToolFacade` | Wraps an `AIFunction` with structured error handling, tracing, timing, and `destructiveHint` metadata. |
+| `ToolFacade` | Wraps an `AIFunction` with structured error handling, tracing, timing, and adding `requiresApproval` metadata. |
 | `PluginMethodAIFunction` | Wraps an `IPluginMethodInfo` as an `AIFunction`; generates a JSON schema from method parameter types and deserialises call arguments at runtime. |
 | `PluginMethodsToolsExtractor` | Discovers callable plugin methods honouring `PluginsPermission`; enriches descriptions with XML doc comments via `XmlReflectionReader`. |
 | `PluginSettingsTools` | `SettingsList`, `SettingsGet`, `SettingsSet` — reflection-based access to SAL plugin settings. |

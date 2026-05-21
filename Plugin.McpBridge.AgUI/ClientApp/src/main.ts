@@ -1,14 +1,29 @@
 import "./index.scss";
 import { HttpAgent } from "@ag-ui/client";
-import type { AssistantMessage, Message, RunAgentInput, ToolMessage } from "@ag-ui/core";
+import type { Message, RunAgentInput, Tool, ToolMessage } from "@ag-ui/core";
 import { EventType } from "@ag-ui/core";
 
 const messagesEl = document.getElementById("messages")!;
-const inputEl = document.getElementById("input") as HTMLInputElement;
+const inputEl = document.getElementById("input") as HTMLTextAreaElement;
 const sendBtn = document.getElementById("send") as HTMLButtonElement;
 const attachBtn = document.getElementById("attach-btn") as HTMLButtonElement;
 const fileInput = document.getElementById("file-input") as HTMLInputElement;
 const previewContainer = document.getElementById("attachment-preview-container")!;
+
+// Client tool: the LLM calls this before any destructive operation; the client shows a confirmation card.
+const requestApprovalTool: Tool = {
+	name: "request_approval",
+	description: "Ask the user for approval before calling any tool that modifies, deletes, executes, or performs any irreversible action.",
+	parameters: {
+		type: "object",
+		properties: {
+			approval_id:        { type: "string", description: "Unique ID for this approval; use the intended call ID." },
+			function_name:      { type: "string", description: "Name of the tool that requires approval." },
+			function_arguments: { type: "object", description: "Arguments you intend to pass to the tool." }
+		},
+		required: ["approval_id", "function_name"]
+	}
+};
 
 // Thread ID is stable across runs within a conversation and persisted in localStorage.
 let currentThreadId = localStorage.getItem("ag-ui-thread-id") ?? crypto.randomUUID();
@@ -57,7 +72,12 @@ function fileToDataUrl(file: File): Promise<string> {
 function appendMessage(role: "user" | "assistant", text: string): HTMLElement {
 	const el = document.createElement("div");
 	el.className = `msg ${role}`;
-	el.textContent = text;
+
+	if (role === "assistant" && text === "…")
+		el.innerHTML = `<div class="loading-wave"><span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></div>`;
+	else
+		el.textContent = text;
+
 	messagesEl.appendChild(el);
 	messagesEl.scrollTop = messagesEl.scrollHeight;
 	return el;
@@ -142,14 +162,11 @@ function showApprovalCard(approval: PendingApproval): void {
 
 async function runAgent(input: RunAgentInput, assistantEl: HTMLElement): Promise<void> {
 	const agent = new HttpAgent({ url: "/agui" });
-	let assistantText = assistantEl.textContent === "…" ? "" : (assistantEl.textContent ?? "");
+	let assistantText = assistantEl.querySelector(".loading-wave") ? "" : (assistantEl.textContent ?? "");
 
 	// Accumulate streamed tool call args per callId
 	const toolCallArgs = new Map<string, string>();
 	const toolCallNames = new Map<string, string>();
-
-	// Collect "request_approval" tool calls emitted during this run (for history)
-	const emittedApprovalCalls: { id: string; name: string; args: string }[] = [];
 
 	await new Promise<void>((resolveRun, rejectRun) => {
 		agent.run(input).subscribe({
@@ -160,7 +177,13 @@ async function runAgent(input: RunAgentInput, assistantEl: HTMLElement): Promise
 						assistantEl.textContent = assistantText;
 						messagesEl.scrollTop = messagesEl.scrollHeight;
 						break;
-
+					case EventType.RUN_ERROR: {
+						const e = event as { message: string; code: string };
+						assistantEl.textContent = `Code: ${e.code}\n Error: ${e.message}`;
+						assistantEl.classList.add("error");
+						messagesEl.scrollTop = messagesEl.scrollHeight;
+						break;
+					}
 					case EventType.TOOL_CALL_START: {
 						const e = event as { toolCallId: string; toolCallName: string };
 						toolCallNames.set(e.toolCallId, e.toolCallName);
@@ -182,38 +205,19 @@ async function runAgent(input: RunAgentInput, assistantEl: HTMLElement): Promise
 
 						if (name !== "request_approval") break;
 
-						emittedApprovalCalls.push({ id: callId, name, args: argsRaw });
+						const parsedArgs = JSON.parse(argsRaw) as { approval_id?: string; function_name?: string };
+						const approvalId = parsedArgs.approval_id ?? callId;
+						const functionName = parsedArgs.function_name ?? "unknown";
 
-						let approvalId = callId;
-						let functionName = "unknown";
-						try {
-							const outer = JSON.parse(argsRaw) as { request?: string };
-							if (outer.request) {
-								const inner = JSON.parse(outer.request) as {
-									approval_id?: string;
-									function_name?: string;
-								};
-								approvalId = inner.approval_id ?? callId;
-								functionName = inner.function_name ?? "unknown";
-							}
-						} catch { /* keep defaults */ }
-
-						// Show card; when user clicks, continue the agent run
+						// Show card; when user clicks, supply only the tool result.
+						// The assistant message with the tool call is already persisted in
+						// the server-side session; re-sending it would create a duplicate
+						// tool call without a paired result and cause an OpenAI 400 error.
 						const approval: PendingApproval = {
 							toolCallId: callId,
 							approvalId,
 							functionName,
 							resolve: async (approved: boolean) => {
-								// Build tool result message
-								const assistantMsg: AssistantMessage = {
-									id: crypto.randomUUID(),
-									role: "assistant",
-									toolCalls: emittedApprovalCalls.map(c => ({
-										id: c.id,
-										type: "function" as const,
-										function: { name: c.name, arguments: c.args },
-									})),
-								};
 								const toolResult: ToolMessage = {
 									id: crypto.randomUUID(),
 									role: "tool",
@@ -223,7 +227,7 @@ async function runAgent(input: RunAgentInput, assistantEl: HTMLElement): Promise
 								const nextInput: RunAgentInput = {
 									...input,
 									runId: crypto.randomUUID(),
-									messages: [...input.messages, assistantMsg, toolResult],
+								messages: [toolResult],
 								};
 								await runAgent(nextInput, assistantEl);
 							},
@@ -251,6 +255,7 @@ async function send(): Promise<void> {
 	if (!text && selectedFiles.length === 0) return;
 
 	inputEl.value = "";
+	adjustInputHeight();
 	sendBtn.disabled = true;
 	attachBtn.disabled = true;
 
@@ -302,7 +307,7 @@ const userMessage: Message = {
 		threadId: currentThreadId,
 		runId: crypto.randomUUID(),
 		messages: [userMessage],
-		tools: [],
+		tools: [requestApprovalTool],
 		context: [],
 	};
 
@@ -318,7 +323,28 @@ const userMessage: Message = {
 	}
 }
 
+function adjustInputHeight(): void {
+	inputEl.style.height = "auto"; // Reset height to recalculate
+
+	const currentScrollHeight = inputEl.scrollHeight;
+	inputEl.style.height = `${currentScrollHeight}px`;
+	inputEl.style.overflowY = inputEl.clientHeight < currentScrollHeight
+		? "auto"
+		: "hidden";
+}
+
 sendBtn.addEventListener("click", send);
-inputEl.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) void send(); });
+inputEl.addEventListener("keydown", (e: KeyboardEvent) => {
+	if (e.key === "Enter") {
+		if (e.shiftKey)
+			setTimeout(adjustInputHeight, 0);
+		else {
+			e.preventDefault();
+			void send();
+		}
+	}
+});
+
+inputEl.addEventListener("input", adjustInputHeight);
 void loadHistory();
 inputEl.focus();

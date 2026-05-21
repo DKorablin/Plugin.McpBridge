@@ -73,7 +73,7 @@ body {
 	gap: 0.5rem;
 	padding: 1rem;
 	border-top: 1px solid var(--border);
-	align-items: center;
+	align-items: flex-end;
 }
 
 #input {
@@ -84,6 +84,14 @@ body {
 	background: var(--bg-input);
 	color: var(--text);
 	font-size: 1rem;
+
+	resize: none;
+	font-family: inherit;
+	line-height: 1.5;
+
+	min-height: 2.7rem;
+	max-height: calc(1.5rem * 8 + 1.2rem);
+	overflow-y: hidden;
 }
 
 #send {
@@ -217,4 +225,31 @@ body {
 		color: var(--deny-text);
 		font-weight: bold;
 	}
+}
+
+.loading-wave {
+	display: inline-flex;
+	gap: 2px;
+	align-items: center;
+
+	.dot {
+		display: inline-block;
+		font-weight: bold;
+		font-size: 20px;
+		line-height: 1;
+		animation: wave 1.3s infinite ease-in-out;
+
+		&:nth-child(1) { animation-delay: 0.0s; }
+
+		&:nth-child(2) { animation-delay: 0.2s; }
+
+		&:nth-child(3) { animation-delay: 0.4s; }
+	}
+}
+
+@keyframes wave {
+	0%, 100% { transform: translateY(0); }
+
+	/* Bounces up slightly */
+	50% { transform: translateY(-5px); }
 }

@@ -86,13 +86,12 @@ public sealed class McpClient : AIFunction
 						props[kv.Key] = kv.Value?.GetValue<Object>();
 
 				AIFunction aIFunction = new McpClient(name, description, schema, session, props);
-
-				//(2025-03-26 MCP) destructiveHint - Tool may perform destructive updates (default: true)
-				if(aIFunction.AdditionalProperties.TryGetValue("destructiveHint", out Object? v)
+				// This code is commented out because in AG-UI implementation I switched to client approval tools instead of marking individual tools as requiring approval, and the former approach is more flexible and easier to implement on the client side. If in the future we want to mark individual tools as requiring approval, we can re-enable this code and implement the ApprovalRequiredAIFunction wrapper.
+				/*//(2025-03-26 MCP) requiresApproval - Tool may perform destructive updates (default: true)
+				if(aIFunction.AdditionalProperties.TryGetValue("requiresApproval", out Object? v)
 					&& v is JsonElement e
 					&& e.GetBoolean())
-					aIFunction = new ApprovalRequiredAIFunction(aIFunction);
-
+					aIFunction = new ApprovalRequiredAIFunction(aIFunction);*/
 				tools.Add(aIFunction);
 			}
 

@@ -17,7 +17,7 @@ internal sealed class ToolFacade : DelegatingAIFunction
 	{
 		this._additionalProperties = new Dictionary<String, Object?>(function.AdditionalProperties);
 		if(confirmationRequired)
-			this._additionalProperties["destructiveHint"] = true;//(MCP) destructiveHint - Tool may perform destructive updates (default: true)
+			this._additionalProperties["requiresApproval"] = true;//(MCP) requiresApproval - Tool may perform destructive updates (default: true)
 
 		this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
 	}
