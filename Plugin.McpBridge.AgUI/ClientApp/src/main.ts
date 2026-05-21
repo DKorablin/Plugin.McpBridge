@@ -6,11 +6,51 @@ import { EventType } from "@ag-ui/core";
 const messagesEl = document.getElementById("messages")!;
 const inputEl = document.getElementById("input") as HTMLInputElement;
 const sendBtn = document.getElementById("send") as HTMLButtonElement;
+const attachBtn = document.getElementById("attach-btn") as HTMLButtonElement;
+const fileInput = document.getElementById("file-input") as HTMLInputElement;
+const previewContainer = document.getElementById("attachment-preview-container")!;
 
 // Thread ID is stable across runs within a conversation and persisted in localStorage.
 let currentThreadId = localStorage.getItem("ag-ui-thread-id") ?? crypto.randomUUID();
 localStorage.setItem("ag-ui-thread-id", currentThreadId);
 const history: Message[] = [];
+
+let selectedFiles: File[] = [];// Track files staged for sending
+// Handle file staging mechanics
+attachBtn.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", () => {
+	if (!fileInput.files) return;
+	for (const file of Array.from(fileInput.files)) {
+		selectedFiles.push(file);
+	}
+	renderPreviews();
+	fileInput.value = ""; // Clear input to allow re-uploading the same file
+});
+
+function renderPreviews(): void {
+	previewContainer.innerHTML = "";
+	selectedFiles.forEach((file, index) => {
+		const badge = document.createElement("div");
+		badge.className = "file-preview-badge";
+		badge.innerHTML = `<span>&#128196; ${file.name}</span><span class="remove-file" data-index="${index}">&times;</span>`;
+		badge.querySelector(".remove-file")!.addEventListener("click", (e) => {
+			const idx = parseInt((e.target as HTMLElement).dataset.index!);
+			selectedFiles.splice(idx, 1);
+			renderPreviews();
+		});
+		previewContainer.appendChild(badge);
+	});
+}
+
+// Utility helper to encode local browser files to base64 Data URLs
+function fileToDataUrl(file: File): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(reader.result as string);
+		reader.onerror = (err) => reject(err);
+		reader.readAsDataURL(file);
+	});
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -208,14 +248,53 @@ async function runAgent(input: RunAgentInput, assistantEl: HTMLElement): Promise
 
 async function send(): Promise<void> {
 	const text = inputEl.value.trim();
-	if (!text) return;
+	if (!text && selectedFiles.length === 0) return;
 
 	inputEl.value = "";
 	sendBtn.disabled = true;
+	attachBtn.disabled = true;
 
-	const userMessage: Message = { id: crypto.randomUUID(), role: "user", content: text };
+	const contentArray: any[] = [];
+
+	if (text)
+		contentArray.push({ $type: "text", text: text });
+
+	const displayNames: string[] = [];
+
+	// Warning: Sending files using AG-UI is not working in all contexts. The server is rejecting all attempts to send files.
+	for (const file of selectedFiles) {
+		displayNames.push(file.name);
+		const dataUrl = await fileToDataUrl(file);
+		const mimeType = file.type || "application/octet-stream";
+
+		if (mimeType.startsWith("image/")) {
+			contentArray.push({
+				$type: "image",
+				image: { url: dataUrl }
+			});
+		} else {
+			contentArray.push({
+				$type: "file",
+				file: { url: dataUrl, contentType: mimeType }
+			});
+		}
+	}
+
+	const visualText = text + (displayNames.length > 0 ? `\n\n[Attached: ${displayNames.join(", ")}]` : "");
+	const uiRenderText = selectedFiles.length > 0 ? `${text} [File Attached]` : text;
+
+	selectedFiles = [];
+	previewContainer.innerHTML = "";
+
+const userMessage: Message = {
+		id: crypto.randomUUID(),
+		role: "user",
+		content: visualText,
+		contents: contentArray as any
+	};
+
 	history.push(userMessage);
-	appendMessage("user", text);
+	appendMessage("user", uiRenderText);
 
 	const assistantEl = appendMessage("assistant", "…");
 
@@ -234,6 +313,7 @@ async function send(): Promise<void> {
 			history.push({ id: crypto.randomUUID(), role: "assistant", content: assistantEl.textContent });
 	} finally {
 		sendBtn.disabled = false;
+		attachBtn.disabled = false;
 		inputEl.focus();
 	}
 }

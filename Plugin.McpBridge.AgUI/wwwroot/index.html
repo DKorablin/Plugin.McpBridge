@@ -9,9 +9,13 @@
 <body>
 	<div id="messages"></div>
 	<div id="input-row">
+		<button id="attach-btn" type="button" title="Attach File">&#128206;</button>
+		<input id="file-input" type="file" multiple style="display: none;" />
+
 		<input id="input" type="text" placeholder="Type a message…" autocomplete="off" />
 		<button id="send">Send</button>
 	</div>
+	<div id="attachment-preview-container" style="display: flex; gap: 0.5rem; padding: 0 1rem 0.5rem 1rem;"></div>
 	<script type="module" src="/agui-client.js"></script>
 </body>
 </html>
