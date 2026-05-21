@@ -8807,13 +8807,39 @@ var Is = class extends Ss {
 		let t = new AbortController(), n = this.abortController.signal;
 		return n.aborted && t.abort(n.reason), e.abortController = t, e;
 	}
-}, Bs = document.getElementById("messages"), Vs = document.getElementById("input"), Hs = document.getElementById("send"), Us = crypto.randomUUID(), Ws = [];
+}, Bs = document.getElementById("messages"), Vs = document.getElementById("input"), Hs = document.getElementById("send"), Us = localStorage.getItem("ag-ui-thread-id") ?? crypto.randomUUID();
+localStorage.setItem("ag-ui-thread-id", Us);
+var Ws = [];
 function Gs(e, t) {
 	let n = document.createElement("div");
 	return n.className = `msg ${e}`, n.textContent = t, Bs.appendChild(n), Bs.scrollTop = Bs.scrollHeight, n;
 }
-var Ks = /* @__PURE__ */ new Map();
-function qs(e) {
+function Ks() {
+	for (let e of Ws) e.role === "user" && typeof e.content == "string" ? Gs("user", e.content) : e.role === "assistant" && typeof e.content == "string" && e.content.length > 0 && Gs("assistant", e.content);
+}
+async function qs() {
+	let e = await fetch(`/history/${encodeURIComponent(Us)}`);
+	if (!e.ok) return;
+	let t = await e.json(), n = /* @__PURE__ */ new Set();
+	for (let e of t) {
+		let t = e.messageId ?? crypto.randomUUID();
+		if (n.has(t)) continue;
+		n.add(t);
+		let r = e.contents.find((e) => e.$type === "text")?.text;
+		r && (e.role === "user" ? Ws.push({
+			id: t,
+			role: "user",
+			content: r
+		}) : e.role === "assistant" && Ws.push({
+			id: t,
+			role: "assistant",
+			content: r
+		}));
+	}
+	Ws.length > 0 && Ks();
+}
+var Js = /* @__PURE__ */ new Map();
+function Ys(e) {
 	let t = document.createElement("div");
 	t.className = "msg approval-request", t.dataset.toolCallId = e.toolCallId, t.innerHTML = `
 		<div class="approval-header"><span>&#9888;</span> Approval Required</div>
@@ -8822,12 +8848,12 @@ function qs(e) {
 			<button class="approve-btn">Approve</button>
 			<button class="deny-btn">Deny</button>
 		</div>`, t.querySelector(".approve-btn").addEventListener("click", () => {
-		t.remove(), Ks.delete(e.toolCallId), e.resolve(!0);
+		t.remove(), Js.delete(e.toolCallId), e.resolve(!0);
 	}), t.querySelector(".deny-btn").addEventListener("click", () => {
-		t.remove(), Ks.delete(e.toolCallId), e.resolve(!1);
+		t.remove(), Js.delete(e.toolCallId), e.resolve(!1);
 	}), Bs.appendChild(t), Bs.scrollTop = Bs.scrollHeight;
 }
-async function Js(e, t) {
+async function Xs(e, t) {
 	let n = new zs({ url: "/agui" }), r = t.textContent === "…" ? "" : t.textContent ?? "", i = /* @__PURE__ */ new Map(), a = /* @__PURE__ */ new Map(), o = [];
 	await new Promise((s, c) => {
 		n.run(e).subscribe({
@@ -8887,7 +8913,7 @@ async function Js(e, t) {
 										approved: n
 									})
 								};
-								await Js({
+								await Xs({
 									...e,
 									runId: crypto.randomUUID(),
 									messages: [
@@ -8898,7 +8924,7 @@ async function Js(e, t) {
 								}, t);
 							}
 						};
-						Ks.set(r, d), qs(d);
+						Js.set(r, d), Ys(d);
 						break;
 					}
 				}
@@ -8910,7 +8936,7 @@ async function Js(e, t) {
 		});
 	});
 }
-async function Ys() {
+async function Zs() {
 	let e = Vs.value.trim();
 	if (!e) return;
 	Vs.value = "", Hs.disabled = !0;
@@ -8923,21 +8949,21 @@ async function Ys() {
 	let n = Gs("assistant", "…"), r = {
 		threadId: Us,
 		runId: crypto.randomUUID(),
-		messages: [...Ws],
+		messages: [t],
 		tools: [],
 		context: []
 	};
 	try {
-		await Js(r, n);
-	} finally {
-		n.textContent && n.textContent !== "…" && Ws.push({
+		await Xs(r, n), n.textContent && n.textContent !== "…" && Ws.push({
 			id: crypto.randomUUID(),
 			role: "assistant",
 			content: n.textContent
-		}), Hs.disabled = !1, Vs.focus();
+		});
+	} finally {
+		Hs.disabled = !1, Vs.focus();
 	}
 }
-Hs.addEventListener("click", Ys), Vs.addEventListener("keydown", (e) => {
-	e.key === "Enter" && !e.shiftKey && Ys();
-}), Vs.focus();
+Hs.addEventListener("click", Zs), Vs.addEventListener("keydown", (e) => {
+	e.key === "Enter" && !e.shiftKey && Zs();
+}), qs(), Vs.focus();
 //#endregion

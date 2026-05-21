@@ -3,6 +3,7 @@ using System.ClientModel.Primitives;
 using System.Text;
 using Azure.AI.OpenAI;
 using GitHub.Copilot.SDK;
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using OpenAI;
 using Plugin.McpBridge.Data;

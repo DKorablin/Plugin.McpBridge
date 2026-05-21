@@ -65,11 +65,11 @@ namespace Plugin.McpBridge.Tests.Agents
 			(IHost host, PluginSettingsTools settings, PluginMethodsTools methods, ShellTools shell) = TestUtils.CreateDependencies();
 			ToolsFactory factory = new ToolsFactory(shell, settings, methods);
 			AssistantAgent sut = new AssistantAgent(TestUtils.Trace, host, factory, new StubAgentFactory(mockClient.Object));
-			Settings agentSettings = new Settings();
+			Settings agentSettings = new Settings(host);
 			AiProviderDto provider = new AiProviderDto { ProviderType = AiProviderType.Local };
 
-			sut.Initialize(agentSettings, provider);
-			sut.Initialize(agentSettings, provider);
+			await sut.Initialize(agentSettings, provider);
+			await sut.Initialize(agentSettings, provider);
 
 			Func<Task> act = async () => await sut.InvokeMessageAsync("hello");
 			await act.Should().NotThrowAsync();

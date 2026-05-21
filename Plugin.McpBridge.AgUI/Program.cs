@@ -86,52 +86,72 @@ internal static class Program
 
 	private static WebApplication BuildWebApp(String[] args, SettingsDto config, AgentHandle handle)
 	{
-		WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+		var builder = WebApplication.CreateBuilder(args);
 		((IWebHostBuilder)builder.WebHost).UseUrls(config.UiServerUrl);
 
 		// Force the console logger to capture detailed framework traces
 		builder.Logging.AddConsole();
 		builder.Logging.SetMinimumLevel(LogLevel.Debug); // Shows model binding/deserialization errors
 
-		JsonSerializerOptions jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
-		IHostedAgentBuilder agentBuilder = builder
+		var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+		var sessionStore = new FileSystemAgentSessionStore(jsonOptions);
+		var agentBuilder = builder
 			.AddAIAgent(handle.Agent.Name, (sp, name) => handle.Agent.AsBuilder().UseApproval(jsonOptions).Build(sp))
-			.WithSessionStore(new FileSystemAgentSessionStore());// Persist sessions to disk so they survive server restarts
+			.WithSessionStore(sessionStore);// Persist sessions to disk so they survive server restarts
 
 		builder.Services.AddAGUI();
 
-		WebApplication app = builder.Build();
-		app.MapGet("/agui", async (HttpContext ctx) =>
-		{
-			ctx.Response.ContentType = "text/html; charset=utf-8";
-			using Stream stream = typeof(Program).Assembly
-				.GetManifestResourceStream(AssemblyName + ".wwwroot.index.html")!;
-			await stream.CopyToAsync(ctx.Response.Body);
-		});
-		app.MapGet("/agui-client.js", async (HttpContext ctx) =>
-		{
-			ctx.Response.ContentType = "application/javascript";
-			using Stream stream = typeof(Program).Assembly
-				.GetManifestResourceStream(AssemblyName + ".wwwroot.agui-client.js")!;
-			await stream.CopyToAsync(ctx.Response.Body);
-		});
-		app.MapGet("/index.css", async (HttpContext ctx) =>
-		{
-			ctx.Response.ContentType = "text/css";
-			using Stream stream = typeof(Program).Assembly
-				.GetManifestResourceStream(AssemblyName + ".wwwroot.index.css")!;
-			await stream.CopyToAsync(ctx.Response.Body);
-		});
-		app.MapGet("/favicon.ico", async (HttpContext ctx) =>
-		{
-			ctx.Response.ContentType = "image/x-icon";
-			using Stream stream = typeof(Program).Assembly
-				.GetManifestResourceStream(AssemblyName + ".wwwroot.favicon.ico")!;
-			await stream.CopyToAsync(ctx.Response.Body);
-		});
+		var app = builder.Build();
+		MapEmbeddedResource(app, "/agui", "index.html", "text/html; charset=utf-8");
+		MapEmbeddedResource(app, "/agui-client.js", "agui-client.js", "application/javascript");
+		MapEmbeddedResource(app, "/index.css", "index.css", "text/css");
+		MapEmbeddedResource(app, "/favicon.ico", "favicon.ico", "image/x-icon");
+
+		Program.MapHistoryEndpoints(app, sessionStore, handle.Agent.Name);
 		app.MapAGUI(agentBuilder, "/agui");
 		return app;
 	}
+
+	static void MapEmbeddedResource(WebApplication app, String pattern, String resourceName, String contentType)
+		=> app.MapGet(pattern, () =>
+		{
+			return Results.Stream(
+				async stream =>
+				{
+					String fullResourceName = $"{AssemblyName}.wwwroot.{resourceName}";
+					using(Stream? resStream = typeof(Program).Assembly.GetManifestResourceStream(fullResourceName))
+					{
+						if(resStream == null)
+							throw new FileNotFoundException($"Embedded resource '{resourceName}' not found.");
+						await resStream.CopyToAsync(stream);
+					}
+				},
+				contentType);
+		});
+
+	/// <summary>Maps GET /history/{threadId} to read from the agent session store.</summary>
+	private static void MapHistoryEndpoints(WebApplication app, FileSystemAgentSessionStore sessionStore, String agentName)
+	{
+		app.MapGet("/history/{threadId}", async (String threadId) =>
+		{
+			if(!Program.IsValidThreadId(threadId))
+				return Results.BadRequest();
+
+			JsonElement? root = await sessionStore.ReadChatHistory(agentName, threadId);
+			if(root == null)
+				return Results.NotFound();
+
+			if(!root.Value.TryGetProperty("stateBag", out JsonElement stateBag) ||
+				!stateBag.TryGetProperty("InMemoryChatHistoryProvider", out JsonElement historyState) ||
+				!historyState.TryGetProperty("messages", out JsonElement messagesElement))
+				return Results.BadRequest();
+
+			return Results.Json(messagesElement);
+		});
+	}
+
+	/// <summary>Returns <see langword="true"/> when <paramref name="value"/> is a well-formed UUID/GUID.</summary>
+	private static Boolean IsValidThreadId(String value) => Guid.TryParse(value, out _);
 
 	private static async Task WatchParentAsync(Int32 parentPid, CancellationTokenSource cts)
 	{
@@ -139,11 +159,11 @@ internal static class Program
 		{
 			Process parent = Process.GetProcessById(parentPid);
 			await parent.WaitForExitAsync(cts.Token);
-			Console.WriteLine($"Parent process {parentPid} exited. Shutting down.");
+			Console.WriteLine($"Parent process {parentPid:N0} exited. Shutting down.");
 		}
 		catch(ArgumentException)
 		{
-			Console.WriteLine($"Parent process {parentPid} not found. Shutting down.");
+			Console.WriteLine($"Parent process {parentPid:N0} not found. Shutting down.");
 		}
 		finally
 		{

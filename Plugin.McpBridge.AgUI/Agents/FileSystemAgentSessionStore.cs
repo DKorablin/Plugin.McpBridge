@@ -9,45 +9,67 @@ public class FileSystemAgentSessionStore : AgentSessionStore
 	private static readonly String DefaultStoragePath = Path.Combine(AppContext.BaseDirectory, "SessionStore");
 	private static readonly Char[] InvalidFileNameChars = Path.GetInvalidFileNameChars();
 
+	private readonly JsonSerializerOptions _options;
 	private readonly String _storageDirectory;
 
-	public FileSystemAgentSessionStore(String? storageDirectory = null)
+	public FileSystemAgentSessionStore(JsonSerializerOptions options, String? storageDirectory = null)
 	{
+		this._options = options ?? throw new ArgumentNullException(nameof(options));
 		this._storageDirectory = storageDirectory ?? FileSystemAgentSessionStore.DefaultStoragePath;
 	}
 
 	public override async ValueTask<AgentSession> GetSessionAsync(AIAgent agent, String conversationId, CancellationToken cancellationToken = default)
 	{
-		String path = this.GetSessionPath(conversationId);
-		if(!File.Exists(path))
-			return await agent.CreateSessionAsync(cancellationToken).ConfigureAwait(false);
+		var json = await this.ReadChatHistory(agent.Name, conversationId, cancellationToken);
+		if(json == null)
+			return await agent.CreateSessionAsync(cancellationToken);
 
-		Byte[] bytes = await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
-		if(bytes.Length == 0)
-			return await agent.CreateSessionAsync(cancellationToken).ConfigureAwait(false);
-
-		using JsonDocument document = JsonDocument.Parse(bytes);
-		JsonElement element = document.RootElement.Clone();
-		return await agent.DeserializeSessionAsync(element, cancellationToken: cancellationToken).ConfigureAwait(false);
+		return await agent.DeserializeSessionAsync(json.Value, cancellationToken: cancellationToken);
 	}
 
 	public override async ValueTask SaveSessionAsync(AIAgent agent, String conversationId, AgentSession session, CancellationToken cancellationToken = default)
 	{
-		Directory.CreateDirectory(this._storageDirectory);
-		String path = this.GetSessionPath(conversationId);
-		JsonElement serialized = await agent.SerializeSessionAsync(session, cancellationToken: cancellationToken).ConfigureAwait(false);
-		await File.WriteAllTextAsync(path, serialized.GetRawText(), cancellationToken).ConfigureAwait(false);
+		String path = this.GetSessionPath(agent.Name, conversationId, createDirectory: true);
+
+		JsonElement serialized = await agent.SerializeSessionAsync(session, cancellationToken: cancellationToken);
+		await File.WriteAllTextAsync(path, serialized.GetRawText(), cancellationToken);
 	}
 
-	private String GetSessionPath(String conversationId)
+	public async Task<JsonElement?> ReadChatHistory(String? agentName, String conversationId, CancellationToken token = default)
 	{
-		String sanitized = new String(conversationId.Select(c => Array.IndexOf(FileSystemAgentSessionStore.InvalidFileNameChars, c) >= 0 ? '_' : c).ToArray());
-		String storageRoot = Path.GetFullPath(this._storageDirectory);
+		String path = this.GetSessionPath(agentName, conversationId);
+		if(!File.Exists(path))
+			return null;
+
+		using(FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true))
+			return await JsonSerializer.DeserializeAsync<JsonElement>(fs, cancellationToken: token);
+	}
+
+	private String GetSessionPath(String? agentName, String conversationId, Boolean createDirectory = false)
+	{
+		String fileName = SanitizePath(conversationId) + ".json";
+		String? agentDirectory = agentName == null ? null : SanitizePath(agentName);
+
+		String storageRoot = agentDirectory == null
+			? Path.GetFullPath(this._storageDirectory)
+			: Path.GetFullPath(Path.Combine(this._storageDirectory, agentDirectory));
+		if(createDirectory)
+			Directory.CreateDirectory(storageRoot);
+
 		if(!storageRoot.EndsWith(Path.DirectorySeparatorChar))
 			storageRoot += Path.DirectorySeparatorChar;
-		String fullPath = Path.GetFullPath(Path.Combine(this._storageDirectory, sanitized + ".json"));
-		if(!fullPath.StartsWith(storageRoot, StringComparison.OrdinalIgnoreCase))
+
+		String combinedPath = agentDirectory == null
+			? Path.Combine(this._storageDirectory, fileName)
+			: Path.Combine(this._storageDirectory, agentDirectory, fileName);
+
+		// Path Traversal Guard
+		if(!combinedPath.StartsWith(storageRoot, StringComparison.OrdinalIgnoreCase))
 			throw new ArgumentException($"Invalid conversationId: '{conversationId}'.", nameof(conversationId));
-		return fullPath;
+
+		return combinedPath;
+
+		String SanitizePath(String input)
+			=> new String(Array.ConvertAll(input.ToCharArray(), c => Array.IndexOf(FileSystemAgentSessionStore.InvalidFileNameChars, c) >= 0 ? '_' : c));
 	}
 }

@@ -7,8 +7,9 @@ const messagesEl = document.getElementById("messages")!;
 const inputEl = document.getElementById("input") as HTMLInputElement;
 const sendBtn = document.getElementById("send") as HTMLButtonElement;
 
-// Thread ID is stable across runs within a conversation.
-let currentThreadId = crypto.randomUUID();
+// Thread ID is stable across runs within a conversation and persisted in localStorage.
+let currentThreadId = localStorage.getItem("ag-ui-thread-id") ?? crypto.randomUUID();
+localStorage.setItem("ag-ui-thread-id", currentThreadId);
 const history: Message[] = [];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -20,6 +21,45 @@ function appendMessage(role: "user" | "assistant", text: string): HTMLElement {
 	messagesEl.appendChild(el);
 	messagesEl.scrollTop = messagesEl.scrollHeight;
 	return el;
+}
+
+// ── History persistence ───────────────────────────────────────────────────────
+
+function renderHistory(): void {
+	for (const msg of history) {
+		if (msg.role === "user" && typeof msg.content === "string")
+			appendMessage("user", msg.content);
+		else if (msg.role === "assistant" && typeof msg.content === "string" && msg.content.length > 0)
+			appendMessage("assistant", msg.content);
+	}
+}
+
+async function loadHistory(): Promise<void> {
+	const resp = await fetch(`/history/${encodeURIComponent(currentThreadId)}`);
+	if (!resp.ok) return;
+
+	type SessionContent = { $type: string; text?: string };
+	type SessionMessage = { role: string; contents: SessionContent[]; messageId?: string };
+
+	const sessionMessages = (await resp.json()) as SessionMessage[];
+	const seen = new Set<string>();
+
+	for (const msg of sessionMessages) {
+		const id = msg.messageId ?? crypto.randomUUID();
+		if (seen.has(id)) continue;
+		seen.add(id);
+
+		const text = msg.contents.find(c => c.$type === "text")?.text;
+		if (!text) continue;
+
+		if (msg.role === "user")
+			history.push({ id, role: "user", content: text });
+		else if (msg.role === "assistant")
+			history.push({ id, role: "assistant", content: text });
+	}
+
+	if (history.length > 0)
+		renderHistory();
 }
 
 // ── Approval card ─────────────────────────────────────────────────────────────
@@ -182,16 +222,17 @@ async function send(): Promise<void> {
 	const input: RunAgentInput = {
 		threadId: currentThreadId,
 		runId: crypto.randomUUID(),
-		messages: [...history],
+		messages: [userMessage],
 		tools: [],
 		context: [],
 	};
 
 	try {
 		await runAgent(input, assistantEl);
-	} finally {
+
 		if (assistantEl.textContent && assistantEl.textContent !== "…")
 			history.push({ id: crypto.randomUUID(), role: "assistant", content: assistantEl.textContent });
+	} finally {
 		sendBtn.disabled = false;
 		inputEl.focus();
 	}
@@ -199,4 +240,5 @@ async function send(): Promise<void> {
 
 sendBtn.addEventListener("click", send);
 inputEl.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) void send(); });
+void loadHistory();
 inputEl.focus();

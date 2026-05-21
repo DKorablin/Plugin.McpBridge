@@ -42,8 +42,7 @@ public partial class PanelChat : UserControl
 
 	private void LoadSessionHistory(String sessionJson)
 	{
-		using JsonDocument doc = JsonDocument.Parse(sessionJson);
-		JsonElement root = doc.RootElement;
+		JsonElement root = JsonSerializer.Deserialize<JsonElement>(sessionJson);
 		if(!root.TryGetProperty("stateBag", out JsonElement stateBag) ||
 			!stateBag.TryGetProperty("InMemoryChatHistoryProvider", out JsonElement historyState) ||
 			!historyState.TryGetProperty("messages", out JsonElement messagesElement))
@@ -52,20 +51,18 @@ public partial class PanelChat : UserControl
 			return;
 		}
 
-		List<ChatMessage>? messages = JsonSerializer.Deserialize<List<ChatMessage>>(messagesElement, AIJsonUtilities.DefaultOptions);
-		if(messages == null)
-			return;
-
-		this.Invoke(() =>
-		{
-			foreach(ChatMessage msg in messages)
+		ChatMessage[]? messages = JsonSerializer.Deserialize<ChatMessage[]>(messagesElement, AIJsonUtilities.DefaultOptions);
+		if(messages?.Length > 0)
+			this.Invoke(() =>
 			{
-				if(msg.Role == ChatRole.User)
-					mdResponse.AppendMessage(msg.Text, MarkdownTextBox.MessageKind.User);
-				else if(msg.Role == ChatRole.Assistant)
-					mdResponse.AppendMarkdown(msg.Text);
-			}
-		});
+				foreach(ChatMessage msg in messages)
+				{
+					if(msg.Role == ChatRole.User)
+						mdResponse.AppendMessage(msg.Text, MarkdownTextBox.MessageKind.User);
+					else if(msg.Role == ChatRole.Assistant)
+						mdResponse.AppendMarkdown(msg.Text);
+				}
+			});
 	}
 
 	private void Window_Closed(Object? sender, EventArgs e)
