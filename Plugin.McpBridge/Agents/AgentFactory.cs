@@ -79,11 +79,11 @@ internal class AgentFactory
 		default:
 			var networkSettings = (NetworkProviderDto)providerSettings;
 			OpenAIClientOptions clientOptions = new OpenAIClientOptions { Transport = transport };
-			if(providerSettings.ModelEndpointUrl != null)
+			if(networkSettings.ModelEndpointUrl != null)
 				clientOptions.Endpoint = new Uri(networkSettings.ModelEndpointUrl);
 
 			chatClient = new OpenAIClient(new ApiKeyCredential(networkSettings.ApiKey ?? "local-no-key"), clientOptions)
-				.GetChatClient(providerSettings.ModelId)
+				.GetChatClient(networkSettings.ModelId)
 				.AsIChatClient();
 			break;
 		}

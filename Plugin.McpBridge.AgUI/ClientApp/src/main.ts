@@ -4,7 +4,7 @@ import type { AssistantMessage, Message, RunAgentInput, ToolMessage } from "@ag-
 import { EventType } from "@ag-ui/core";
 
 const messagesEl = document.getElementById("messages")!;
-const inputEl = document.getElementById("input") as HTMLInputElement;
+const inputEl = document.getElementById("input") as HTMLTextAreaElement;
 const sendBtn = document.getElementById("send") as HTMLButtonElement;
 const attachBtn = document.getElementById("attach-btn") as HTMLButtonElement;
 const fileInput = document.getElementById("file-input") as HTMLInputElement;
@@ -57,7 +57,12 @@ function fileToDataUrl(file: File): Promise<string> {
 function appendMessage(role: "user" | "assistant", text: string): HTMLElement {
 	const el = document.createElement("div");
 	el.className = `msg ${role}`;
-	el.textContent = text;
+
+	if (role === "assistant" && text === "…")
+		el.innerHTML = `<div class="loading-wave"><span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></div>`;
+	else
+		el.textContent = text;
+
 	messagesEl.appendChild(el);
 	messagesEl.scrollTop = messagesEl.scrollHeight;
 	return el;
@@ -142,7 +147,7 @@ function showApprovalCard(approval: PendingApproval): void {
 
 async function runAgent(input: RunAgentInput, assistantEl: HTMLElement): Promise<void> {
 	const agent = new HttpAgent({ url: "/agui" });
-	let assistantText = assistantEl.textContent === "…" ? "" : (assistantEl.textContent ?? "");
+	let assistantText = assistantEl.querySelector(".loading-wave") ? "" : (assistantEl.textContent ?? "");
 
 	// Accumulate streamed tool call args per callId
 	const toolCallArgs = new Map<string, string>();
@@ -160,6 +165,17 @@ async function runAgent(input: RunAgentInput, assistantEl: HTMLElement): Promise
 						assistantEl.textContent = assistantText;
 						messagesEl.scrollTop = messagesEl.scrollHeight;
 						break;
+
+					case EventType.RUN_ERROR: {
+						const e = event as { message: string; code: string };
+						assistantEl.classList.add("error");
+						assistantEl.innerHTML = `
+							<div class="error-header"><span>&#10060;</span> Run Error</div>
+							${e.code ? `<div class="error-detail">Code: <code>${e.code}</code></div>` : ""}
+							<div class="error-detail">${e.message}</div>`;
+						messagesEl.scrollTop = messagesEl.scrollHeight;
+						break;
+					}
 
 					case EventType.TOOL_CALL_START: {
 						const e = event as { toolCallId: string; toolCallName: string };
@@ -186,17 +202,16 @@ async function runAgent(input: RunAgentInput, assistantEl: HTMLElement): Promise
 
 						let approvalId = callId;
 						let functionName = "unknown";
-						try {
-							const outer = JSON.parse(argsRaw) as { request?: string };
-							if (outer.request) {
-								const inner = JSON.parse(outer.request) as {
-									approval_id?: string;
-									function_name?: string;
-								};
-								approvalId = inner.approval_id ?? callId;
-								functionName = inner.function_name ?? "unknown";
-							}
-						} catch { /* keep defaults */ }
+
+						const outer = JSON.parse(argsRaw) as { request?: string };
+						if (outer.request) {
+							const inner = JSON.parse(outer.request) as {
+								approval_id?: string;
+								function_name?: string;
+							};
+							approvalId = inner.approval_id ?? callId;
+							functionName = inner.function_name ?? "unknown";
+						}
 
 						// Show card; when user clicks, continue the agent run
 						const approval: PendingApproval = {
@@ -235,7 +250,10 @@ async function runAgent(input: RunAgentInput, assistantEl: HTMLElement): Promise
 				}
 			},
 			error: (err: unknown) => {
-				assistantEl.textContent = `Error: ${err}`;
+				assistantEl.classList.add("error");
+				assistantEl.innerHTML = `
+					<div class="error-header"><span>&#10060;</span> Connection Error</div>
+					<div class="error-detail">${err}</div>`;
 				sendBtn.disabled = false;
 				rejectRun(err);
 			},
@@ -251,6 +269,7 @@ async function send(): Promise<void> {
 	if (!text && selectedFiles.length === 0) return;
 
 	inputEl.value = "";
+	adjustInputHeight();
 	sendBtn.disabled = true;
 	attachBtn.disabled = true;
 
@@ -318,7 +337,30 @@ const userMessage: Message = {
 	}
 }
 
+function adjustInputHeight(): void {
+	inputEl.style.height = "0"; // Collapse to get accurate scrollHeight
+	const scrollHeight = inputEl.scrollHeight;
+	const maxHeight = parseFloat(getComputedStyle(inputEl).maxHeight);
+	if (scrollHeight >= maxHeight) {
+		inputEl.style.height = `${maxHeight}px`;
+		inputEl.style.overflowY = "auto";
+	} else {
+		inputEl.style.height = `${scrollHeight}px`;
+		inputEl.style.overflowY = "hidden";
+	}
+}
+
 sendBtn.addEventListener("click", send);
-inputEl.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) void send(); });
+inputEl.addEventListener("keydown", (e: KeyboardEvent) => {
+	if (e.key === "Enter") {
+		if (e.shiftKey)
+			setTimeout(adjustInputHeight, 0);
+		else {
+			e.preventDefault();
+			void send();
+		}
+	}
+});
+inputEl.addEventListener("input", adjustInputHeight);
 void loadHistory();
 inputEl.focus();
