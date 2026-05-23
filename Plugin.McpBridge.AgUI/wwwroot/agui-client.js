@@ -8970,45 +8970,46 @@ async function rc() {
 	$.value = "", ic(), Hs.disabled = !0, Us.disabled = !0;
 	let t = [];
 	e && t.push({
-		$type: "text",
+		type: "text",
 		text: e
 	});
 	let n = [];
 	for (let e of Js) {
 		n.push(e.name);
-		let r = await Xs(e), i = e.type || "application/octet-stream";
+		let r = await Xs(e), i = e.type || "application/octet-stream", a = {
+			type: "url",
+			value: r,
+			mimeType: i
+		};
 		i.startsWith("image/") ? t.push({
-			$type: "image",
-			image: { url: r }
+			type: "image",
+			source: a
 		}) : t.push({
-			$type: "file",
-			file: {
-				url: r,
-				contentType: i
-			}
+			type: "document",
+			source: a
 		});
 	}
-	let r = e + (n.length > 0 ? `\n\n[Attached: ${n.join(", ")}]` : ""), i = Js.length > 0 ? `${e} [File Attached]` : e;
+	e + (n.length > 0 ? `\n\n[Attached: ${n.join(", ")}]` : "");
+	let r = Js.length > 0 ? `${e} [File Attached]` : e;
 	Js = [], Gs.innerHTML = "";
-	let a = {
+	let i = {
 		id: crypto.randomUUID(),
 		role: "user",
-		content: r,
-		contents: t
+		content: e
 	};
-	qs.push(a), Zs("user", i);
-	let o = Zs("assistant", "…"), s = {
+	qs.push(i), Zs("user", r);
+	let a = Zs("assistant", "…"), o = {
 		threadId: Ks,
 		runId: crypto.randomUUID(),
-		messages: [a],
+		messages: [i],
 		tools: [],
 		context: []
 	};
 	try {
-		await nc(s, o), o.textContent && o.textContent !== "…" && qs.push({
+		await nc(o, a), a.textContent && a.textContent !== "…" && qs.push({
 			id: crypto.randomUUID(),
 			role: "assistant",
-			content: o.textContent
+			content: a.textContent
 		});
 	} finally {
 		Hs.disabled = !1, Us.disabled = !1, $.focus();

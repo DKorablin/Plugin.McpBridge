@@ -276,7 +276,7 @@ async function send(): Promise<void> {
 	const contentArray: any[] = [];
 
 	if (text)
-		contentArray.push({ $type: "text", text: text });
+		contentArray.push({ type: "text", text: text });
 
 	const displayNames: string[] = [];
 
@@ -286,15 +286,21 @@ async function send(): Promise<void> {
 		const dataUrl = await fileToDataUrl(file);
 		const mimeType = file.type || "application/octet-stream";
 
+		const fileSource = {
+			type: "url",
+			value: dataUrl,
+			mimeType: mimeType
+		};
+
 		if (mimeType.startsWith("image/")) {
 			contentArray.push({
-				$type: "image",
-				image: { url: dataUrl }
+				type: "image",
+				source: fileSource
 			});
 		} else {
 			contentArray.push({
-				$type: "file",
-				file: { url: dataUrl, contentType: mimeType }
+				type: "document",
+				source: fileSource
 			});
 		}
 	}
@@ -305,11 +311,11 @@ async function send(): Promise<void> {
 	selectedFiles = [];
 	previewContainer.innerHTML = "";
 
-const userMessage: Message = {
+	//BUG: https://github.com/microsoft/agent-framework/issues/3729
+	const userMessage: Message = {
 		id: crypto.randomUUID(),
 		role: "user",
-		content: visualText,
-		contents: contentArray as any
+		content: text,
 	};
 
 	history.push(userMessage);
