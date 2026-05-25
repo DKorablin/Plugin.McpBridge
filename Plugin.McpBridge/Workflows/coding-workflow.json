@@ -1,0 +1,72 @@
+{
+	"name": "coding-workflow",
+	"pattern": "Handoff",
+	"entrypoint": "Router",
+	"nodes": [
+		{
+			"name": "Router",
+			"kind": "Agent",
+			"description": "Routes user requests to the appropriate specialist: Designer for UI tasks, Developer for programming tasks. Ends the session when the user says 'exit'.",
+			"providerId": "00000000-0000-0000-0000-000000000000",
+			"systemPrompt": "You are a routing coordinator for a software development team. Your only job is to analyze the incoming request and immediately hand off to the correct specialist — never answer development questions yourself.\n\nRouting rules:\n- UI layout, styling, components, UX, visual design → hand off to Designer\n- Code, logic, algorithms, bugs, architecture, implementation → hand off to Developer\n\nIf the user types 'exit', acknowledge politely and end the session without handing off to anyone.",
+			"availableTools": [],
+			"targets": [ "Designer", "Developer" ]
+		},
+		{
+			"name": "Designer",
+			"kind": "Agent",
+			"description": "Handles UI/UX design tasks: layout, components, styling, and user experience decisions.",
+			"providerId": "00000000-0000-0000-0000-000000000000",
+			"systemPrompt": "You are a UI/UX designer in a software development team. Handle interface design, component structure, layout, styling, and user experience tasks. Provide clear, actionable design output. When your design work is complete, hand off to Testing for validation.",
+			"availableTools": [ "WindowsGet", "WindowClose", "SettingsList", "SettingsGet" ],
+			"targets": [ "Testing" ]
+		},
+		{
+			"name": "Developer",
+			"kind": "Agent",
+			"description": "Handles programming, code implementation, bug fixes, and technical architecture.",
+			"providerId": "00000000-0000-0000-0000-000000000000",
+			"systemPrompt": "You are a software developer in a development team. Handle code implementation, bug fixes, algorithms, and technical architecture tasks. Write clean, correct code with brief explanations. When your work is complete, hand off to Testing for validation.",
+			"availableTools": [ "SystemInformation", "MethodsList", "MethodsInvoke", "SettingsList", "SettingsGet" ],
+			"targets": [ "Testing" ]
+		},
+		{
+			"name": "Testing",
+			"kind": "Agent",
+			"description": "Validates and tests the output produced by the Designer and/or Developer.",
+			"providerId": "00000000-0000-0000-0000-000000000000",
+			"systemPrompt": "You are a QA engineer in a development team. Review and validate the work delivered by the Designer or Developer: check for correctness, completeness, edge cases, and quality. If issues are found that require a joint design and development decision, hand off to ReviewGroup. If the work is acceptable, hand off back to Router for the next task.",
+			"availableTools": [ "SystemInformation", "WindowsGet", "MethodsList", "SettingsList" ],
+			"targets": [ "ReviewGroup", "Router" ]
+		},
+		{
+			"name": "ReviewGroup",
+			"kind": "Workflow",
+			"pattern": "GroupChat",
+			"maxRounds": 6,
+			"description": "Joint review session where Designer, Developer, and Testing collaboratively decide how to resolve found issues.",
+			"availableTools": [],
+			"targets": [ "Router" ],
+			"nodes": [
+				{
+					"name": "Designer",
+					"kind": "Agent",
+					"providerId": "00000000-0000-0000-0000-000000000000",
+					"systemPrompt": "You are a UI/UX designer participating in a joint review session. Assess the reported issues from a design perspective and propose concrete fixes or compromises."
+				},
+				{
+					"name": "Developer",
+					"kind": "Agent",
+					"providerId": "00000000-0000-0000-0000-000000000000",
+					"systemPrompt": "You are a software developer participating in a joint review session. Assess the reported issues from a technical perspective, highlight constraints, and propose implementation solutions."
+				},
+				{
+					"name": "Testing",
+					"kind": "Agent",
+					"providerId": "00000000-0000-0000-0000-000000000000",
+					"systemPrompt": "You are a QA engineer chairing a joint review session. Present the issues you found, facilitate discussion between the Designer and Developer, and confirm when a satisfactory resolution has been agreed."
+				}
+			]
+		}
+	]
+}

@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Runtime.Serialization.Json;
+using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.DevUI;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.Agents.AI.Workflows;
@@ -7,6 +8,7 @@ using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Mcp;
 using Plugin.McpBridge.Tests;
+using Plugin.McpBridge.Workflows;
 
 namespace Plugin.McpBridge.DevUI;
 
@@ -93,16 +95,23 @@ internal static class Program
 		builder.Logging.AddConsole();
 		builder.Logging.SetMinimumLevel(LogLevel.Debug); // Shows model binding/deserialization errors
 
-		builder
+		/*builder
 			.AddWorkflow("sequential-flow",
 				(sp, key) => AgentWorkflowBuilder.BuildSequential(workflowName: key, agents: handle.Agent))
-			.AddAsAIAgent(handle.Agent.Name);// This names the workflow wrapper so DevUI can pull its definitions
+			.AddAsAIAgent(handle.Agent.Name);// This names the workflow wrapper so DevUI can pull its definitions*/
+
+		WorkflowLoader loader = new WorkflowLoader(@"C:\Visual Studio Projects\C#\SAL\Plugins\Plugin.McpBridge\Plugin.McpBridge\Workflows\social-workflow.json");
+		WorkflowHandle workflowHandle = loader.Build(config.AiProviders, config.ConnectionTimeout, Array.Empty<AIFunction>());
+		builder.AddAIAgent(handle.Agent.Name!, (sp, name) => handle.Agent);
+		builder.AddWorkflow(workflowHandle.Workflow.Name!, (sp, key) => workflowHandle.Workflow)
+			.AddAsAIAgent();
 
 		builder.Services.AddDevUI();
 		builder.Services.AddOpenAIResponses();
 		builder.Services.AddOpenAIConversations();
 
 		WebApplication app = builder.Build();
+		app.Lifetime.ApplicationStopped.Register(workflowHandle.Dispose);
 
 		app.UseDeveloperExceptionPage();
 
