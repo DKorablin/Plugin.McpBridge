@@ -58,9 +58,6 @@ internal sealed record WorkflowNode
 	/// <summary>ID of the <c>AiProviderDto</c> that backs this agent. Required when <see cref="Kind"/> is <see cref="NodeKind.Agent"/>.</summary>
 	public Guid ProviderId { get; set; }
 
-	/// <summary>Agent-specific instructions appended to the global system prompt. Optional.</summary>
-	public String? Role { get; set; }
-
 	/// <summary>System prompt. <see langword="null"/> falls back to the global settings prompt.</summary>
 	public String? SystemPrompt { get; set; }
 
@@ -122,7 +119,9 @@ internal record WorkflowConfig
 
 	private static readonly JsonSerializerOptions _options = new()
 	{
+		ReadCommentHandling = JsonCommentHandling.Skip,
 		PropertyNameCaseInsensitive = true,
+		AllowTrailingCommas = true,// C#-like syntax
 		Converters = { new JsonStringEnumConverter() },
 	};
 

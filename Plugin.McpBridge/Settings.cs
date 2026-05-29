@@ -6,7 +6,6 @@ using System.Runtime.Serialization.Json;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Tests;
 using Plugin.McpBridge.UI.PropertyGrid;
-using SAL.Flatbed;
 
 namespace Plugin.McpBridge
 {
@@ -37,7 +36,6 @@ namespace Plugin.McpBridge
 Use available MCP tools when useful.
 Return clear user-facing responses, or a command payload only when automation is required.
 Before using relative dates (today, yesterday, last hour), obtain the current system time from the SystemInformation tool.";
-			public static readonly TimeSpan ConnectionTimeout = TimeSpan.FromSeconds(100);
 			public const String McpServerUrl = "http://localhost:5050";
 			public const String DevUIServerUrl = "http://localhost:5051";
 			public const String AgUIServerUrl = "http://localhost:5052";
@@ -50,7 +48,8 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		private BindingList<AiProviderDto>? _aiProviders = null;
 		private Guid? _selectedProviderId;
 		private String? _assistantSystemPrompt = Defaults.AssistantSystemPrompt;
-		private TimeSpan _connectionTimeout = Defaults.ConnectionTimeout;
+		private String? _skillsDirectory = null;
+		private String? _workflowsDirectory = null;
 		private String[]? _toolsPermission = null;
 		private String[]? _pluginsPermission = null;
 
@@ -58,6 +57,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		private String? _devUIServerUrl = null;
 		private Boolean _agUIEnabled = false;
 		private String? _agUIServerUrl = null;
+		private String? _agUISessionStorageDirectory = null;
 		private Boolean _mcpServerEnabled = false;
 		private String? _mcpServerUrl = null;
 
@@ -109,7 +109,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		}
 
 		/// <summary>The system prompt that defines the assistant's behavior and persona.</summary>
-		[Category("Prompt Settings")]
+		[Category("Instruments")]
 		[DefaultValue(Defaults.AssistantSystemPrompt)]
 		[Description("The system prompt that defines the assistant's behavior and persona.")]
 		public String? AssistantSystemPrompt
@@ -121,6 +121,32 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 					value = Defaults.AssistantSystemPrompt;
 
 				this.SetField(ref this._assistantSystemPrompt, value, nameof(this.AssistantSystemPrompt));
+			}
+		}
+
+		[Category("Instruments")]
+		[Description("An optional directory path where the assistant can read/write files when using skills. If not set, skills will not be available.")]
+		public String? SkillsDirectory
+		{
+			get => this._skillsDirectory;
+			set
+			{
+				if(String.IsNullOrWhiteSpace(value) || !Directory.Exists(value))
+					value = null;
+				this.SetField(ref this._skillsDirectory, value, nameof(this.SkillsDirectory));
+			}
+		}
+
+		[Category("Instruments")]
+		[Description("An optional directory path where workfows definitions are stored.")]
+		public String? WorkflowsDirectory
+		{
+			get => this._workflowsDirectory;
+			set
+			{
+				if(String.IsNullOrWhiteSpace(value) || !Directory.Exists(value))
+					value = null;
+				this.SetField(ref this._workflowsDirectory, value, nameof(this.WorkflowsDirectory));
 			}
 		}
 
@@ -231,6 +257,19 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 			}
 		}
 
+		[Category("AG-UI")]
+		[Description("An optional directory path where the AG-UI can read/write session data. If not set, AG-UI sessions will not be stored.")]
+		public String? AgUISessionStorageDirectory
+		{
+			get => this._agUISessionStorageDirectory;
+			set
+			{
+				if(String.IsNullOrWhiteSpace(value))
+					value = null;
+				this.SetField(ref this._agUISessionStorageDirectory, value, nameof(this.AgUISessionStorageDirectory));
+			}
+		}
+
 		[Category("Network")]
 		[Description("When enabled, starts an MCP server that tools can connect to for execution. Requires at least one tool with 'MCP Bridge' selected as its execution mode.")]
 		public Boolean McpServerEnabled
@@ -265,20 +304,6 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 					value = null!;
 
 				this.SetField(ref this._mcpServerUrl, value, nameof(this.McpServerUrl));
-			}
-		}
-
-		[Category("Network")]
-		[DefaultValue(typeof(TimeSpan), "00:01:40")]
-		[Description("The timeout duration for network connections to the AI provider.")]
-		public TimeSpan ConnectionTimeout
-		{
-			get => this._connectionTimeout;
-			set
-			{
-				if(value <= TimeSpan.Zero)
-					value = Defaults.ConnectionTimeout;
-				this.SetField(ref this._connectionTimeout, value, nameof(this.ConnectionTimeout));
 			}
 		}
 

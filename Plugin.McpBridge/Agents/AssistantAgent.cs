@@ -45,7 +45,7 @@ internal sealed class AssistantAgent : IDisposable
 
 		var tools = this._toolsFactory.CreateTools(this._trace).ToArray();
 		var instructions = AgentFactory.BuildSystemInstructions(this._host, settings);
-		this._handle = await this._agentFactory.CreateAgent(provider, settings.ConnectionTimeout, tools, instructions);
+		this._handle = await this._agentFactory.CreateAgent(provider, tools, instructions, skillsDirectory: settings.SkillsDirectory);
 
 		if(sessionJson != null)
 			this._session = await this._handle.Agent.DeserializeSessionAsync(
@@ -70,7 +70,7 @@ internal sealed class AssistantAgent : IDisposable
 		return json.ToString();
 	}
 
-	public async Task InvokeMessageAsync(String message, DataContent[]? images = null, CancellationToken cancellationToken = default)
+	public async Task InvokeMessageAsync(String message, DataContent[]? files = null, CancellationToken cancellationToken = default)
 	{
 		if(String.IsNullOrWhiteSpace(message))
 		{
@@ -91,7 +91,7 @@ internal sealed class AssistantAgent : IDisposable
 
 		try
 		{
-			ChatMessage chatMessage = AssistantAgent.BuildUserMessage(message, images);
+			ChatMessage chatMessage = AssistantAgent.BuildUserMessage(message, files);
 			await this.ProcessMessage(chatMessage, this._handle.Agent, cancellationToken);
 
 			/*IAsyncEnumerable <AgentResponseUpdate> stream = this._agent.RunStreamingAsync(AssistantAgent.BuildUserMessage(message, images), this._session, null, cancellationToken);

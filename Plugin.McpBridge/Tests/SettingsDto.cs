@@ -20,14 +20,20 @@ public sealed class SettingsDto
 	/// <summary>Gets or sets the list of plugin permissions granted to the user or application.</summary>
 	public String[]? PluginsPermission { get; set; }
 
-	/// <summary>Gets or sets the maximum interval to wait while establishing a connection before the attempt times out.</summary>
-	public TimeSpan ConnectionTimeout { get; set; } = TimeSpan.FromSeconds(100);
-
 	/// <summary>Gets or sets the collection of available AI providers.</summary>
 	public required AiProviderDto[] AiProviders { get; set; }
 
 	/// <summary>Gets or sets the selected AI provider configuration for this instance.</summary>
 	public required Guid? SelectedProviderId { get; set; }
+
+	/// <summary>Gets or sets the path to the directory containing skill definitions.</summary>
+	public String? SkillsDirectory { get; set; }
+
+	/// <summary>Gets or sets the directory path used for storing session data for the AG-UI.</summary>
+	public String? AgUISessionStorageDirectory { get; set; }
+
+	/// <summary>Gets or sets the path to the directory where workflow files are stored.</summary>
+	public String? WorkflowsDirectory { get; set; }
 
 	public AiProviderDto? GetSelectedProvider()
 		=> this.SelectedProviderId.HasValue

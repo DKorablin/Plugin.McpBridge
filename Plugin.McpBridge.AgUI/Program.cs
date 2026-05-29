@@ -4,11 +4,13 @@ using System.Text.Json;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.AgUI.Agents;
 using Plugin.McpBridge.Mcp;
 using Plugin.McpBridge.Tests;
+using Plugin.McpBridge.Workflows;
 
 namespace Plugin.McpBridge.AgUI;
 
@@ -34,12 +36,14 @@ internal static class Program
 				? args[1..parentPidIndex].Concat(args[(parentPidIndex + 2)..]).ToArray()
 				: args[1..];
 
-			await using AgentHandle handle = await new AgentFactory().CreateAgent(
+			AgentHandle agent = await new AgentFactory().CreateAgent(
 				config.GetSelectedProvider(),
-				config.ConnectionTimeout,
 				bridgeTools,
-				config.Instructions ?? String.Empty);
-			WebApplication app = BuildWebApp(remainingArgs, config, handle);
+				config.Instructions,
+				skillsDirectory: config.SkillsDirectory,
+				token: lifetimeCts.Token);
+
+			WebApplication app = BuildWebApp(remainingArgs, config, agent);
 			Console.WriteLine($"AG-UI running at {config.UiServerUrl}/agui");
 			await app.RunAsync(lifetimeCts.Token);
 		}
@@ -84,7 +88,7 @@ internal static class Program
 		return tools;
 	}
 
-	private static WebApplication BuildWebApp(String[] args, SettingsDto config, AgentHandle handle)
+	private static WebApplication BuildWebApp(String[] args, SettingsDto config, AgentHandle agent, IEnumerable<WorkflowHandle> workflows)
 	{
 		var builder = WebApplication.CreateBuilder(args);
 		((IWebHostBuilder)builder.WebHost).UseUrls(config.UiServerUrl);
@@ -94,10 +98,20 @@ internal static class Program
 		builder.Logging.SetMinimumLevel(LogLevel.Debug); // Shows model binding/deserialization errors
 
 		var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
-		var sessionStore = new FileSystemAgentSessionStore(jsonOptions);
+
 		var agentBuilder = builder
-			.AddAIAgent(handle.Agent.Name, (sp, name) => handle.Agent.AsBuilder().UseApproval(jsonOptions).Build(sp))
-			.WithSessionStore(sessionStore);// Persist sessions to disk so they survive server restarts
+			.AddAIAgent(agent.Agent.Name, (sp, name) => agent.Agent.AsBuilder().UseApproval(jsonOptions).Build(sp));
+
+		FileSystemAgentSessionStore? sessionStore = null;
+		if(config.AgUISessionStorageDirectory != null)
+		{// Persist sessions to disk so they survive server restarts
+			sessionStore = new FileSystemAgentSessionStore(config.AgUISessionStorageDirectory);
+			agentBuilder.WithSessionStore(sessionStore);
+		}
+
+		foreach(var workflow in workflows)
+			builder.AddWorkflow(workflow.Workflow.Name!, (sp, key) => workflow.Workflow)
+				.AddAsAIAgent();
 
 		builder.Services.AddAGUI();
 
@@ -107,7 +121,8 @@ internal static class Program
 		MapEmbeddedResource(app, "/index.css", "index.css", "text/css");
 		MapEmbeddedResource(app, "/favicon.ico", "favicon.ico", "image/x-icon");
 
-		Program.MapHistoryEndpoints(app, sessionStore, handle.Agent.Name);
+		if(sessionStore != null)
+			Program.MapHistoryEndpoints(app, sessionStore, agent.Agent.Name);
 		app.MapAGUI(agentBuilder, "/agui");
 		return app;
 	}

@@ -1,5 +1,6 @@
 ﻿using System.ClientModel;
 using System.ClientModel.Primitives;
+using System.Reflection;
 using System.Text;
 using Azure.AI.OpenAI;
 using GitHub.Copilot.SDK;
@@ -15,7 +16,7 @@ namespace Plugin.McpBridge.Agents;
 /// <summary>Shared factory methods for building AI agent components, usable by both the WinForms chat path and DevUI.</summary>
 internal class AgentFactory
 {
-	public virtual async Task<AgentHandle> CreateAgent(AiProviderDto providerSettings, TimeSpan connectionTimeout, AIFunction[] tools, String systemInstructions, CancellationToken token = default)
+	public virtual async Task<AgentHandle> CreateAgent(AiProviderDto providerSettings, AIFunction[] tools, String systemInstructions, String? agentRole = null, String? skillsDirectory = null, CancellationToken token = default)
 	{
 		_ = providerSettings ?? throw new ArgumentNullException(nameof(providerSettings));
 
@@ -45,22 +46,56 @@ internal class AgentFactory
 
 			return AgentHandle.FromCopilotClient(copilotClient.AsAIAgent(sessionConfig), copilotClient);
 		default:
-			var httpClient = new HttpClient { Timeout = connectionTimeout };
-			IChatClient chatClient = AgentFactory.CreateChatClient(providerSettings, httpClient);
+			IChatClient chatClient = AgentFactory.CreateChatClient(providerSettings);
+			if(!String.IsNullOrWhiteSpace(skillsDirectory))
+			{
+				var skillsProvider = new AgentSkillsProvider(skillsDirectory);
+				chatClient = new ChatClientBuilder(chatClient)
+					.UseAIContextProviders(skillsProvider)
+					.Build();
+			}
 			return AgentHandle.FromChatClient(
 				chatClient.AsAIAgent(
+					name: agentRole ?? "assistant",
 					instructions: systemInstructions,
-					tools: tools,
-					name: "assistant"),
+					tools: tools),
 				chatClient);
 		}
 	}
 
+	/*private static async Task<AgentSkill[]> GetSkillsAsync(AgentSkillsProvider provider, String testDirectory = null, CancellationToken token=default)
+	{
+		FieldInfo? sourceField = typeof(AgentSkillsProvider)
+			.GetField("_source", BindingFlags.NonPublic | BindingFlags.Instance);
+		Object? skillsSource = sourceField?.GetValue(provider);
+
+		AgentSkill[] skills = Array.Empty<AgentSkill>();
+		if(skillsSource != null)
+		{
+			MethodInfo? getSkillsAsync = skillsSource.GetType()
+				.GetMethod("GetSkillsAsync", BindingFlags.Public | BindingFlags.Instance);
+			if(getSkillsAsync != null)
+			{
+				Object? result = getSkillsAsync.Invoke(skillsSource, new Object[] { token });
+				if(result is Task<IList<AgentSkill>> task)
+					skills = (await task).ToArray();
+			}
+
+			if(testDirectory != null)
+			{
+				MethodInfo? parseMethod = skillsSource.GetType()
+					.GetMethod("ParseSkillDirectory", BindingFlags.NonPublic | BindingFlags.Instance);
+				Object? fileSkill = parseMethod?.Invoke(skillsSource, new Object[] { testDirectory });
+			}
+		}
+
+		return skills;
+	}*/
+
 	/// <summary>Creates a raw <see cref="IChatClient"/> for the given provider using the supplied <see cref="HttpClient"/>.</summary>
-	internal static IChatClient CreateChatClient(AiProviderDto providerSettings, HttpClient httpClient)
+	internal static IChatClient CreateChatClient(AiProviderDto providerSettings)
 	{
 		IChatClient chatClient;
-		HttpClientPipelineTransport transport = new HttpClientPipelineTransport(httpClient);
 
 		switch(providerSettings.ProviderType)
 		{
@@ -69,16 +104,24 @@ internal class AgentFactory
 			break;
 		case AiProviderType.Azure:
 			var azureSettings = (AzureProviderDto)providerSettings;
+
+			var httpClient1 = new HttpClient { Timeout = azureSettings.ConnectionTimeout };
+			HttpClientPipelineTransport transport1 = new HttpClientPipelineTransport(httpClient1);
+
 			chatClient = new AzureOpenAIClient(
 				new Uri(providerSettings.ModelEndpointUrl!),
 				new ApiKeyCredential(azureSettings.ApiKey!),
-				new AzureOpenAIClientOptions { Transport = transport, })
+				new AzureOpenAIClientOptions { Transport = transport1, })
 				.GetChatClient(azureSettings.DeploymentName)
 				.AsIChatClient();
 			break;
 		default:
 			var networkSettings = (NetworkProviderDto)providerSettings;
-			OpenAIClientOptions clientOptions = new OpenAIClientOptions { Transport = transport };
+
+			var httpClient2 = new HttpClient { Timeout = networkSettings.ConnectionTimeout };
+			HttpClientPipelineTransport transport2 = new HttpClientPipelineTransport(httpClient2);
+
+			OpenAIClientOptions clientOptions = new OpenAIClientOptions { Transport = transport2 };
 			if(networkSettings.ModelEndpointUrl != null)
 				clientOptions.Endpoint = new Uri(networkSettings.ModelEndpointUrl);
 

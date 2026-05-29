@@ -1,9 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Runtime.Serialization.Json;
-using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.DevUI;
 using Microsoft.Agents.AI.Hosting;
-using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Mcp;
@@ -34,16 +32,27 @@ internal static class Program
 				? args[1..parentPidIndex].Concat(args[(parentPidIndex + 2)..]).ToArray()
 				: args[1..];
 
-			await using(AgentHandle handle = await new AgentFactory().CreateAgent(
+			AgentHandle agent = await new AgentFactory().CreateAgent(
 				config.GetSelectedProvider(),
-				config.ConnectionTimeout,
 				bridgeTools,
-				config.Instructions ?? String.Empty))
+				config.Instructions ?? String.Empty,
+				skillsDirectory: config.SkillsDirectory,
+				token: lifetimeCts.Token);
+
+			List<WorkflowHandle> workflows = new List<WorkflowHandle>();
+			if(config.WorkflowsDirectory is not null)
 			{
-				WebApplication app = BuildWebApp(remainingArgs, config, handle);
-				Console.WriteLine($"DevUI running at {config.UiServerUrl}/devui");
-				await app.RunAsync(lifetimeCts.Token);
+				foreach(String workflowFile in Directory.EnumerateFiles(config.WorkflowsDirectory, "*.json"))
+				{
+					WorkflowLoader2 loader = new WorkflowLoader2(workflowFile);
+					WorkflowHandle workflowHandle = await loader.BuildAsync(config.AiProviders, bridgeTools);
+					workflows.Add(workflowHandle);
+				}
 			}
+
+			WebApplication app = await BuildWebApp(remainingArgs, config, agent, workflows);
+			Console.WriteLine($"DevUI running at {config.UiServerUrl}/devui");
+			await app.RunAsync(lifetimeCts.Token);
 		}
 		return 0;
 	}
@@ -86,7 +95,7 @@ internal static class Program
 		return tools;
 	}
 
-	private static WebApplication BuildWebApp(String[] args, SettingsDto config, AgentHandle handle)
+	private static async Task<WebApplication> BuildWebApp(String[] args, SettingsDto config, AgentHandle agent, IEnumerable<WorkflowHandle> workflows)
 	{
 		WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 		((IWebHostBuilder)builder.WebHost).UseUrls(config.UiServerUrl);
@@ -95,23 +104,20 @@ internal static class Program
 		builder.Logging.AddConsole();
 		builder.Logging.SetMinimumLevel(LogLevel.Debug); // Shows model binding/deserialization errors
 
-		/*builder
-			.AddWorkflow("sequential-flow",
-				(sp, key) => AgentWorkflowBuilder.BuildSequential(workflowName: key, agents: handle.Agent))
-			.AddAsAIAgent(handle.Agent.Name);// This names the workflow wrapper so DevUI can pull its definitions*/
+		builder.AddAIAgent(agent.Agent.Name!, (sp, name) => agent.Agent);
 
-		WorkflowLoader loader = new WorkflowLoader(@"C:\Visual Studio Projects\C#\SAL\Plugins\Plugin.McpBridge\Plugin.McpBridge\Workflows\social-workflow.json");
-		WorkflowHandle workflowHandle = loader.Build(config.AiProviders, config.ConnectionTimeout, Array.Empty<AIFunction>());
-		builder.AddAIAgent(handle.Agent.Name!, (sp, name) => handle.Agent);
-		builder.AddWorkflow(workflowHandle.Workflow.Name!, (sp, key) => workflowHandle.Workflow)
-			.AddAsAIAgent();
+		foreach(var workflow in workflows)
+			builder.AddWorkflow(workflow.Workflow.Name!, (sp, key) => workflow.Workflow)
+				.AddAsAIAgent();
 
-		builder.Services.AddDevUI();
+		builder.Services.AddDevUI((options) =>
+		{
+			options.AllowRemoteAccess = false;
+		});
 		builder.Services.AddOpenAIResponses();
 		builder.Services.AddOpenAIConversations();
 
 		WebApplication app = builder.Build();
-		app.Lifetime.ApplicationStopped.Register(workflowHandle.Dispose);
 
 		app.UseDeveloperExceptionPage();
 

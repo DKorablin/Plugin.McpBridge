@@ -9,12 +9,10 @@ public class FileSystemAgentSessionStore : AgentSessionStore
 	private static readonly String DefaultStoragePath = Path.Combine(AppContext.BaseDirectory, "SessionStore");
 	private static readonly Char[] InvalidFileNameChars = Path.GetInvalidFileNameChars();
 
-	private readonly JsonSerializerOptions _options;
 	private readonly String _storageDirectory;
 
-	public FileSystemAgentSessionStore(JsonSerializerOptions options, String? storageDirectory = null)
+	public FileSystemAgentSessionStore(String? storageDirectory = null)
 	{
-		this._options = options ?? throw new ArgumentNullException(nameof(options));
 		this._storageDirectory = storageDirectory ?? FileSystemAgentSessionStore.DefaultStoragePath;
 	}
 
