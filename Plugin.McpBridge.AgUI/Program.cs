@@ -43,7 +43,18 @@ internal static class Program
 				skillsDirectory: config.SkillsDirectory,
 				token: lifetimeCts.Token);
 
-			WebApplication app = BuildWebApp(remainingArgs, config, agent);
+			List<WorkflowHandle> workflows = new List<WorkflowHandle>();
+			if(config.WorkflowsDirectory is not null)
+			{
+				foreach(String workflowFile in Directory.EnumerateFiles(config.WorkflowsDirectory, "*.json"))
+				{
+					WorkflowLoader2 loader = new WorkflowLoader2(workflowFile);
+					WorkflowHandle workflowHandle = await loader.BuildAsync(config.AiProviders, bridgeTools);
+					workflows.Add(workflowHandle);
+				}
+			}
+
+			WebApplication app = BuildWebApp(remainingArgs, config, agent, workflows);
 			Console.WriteLine($"AG-UI running at {config.UiServerUrl}/agui");
 			await app.RunAsync(lifetimeCts.Token);
 		}
