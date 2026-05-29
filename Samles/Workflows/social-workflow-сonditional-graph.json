@@ -1,0 +1,35 @@
+{
+	"name": "SocialWorkflowConditionalGraph",
+	"pattern": "ConditionalGraph",
+	"entrypoint": "Parent1",
+	"maxRounds": 10,
+	"nodes": [
+		{
+			"name": "Parent1",
+			"kind": "Agent",
+			"providerId": "b6f1a277-1397-4975-85b2-28e81fafd330",
+			"systemPrompt": "You are Parent 1. Read the User's message and write ONE short sentence describing what Alex needs to do. Nothing else.",
+			"edges": [
+				{ "to": "Parent2" }
+			]
+		},
+		{
+			"name": "Parent2",
+			"kind": "Agent",
+			"providerId": "b6f1a277-1397-4975-85b2-28e81fafd330",
+			"systemPrompt": "You are Parent 2, a creative strategist. Read the full conversation to understand the task and any previous refusals from Alex (6 years old, loves bikes, hates chores). Craft ONE short pitch (1-2 sentences) that frames the task as a fun game or adventure. If Alex refused before, make this pitch clearly different and more enticing.",
+			"edges": [
+				{ "to": "Child" }
+			]
+		},
+		{
+			"name": "Child",
+			"kind": "Agent",
+			"providerId": "b6f1a277-1397-4975-85b2-28e81fafd330",
+			"systemPrompt": "You are Alex, a 6-year-old who loves riding a bicycle but hates chores. The FIRST TIME you are asked to do a specific task in this conversation, you MUST refuse no matter how fun it sounds — whine, complain, say you want to play. After that first refusal, a genuinely creative pitch may win you over. End your message with [STATUS: DECLINED] if refusing, or [STATUS: ACCEPTED] if accepting.",
+			"edges": [
+				{ "to": "Parent1", "when": "\\[STATUS:\\s*DECLINED\\]" }
+			]
+		}
+	]
+}

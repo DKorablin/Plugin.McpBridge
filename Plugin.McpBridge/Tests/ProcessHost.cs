@@ -137,9 +137,11 @@ internal sealed class ProcessHost : IDisposable
 			Instructions = AgentFactory.BuildSystemInstructions(this._host, settings),
 			ToolsPermission = settings.ToolsPermission,
 			PluginsPermission = settings.PluginsPermission,
-			ConnectionTimeout = settings.ConnectionTimeout,
 			AiProviders = settings.AiProviders.ToArray(),
 			SelectedProviderId = settings.SelectedProviderId,
+			SkillsDirectory = settings.SkillsDirectory,
+			WorkflowsDirectory = settings.WorkflowsDirectory,
+			AgUISessionStorageDirectory = settings.AgUISessionStorageDirectory,
 			McpServerUrl = settings.McpServerUrl,
 		};
 	}

@@ -114,7 +114,7 @@ public partial class PanelChat : UserControl
 		return this._agent;
 	}
 
-	private async Task InvokeMessage(String message, DataContent[] images)
+	private async Task InvokeMessage(String message, DataContent[] attachments)
 	{
 		pnlConfirmation.Dismiss();
 		this._streamingActive = false;
@@ -127,7 +127,7 @@ public partial class PanelChat : UserControl
 		try
 		{
 			AssistantAgent agent = await this.GetAgent();
-			await agent.InvokeMessageAsync(message, images, token);
+			await agent.InvokeMessageAsync(message, attachments, token);
 		} catch(Exception ex)
 		{
 			this.Invoke(() => mdResponse.AppendMessage(ex.Message, MarkdownTextBox.MessageKind.Error));
@@ -223,13 +223,9 @@ public partial class PanelChat : UserControl
 			return;
 
 		txtRequest.Clear();
-		mdResponse.AppendMessage(request, MarkdownTextBox.MessageKind.User);
-		Image[] rawImages = pnlAttachments.TakeAttachments();
-		DataContent[] images = PanelChat.ImagesToDataContent(rawImages);
-		foreach(Image img in rawImages)
-			img.Dispose();
+		DataContent[] attachments = pnlAttachments.GetAttachments().ToArray();
 
-		Task.Run(async () => await this.InvokeMessage(request, images));
+		Task.Run(async () => await this.InvokeMessage(request, attachments));
 	}
 
 	private void txtRequest_KeyDown(Object sender, KeyEventArgs e)
@@ -239,10 +235,21 @@ public partial class PanelChat : UserControl
 			Image? img = Clipboard.GetImage();
 			if(img != null)
 			{
-				pnlAttachments.AddImageAttachment(img);
+				pnlAttachments.AddAttachment(img);
 				e.SuppressKeyPress = true;
 				return;
 			}
+		}
+
+		if(e.KeyCode == Keys.V && e.Control && Clipboard.ContainsFileDropList())
+		{
+			System.Collections.Specialized.StringCollection? files = Clipboard.GetFileDropList();
+			if(files != null)
+				foreach(String? path in files)
+					if(path != null)
+						pnlAttachments.AddAttachment(path);
+			e.SuppressKeyPress = true;
+			return;
 		}
 
 		if(e.KeyCode == Keys.Enter && !e.Shift)
@@ -256,20 +263,6 @@ public partial class PanelChat : UserControl
 		=> splitMain.SplitterDistance = pnlAttachments.Visible
 			? Math.Max(splitMain.Panel1MinSize, splitMain.SplitterDistance - pnlAttachments.Height)
 			: Math.Min(splitMain.Height - splitMain.Panel2MinSize - splitMain.SplitterWidth, splitMain.SplitterDistance + pnlAttachments.Height);
-
-	private static DataContent[] ImagesToDataContent(Image[] images)
-	{
-		DataContent[] result = new DataContent[images.Length];
-		for(Int32 i = 0; i < images.Length; i++)
-		{
-			using(MemoryStream ms = new MemoryStream())
-			{
-				images[i].Save(ms, ImageFormat.Png);
-				result[i] = new DataContent(ms.ToArray(), "image/png");
-			}
-		}
-		return result;
-	}
 
 	private void UpdateUiState()
 	{

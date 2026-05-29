@@ -26,12 +26,13 @@ namespace Plugin.McpBridge.Tools
 		}
 
 		[Tool]
-		[Description("Close an open window by its caption.")]
+		[Description("Close an opened window.")]
 		public Task WindowClose(
+			[Description("Plugin identifier")] String pluginId,
 			[Description("Window caption")] String caption)
 		{
 			var window = this._host.Windows.FirstOrDefault(w => caption.Equals(w.Caption, StringComparison.OrdinalIgnoreCase))
-				?? throw new ArgumentException($"No open window found with caption '{caption}'.", nameof(caption));
+				?? throw new ArgumentException($"No opened window found with pluginId='{pluginId}' and caption='{caption}'.", nameof(caption));
 
 			window.Close();
 			return Task.FromResult(0);
