@@ -47,19 +47,23 @@ internal class AgentFactory
 			return AgentHandle.FromCopilotClient(copilotClient.AsAIAgent(sessionConfig), copilotClient);
 		default:
 			IChatClient chatClient = AgentFactory.CreateChatClient(providerSettings);
+			var options1 = new ChatClientAgentOptions
+			{
+				//"For in-memory agents, this defaults to a randomly-generated ID" — and the base class generates it as {Name}_{randomHex} so it's human-readable while still unique.
+				//Id = agentRole ?? "assistant",
+				Name = agentRole ?? "assistant",
+				ChatOptions = new ChatOptions()
+				{
+					Tools = tools,
+					Instructions = systemInstructions,
+				},
+			};
 			if(!String.IsNullOrWhiteSpace(skillsDirectory))
 			{
 				var skillsProvider = new AgentSkillsProvider(skillsDirectory);
-				chatClient = new ChatClientBuilder(chatClient)
-					.UseAIContextProviders(skillsProvider)
-					.Build();
+				options1.AIContextProviders = new[] { skillsProvider };
 			}
-			return AgentHandle.FromChatClient(
-				chatClient.AsAIAgent(
-					name: agentRole ?? "assistant",
-					instructions: systemInstructions,
-					tools: tools),
-				chatClient);
+			return AgentHandle.FromChatClient(chatClient.AsAIAgent(options1), chatClient);
 		}
 	}
 

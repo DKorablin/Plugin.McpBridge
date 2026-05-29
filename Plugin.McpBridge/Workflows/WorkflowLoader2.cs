@@ -114,15 +114,27 @@ internal sealed class WorkflowLoader2
 		List<IDisposable> ownedResources = new(config.Nodes.Count);
 		Dictionary<String, AIAgent> agentsByName = new(config.Nodes.Count, StringComparer.OrdinalIgnoreCase);
 
-		// 1. Initialize all framework agents explicitly first
 		foreach(WorkflowNode node in config.Nodes)
 		{
-			if(node.Kind == NodeKind.Workflow)
-				throw new NotSupportedException("Nested sub-workflows within ConditionalGraphs are not supported for visual flattening.");
-
-			AIFunction[] nodeTools = node.AvailableTools == null
+			var nodeTools = node.AvailableTools == null
 				? tools
 				: tools.Where(t => Array.Exists(node.AvailableTools, n => n == t.Name)).ToArray();
+
+			if(node.Kind == NodeKind.Workflow)
+			{
+				WorkflowConfig subConfig = new WorkflowConfig
+				{
+					Name = node.Name,
+					Pattern = node.Pattern,
+					MaxRounds = node.MaxRounds,
+					Nodes = node.Nodes,
+				};
+				(Workflow subWorkflow, List<IDisposable> subResources) = await this.BuildCoreAsync(subConfig, providers, nodeTools, cancellationToken);
+				AIAgent subAgent = subWorkflow.AsAIAgent(name: node.Name);
+				ownedResources.Add(AgentHandle.FromWorkflow(subAgent, subResources));
+				agentsByName[node.Name] = subAgent;
+				continue;
+			}
 
 			AiProviderDto provider = providers.FirstOrDefault(p => p.Id == node.ProviderId)
 				?? throw new InvalidOperationException($"Provider '{node.ProviderId}' referenced by node '{node.Name}' was not found.");

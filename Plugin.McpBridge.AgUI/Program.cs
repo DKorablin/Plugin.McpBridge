@@ -48,6 +48,7 @@ internal static class Program
 			{
 				foreach(String workflowFile in Directory.EnumerateFiles(config.WorkflowsDirectory, "*.json"))
 				{
+					Console.WriteLine($"Loading workflow from {workflowFile}");
 					WorkflowLoader2 loader = new WorkflowLoader2(workflowFile);
 					WorkflowHandle workflowHandle = await loader.BuildAsync(config.AiProviders, bridgeTools);
 					workflows.Add(workflowHandle);
