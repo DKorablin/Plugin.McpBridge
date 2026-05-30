@@ -11,6 +11,7 @@ namespace Plugin.McpBridge.Workflows;
 /// <summary>Builds a <see cref="WorkflowHandle"/> from a <see cref="WorkflowConfig"/> loaded at runtime.</summary>
 internal sealed class WorkflowLoader2
 {
+	private readonly AgentFactory _agentFactory = new AgentFactory();
 	private readonly WorkflowConfig _config;
 
 	internal WorkflowLoader2(String workflowPath)
@@ -71,7 +72,7 @@ internal sealed class WorkflowLoader2
 				AiProviderDto provider = providers.FirstOrDefault(p => p.Id == node.ProviderId)
 					?? throw new InvalidOperationException($"Provider '{node.ProviderId}' referenced by node '{node.Name}' was not found.");
 
-				var agentResult = await new AgentFactory().CreateAgent(
+				var agentResult = await _agentFactory.CreateAgent(
 					provider,
 					nodeTools,
 					node.SystemPrompt,
@@ -88,6 +89,7 @@ internal sealed class WorkflowLoader2
 			WorkflowPattern.Concurrent => AgentWorkflowBuilder.BuildConcurrent(config.Name, agentsByName.Values, r => r.SelectMany(m => m).ToList()),
 			WorkflowPattern.GroupChat => WorkflowLoader2.BuildGroupChat(config, agentsByName),
 			WorkflowPattern.Handoff => WorkflowLoader2.BuildHandoff(config, agentsByName),
+			WorkflowPattern.Magentic => WorkflowLoader2.BuildMagentic(config, agentsByName),
 			_ => throw new NotSupportedException($"Workflow pattern '{config.Pattern}' is not supported."),
 		};
 
@@ -102,6 +104,7 @@ internal sealed class WorkflowLoader2
 			.CreateGroupChatBuilderWith(a => new RoundRobinGroupChatManager(a) { MaximumIterationCount = maxRounds })
 			.AddParticipants([.. agents.Values])
 			.WithName(config.Name)
+			.WithDescription(config.Description)
 			.Build();
 	}
 
@@ -140,25 +143,23 @@ internal sealed class WorkflowLoader2
 				?? throw new InvalidOperationException($"Provider '{node.ProviderId}' referenced by node '{node.Name}' was not found.");
 
 			// Wrap the Chat Client into a framework recognized AIAgent component
-			var handle = await new AgentFactory().CreateAgent(
+			var handle = await _agentFactory.CreateAgent(
 				provider,
 				nodeTools,
-				node.SystemPrompt,
+				node.SystemPrompt ?? String.Empty,
 				agentRole: node.Name,
 				token: cancellationToken);
 			ownedResources.Add(handle);
 			agentsByName[node.Name] = handle.Agent;
 		}
 
-		// 2. Locate the designated starting point node
 		String entrypoint = config.Entrypoint ?? config.Nodes[0].Name;
 		if(!agentsByName.TryGetValue(entrypoint, out AIAgent? entryAgent))
 			throw new InvalidOperationException($"Entrypoint node '{entrypoint}' was not found in the workflow configuration.");
 
-		// 3. Leverage the native WorkflowBuilder graph constructor
-		WorkflowBuilder graphBuilder = new WorkflowBuilder(entryAgent);
+		WorkflowBuilder graphBuilder = new WorkflowBuilder(entryAgent)
+			.WithDescription(config.Description);
 
-		// 4. Map the configuration nodes and their edges to native graph dependencies
 		foreach(WorkflowNode node in config.Nodes)
 		{
 			AIAgent sourceAgent = agentsByName[node.Name];
@@ -222,10 +223,27 @@ internal sealed class WorkflowLoader2
 		return (workflow, ownedResources);
 	}
 
-	[SuppressMessage("Reliability", "MAAIW001", Justification = "Experimental MAF workflow APIs intentionally used here.")]
+	private static Workflow BuildMagentic(WorkflowConfig config, Dictionary<String, AIAgent> agents)
+	{
+		String managerName = config.Entrypoint
+			?? config.Nodes.FirstOrDefault(n => n.IsOrchestrator)?.Name
+			?? config.Nodes[0].Name;
+
+		if(!agents.TryGetValue(managerName, out AIAgent? manager))
+			throw new InvalidOperationException($"Manager node '{managerName}' was not found in the workflow configuration.");
+
+		IEnumerable<AIAgent> participants = agents.Values.Where(a => a != manager);
+
+		return new MagenticWorkflowBuilder(manager)
+			.AddParticipants(participants)
+			.WithMaxRounds(config.MaxRounds)
+			.WithName(config.Name)
+			.WithDescription(config.Description)
+			.Build();
+	}
+
 	private static Workflow BuildHandoff(WorkflowConfig config, Dictionary<String, AIAgent> agents)
 	{
-#pragma warning disable MAAIW001
 		String entryName = config.Entrypoint ?? config.Nodes[0].Name;
 		HandoffWorkflowBuilder builder = AgentWorkflowBuilder.CreateHandoffBuilderWith(agents[entryName]);
 
@@ -240,6 +258,5 @@ internal sealed class WorkflowLoader2
 		}
 
 		return builder.Build();
-#pragma warning restore MAAIW001
 	}
 }
