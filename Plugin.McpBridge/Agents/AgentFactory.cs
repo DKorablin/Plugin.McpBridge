@@ -1,6 +1,5 @@
 ﻿using System.ClientModel;
 using System.ClientModel.Primitives;
-using System.Reflection;
 using System.Text;
 using Azure.AI.OpenAI;
 using GitHub.Copilot.SDK;
@@ -66,35 +65,6 @@ internal class AgentFactory
 			return AgentHandle.FromChatClient(chatClient.AsAIAgent(options1), chatClient);
 		}
 	}
-
-	/*private static async Task<AgentSkill[]> GetSkillsAsync(AgentSkillsProvider provider, String testDirectory = null, CancellationToken token=default)
-	{
-		FieldInfo? sourceField = typeof(AgentSkillsProvider)
-			.GetField("_source", BindingFlags.NonPublic | BindingFlags.Instance);
-		Object? skillsSource = sourceField?.GetValue(provider);
-
-		AgentSkill[] skills = Array.Empty<AgentSkill>();
-		if(skillsSource != null)
-		{
-			MethodInfo? getSkillsAsync = skillsSource.GetType()
-				.GetMethod("GetSkillsAsync", BindingFlags.Public | BindingFlags.Instance);
-			if(getSkillsAsync != null)
-			{
-				Object? result = getSkillsAsync.Invoke(skillsSource, new Object[] { token });
-				if(result is Task<IList<AgentSkill>> task)
-					skills = (await task).ToArray();
-			}
-
-			if(testDirectory != null)
-			{
-				MethodInfo? parseMethod = skillsSource.GetType()
-					.GetMethod("ParseSkillDirectory", BindingFlags.NonPublic | BindingFlags.Instance);
-				Object? fileSkill = parseMethod?.Invoke(skillsSource, new Object[] { testDirectory });
-			}
-		}
-
-		return skills;
-	}*/
 
 	/// <summary>Creates a raw <see cref="IChatClient"/> for the given provider using the supplied <see cref="HttpClient"/>.</summary>
 	internal static IChatClient CreateChatClient(AiProviderDto providerSettings)

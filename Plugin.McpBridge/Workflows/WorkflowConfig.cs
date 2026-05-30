@@ -17,6 +17,8 @@ internal enum WorkflowPattern
 	Handoff,
 	/// <summary>Agents execute in a directed graph; outgoing edges carry optional text-match conditions that control routing.</summary>
 	ConditionalGraph,
+	/// <summary>An LLM-powered manager agent dynamically plans tasks and delegates to specialist agents, replanning as needed.</summary>
+	Magentic,
 }
 
 /// <summary>Discriminates between leaf agent nodes and composite sub-workflow nodes in the workflow graph.</summary>
@@ -36,9 +38,6 @@ internal sealed record WorkflowNode
 
 	/// <summary>Unique name used to identify this node and resolve <see cref="Targets"/> references.</summary>
 	public String Name { get; set; } = String.Empty;
-
-	/// <summary>Human-readable description; used as the handoff reason in a <see cref="WorkflowPattern.Handoff"/> parent.</summary>
-	public String? Description { get; set; }
 
 	/// <summary>Discriminates between a leaf agent and a nested sub-workflow. Defaults to <see cref="NodeKind.Agent"/>.</summary>
 	public NodeKind Kind { get; set; } = NodeKind.Agent;
@@ -113,6 +112,9 @@ internal record WorkflowConfig
 
 	/// <summary>Name of the node that receives the first user message in a <see cref="WorkflowPattern.Handoff"/> workflow. Defaults to the first node when absent.</summary>
 	public String? Entrypoint { get; set; }
+
+	/// <summary>Human-readable description of the workflow; surfaced to callers and used as the workflow agent description.</summary>
+	public String? Description { get; set; }
 
 	/// <summary>Ordered list of graph nodes — leaf agents or nested sub-workflows.</summary>
 	public List<WorkflowNode> Nodes { get; set; } = [];

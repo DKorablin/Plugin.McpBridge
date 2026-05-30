@@ -1,0 +1,28 @@
+{
+	"name": "Magentic Orchestration Workflow",
+	"description": "Coordinates a researcher and coder to solve a complex analytical task.",
+	"pattern": "Magentic",
+	"entrypoint": "MagenticManager",
+	"maxRounds": 10,
+	"nodes": [
+		{
+			"name": "MagenticManager",
+			"kind": "Agent",
+			"isOrchestrator": true,
+			"providerId": "b6f1a277-1397-4975-85b2-28e81fafd330",
+			"systemPrompt": "You coordinate the team to complete complex tasks efficiently."
+		},
+		{
+			"name": "ResearcherAgent",
+			"kind": "Agent",
+			"providerId": "b6f1a277-1397-4975-85b2-28e81fafd330",
+			"systemPrompt": "You are a researcher. Find relevant information without doing additional computation or quantitative analysis."
+		},
+		{
+			"name": "CoderAgent",
+			"kind": "Agent",
+			"providerId": "b6f1a277-1397-4975-85b2-28e81fafd330",
+			"systemPrompt": "You solve quantitative questions by writing and running code. Show the analysis and the computation process clearly."
+		}
+	]
+}

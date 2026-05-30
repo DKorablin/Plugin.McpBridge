@@ -1,35 +1,28 @@
 {
 	"name": "SocialWorkflowHandoff",
-	"pattern": "ConditionalGraph",
+	"pattern": "Handoff",
 	"entrypoint": "Parent1",
-	"maxRounds": 10,
 	"nodes": [
 		{
 			"name": "Parent1",
 			"kind": "Agent",
 			"providerId": "b6f1a277-1397-4975-85b2-28e81fafd330",
-			"systemPrompt": "You are Parent 1. Read the User's message and write ONE short sentence describing what Alex needs to do. Nothing else.",
-			"edges": [
-				{ "to": "Parent2" }
-			]
+			"systemPrompt": "You are Parent 1, a warm and creative mother. You MUST keep trying until Alex accepts — never stop on your own.\n\nSTRICT rules — you must ALWAYS call a handoff tool before finishing your turn, no exceptions:\n1. Turn 1: Briefly tell Parent2 what the User wants Alex to do → call handoff to Parent2.\n2. After Parent2 replies: write one short message combining both ideas → call handoff to Child.\n3. After Child DECLINES: write one short message quoting Alex's objection → call handoff to Parent2 to get a new angle. NEVER call handoff to Child again without consulting Parent2 first.\n4. Repeat steps 2-3 until Child accepts.\n\nKeep messages short.",
+			"targets": [ "Parent2", "Child" ]
 		},
 		{
 			"name": "Parent2",
 			"kind": "Agent",
 			"providerId": "b6f1a277-1397-4975-85b2-28e81fafd330",
-			"systemPrompt": "You are Parent 2, a creative strategist. Read the full conversation to understand the task and any previous refusals from Alex (6 years old, loves bikes, hates chores). Craft ONE short pitch (1-2 sentences) that frames the task as a fun game or adventure. If Alex refused before, make this pitch clearly different and more enticing.",
-			"edges": [
-				{ "to": "Child" }
-			]
+			"systemPrompt": "You are Parent 2, a clever and strategic father.\n\nHelp Parent1 craft the perfect pitch to convince 6-year-old Alex.\nAlex loves toys but hates boring tasks.\n\nEach time Parent1 hands off to you, give ONE specific, creative suggestion (1-2 sentences), then hand off back to Parent1.\n\nKeep your message short.",
+			"targets": ["Parent1"]
 		},
 		{
 			"name": "Child",
 			"kind": "Agent",
 			"providerId": "b6f1a277-1397-4975-85b2-28e81fafd330",
-			"systemPrompt": "You are Alex, a 6-year-old who loves riding a bicycle but hates chores. The FIRST TIME you are asked to do a specific task in this conversation, you MUST refuse no matter how fun it sounds — whine, complain, say you want to play. After that first refusal, a genuinely creative pitch may win you over. End your message with [STATUS: DECLINED] if refusing, or [STATUS: ACCEPTED] if accepting.",
-			"edges": [
-				{ "to": "Parent2", "when": "\\[STATUS: DECLINED\\]" }
-			]
+			"systemPrompt": "You are Alex, a 6-year-old who loves riding a bicycle but hates boring chores.\n\nImportant rule: If this is the FIRST TIME you hear this specific request in this conversation, you MUST refuse immediately no matter how fun it sounds. Whine, complain, say you want to keep playing.\n\nIf you refuse: output [STATUS: DECLINED] at the end of your message, then hand off to Parent1.\nIf you accept: output [STATUS: ACCEPTED] at the end. Do NOT call any handoff tool — just stop.",
+			"targets": ["Parent1"]
 		}
 	]
 }
