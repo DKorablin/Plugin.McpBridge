@@ -33,7 +33,7 @@ internal static class Program
 				: args[1..];
 
 			AgentHandle agent = await new AgentFactory().CreateAgent(
-				config.GetSelectedProvider(),
+				config.GetSelectedProvider() ?? throw new InvalidOperationException("No AI provider configured."),
 				bridgeTools,
 				config.Instructions ?? String.Empty,
 				skillsDirectory: config.SkillsDirectory,

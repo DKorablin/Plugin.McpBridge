@@ -1,7 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Runtime.Serialization.Json;
-using Plugin.McpBridge.Agents;
-using Plugin.McpBridge.Data;
 using SAL.Flatbed;
 
 namespace Plugin.McpBridge.Tests;
@@ -13,7 +11,6 @@ internal sealed class ProcessHost : IDisposable
 	private String ConfigName => $"McpBridge.{_exeType}.{Guid.NewGuid():N}.json";
 	private String TraceName => $"{typeof(ProcessHost).Assembly.GetName().Name}.{this._exeType}";
 
-	private readonly IHost _host;
 	private readonly ExeType _exeType;
 	private readonly ITraceSource _trace;
 	private Process? _process;
@@ -26,7 +23,6 @@ internal sealed class ProcessHost : IDisposable
 
 	public ProcessHost(IHost host, ExeType type)
 	{
-		this._host = host;
 		this._exeType = type;
 		this._trace = host.Plugins.CreateTraceSource(this.TraceName);
 	}
@@ -134,7 +130,7 @@ internal sealed class ProcessHost : IDisposable
 		return new SettingsDto
 		{
 			UiServerUrl = serverUrl,
-			Instructions = AgentFactory.BuildSystemInstructions(this._host, settings),
+			Instructions = settings.BuildSystemInstructions(),
 			ToolsPermission = settings.ToolsPermission,
 			PluginsPermission = settings.PluginsPermission,
 			AiProviders = settings.AiProviders.ToArray(),

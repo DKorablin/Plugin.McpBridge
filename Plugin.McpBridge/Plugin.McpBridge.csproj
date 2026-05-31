@@ -40,7 +40,9 @@
 		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
 		<PackageReference Include="Microsoft.Agents.AI" />
 		<PackageReference Include="Microsoft.Agents.AI.GitHub.Copilot" />
-		<PackageReference Include="Microsoft.Agents.AI.Workflows"/>
+		<PackageReference Include="Microsoft.Agents.AI.Workflows" />
+		<!--RAG-->
+		<PackageReference Include="Microsoft.SemanticKernel.Connectors.InMemory" />
 	</ItemGroup>
 
 	<PropertyGroup Condition="'$(Configuration)'=='Release'">

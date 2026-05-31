@@ -3,9 +3,13 @@ using System.Drawing.Design;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.Serialization.Json;
+using System.Text;
+using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Tests;
+using Plugin.McpBridge.Tools;
 using Plugin.McpBridge.UI.PropertyGrid;
+using SAL.Flatbed;
 
 namespace Plugin.McpBridge
 {
@@ -288,15 +292,6 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 				if(this._mcpServerUrl == null)
 					this._mcpServerUrl = Defaults.McpServerUrl;
 				return this._mcpServerUrl;
-
-				Int32 FindFreePort()
-				{
-					using TcpListener probe = new TcpListener(IPAddress.Loopback, 0);
-					probe.Start();
-					Int32 port = ((IPEndPoint)probe.LocalEndpoint).Port;
-					probe.Stop();
-					return port;
-				}
 			}
 			set
 			{
@@ -332,6 +327,56 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 				return stream == null
 					? null
 					: new StreamReader(stream).ReadToEnd();
+		}
+
+		internal String BuildSystemInstructions()
+		{
+			String pluginInventory = this.ListPluginInventory();
+			return this.BuildSystemInstructions(pluginInventory);
+		}
+
+		/// <summary>Builds the system prompt from <paramref name="settings"/> and a pre-built plugin inventory string.</summary>
+		private String BuildSystemInstructions(String pluginInventory)
+		{
+			StringBuilder sb = new StringBuilder(this.AssistantSystemPrompt);
+
+			sb.AppendLine();
+			sb.AppendLine();
+			if(pluginInventory.Length > 0)
+			{
+				sb.AppendLine("Loaded SAL plugins:");
+				sb.AppendLine(pluginInventory);
+			} else
+				sb.AppendLine("No SAL plugins are available.");
+
+			return sb.ToString().TrimEnd();
+		}
+
+		/// <summary>Returns a formatted inventory of SAL plugins visible to the agent, filtered by <paramref name="disallowedPlugins"/>.</summary>
+		internal String ListPluginInventory()
+		{
+			var disallowedPlugins = this.PluginsPermission;
+			StringBuilder pluginsText = new StringBuilder();
+			Boolean allAllowed = disallowedPlugins == null || disallowedPlugins.Length == 0;
+			foreach(IPluginDescription pluginDescription in this.Plugin.Host.Plugins)
+			{
+				if(!allAllowed && Array.Exists(disallowedPlugins!, p => p == pluginDescription.ID))
+					continue;
+
+				pluginsText.Append("- ");
+				pluginsText.Append(pluginDescription.ID);
+				pluginsText.Append(" | ");
+				pluginsText.Append(pluginDescription.Name);
+				pluginsText.Append(" | ");
+				pluginsText.Append(pluginDescription.Version?.ToString());
+				pluginsText.Append(" | Settings: ");
+				pluginsText.Append(PluginSettingsTools.HasPluginSettings(pluginDescription) ? "yes" : "no");
+				pluginsText.Append(" | Members: ");
+				pluginsText.Append(PluginMethodsTools.HasCallableMembers(pluginDescription) ? "yes" : "no");
+				pluginsText.AppendLine();
+			}
+
+			return pluginsText.ToString().Trim();
 		}
 
 		private Boolean _listChangedPending = false;

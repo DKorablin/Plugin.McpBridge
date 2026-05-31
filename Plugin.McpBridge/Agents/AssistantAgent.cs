@@ -11,10 +11,9 @@ using SAL.Flatbed;
 namespace Plugin.McpBridge.Agents;
 
 /// <summary>Manages the MAF AIAgent instance and drives the multi-turn agent loop.</summary>
-internal sealed class AssistantAgent : IDisposable
+internal class AssistantAgent : IDisposable
 {
 	private readonly ITraceSource _trace;
-	private readonly IHost _host;
 	private readonly ToolsFactory _toolsFactory;
 	private readonly AgentFactory _agentFactory;
 	private AgentHandle? _handle;
@@ -30,12 +29,11 @@ internal sealed class AssistantAgent : IDisposable
 		AgentFactory? agentFactory)
 	{
 		this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
-		this._host = host ?? throw new ArgumentNullException(nameof(host));
 		this._toolsFactory = toolsFactory ?? throw new ArgumentNullException(nameof(toolsFactory));
 		this._agentFactory = agentFactory ?? throw new ArgumentNullException(nameof(agentFactory));
 	}
 
-	public async Task Initialize(Settings settings, AiProviderDto provider, String? sessionJson = null)
+	public virtual async Task Initialize(Settings settings, AiProviderDto provider, String? sessionJson = null)
 	{
 		_ = settings ?? throw new ArgumentNullException(nameof(settings));
 		_ = provider ?? throw new ArgumentNullException(nameof(provider));
@@ -44,8 +42,8 @@ internal sealed class AssistantAgent : IDisposable
 		this._handle?.Dispose();
 
 		var tools = this._toolsFactory.CreateTools(this._trace).ToArray();
-		var instructions = AgentFactory.BuildSystemInstructions(this._host, settings);
-		this._handle = await this._agentFactory.CreateAgent(provider, tools, instructions, skillsDirectory: settings.SkillsDirectory);
+		var instructions = settings.BuildSystemInstructions();
+		this._handle = await this.CreateAgent(provider, tools, instructions, settings);
 
 		if(sessionJson != null)
 			this._session = await this._handle.Agent.DeserializeSessionAsync(
@@ -54,6 +52,15 @@ internal sealed class AssistantAgent : IDisposable
 
 		this._trace.TraceEvent(TraceEventType.Verbose, 0, $"Initialized AssistantAgent with instructions '{instructions}'.");
 	}
+
+	protected virtual Task<AgentHandle> CreateAgent(
+		AiProviderDto provider, AIFunction[] tools, String instructions, Settings settings, IEnumerable<AIContextProvider>? contextProviders = null, CancellationToken token = default)
+		=> this._agentFactory.CreateAgent(provider,
+			tools,
+			instructions,
+			skillsDirectory: settings.SkillsDirectory,
+			contextProviders: contextProviders,
+			token: token);
 
 	/// <summary>Asynchronously retrieves the current session state as a JSON string.</summary>
 	/// <param name="token">

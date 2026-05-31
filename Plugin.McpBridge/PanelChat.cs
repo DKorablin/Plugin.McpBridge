@@ -118,11 +118,12 @@ public partial class PanelChat : UserControl
 	{
 		pnlConfirmation.Dismiss();
 		this._streamingActive = false;
-		this.UpdateUiState();
 
 		this._cts?.Dispose();
 		this._cts = new CancellationTokenSource();
 		CancellationToken token = this._cts.Token;
+
+		this.UpdateUiState();
 
 		try
 		{
@@ -223,8 +224,8 @@ public partial class PanelChat : UserControl
 			return;
 
 		txtRequest.Clear();
+		mdResponse.AppendMessage(request, MarkdownTextBox.MessageKind.User);
 		DataContent[] attachments = pnlAttachments.GetAttachments().ToArray();
-
 		Task.Run(async () => await this.InvokeMessage(request, attachments));
 	}
 

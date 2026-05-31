@@ -8,11 +8,11 @@ using Plugin.McpBridge.Data;
 
 namespace Plugin.McpBridge.Workflows;
 
-/// <summary>Builds a <see cref="WorkflowHandle"/> from a <see cref="WorkflowConfig"/> loaded at runtime.</summary>
+/// <summary>Builds a <see cref="WorkflowHandle"/> from a <see cref="WorkflowDto"/> loaded at runtime.</summary>
 internal sealed class WorkflowLoader2
 {
 	private readonly AgentFactory _agentFactory = new AgentFactory();
-	private readonly WorkflowConfig _config;
+	private readonly WorkflowDto _config;
 
 	internal WorkflowLoader2(String workflowPath)
 	{
@@ -21,7 +21,7 @@ internal sealed class WorkflowLoader2
 		if(!File.Exists(workflowPath))
 			throw new FileNotFoundException($"Workflow config file not found at '{workflowPath}'.", workflowPath);
 
-		this._config = WorkflowConfig.Load(workflowPath);
+		this._config = WorkflowDto.Load(workflowPath);
 
 		if(this._config.Nodes.Count == 0)
 			throw new InvalidOperationException("WorkflowConfig must contain at least one node.");
@@ -37,7 +37,7 @@ internal sealed class WorkflowLoader2
 	}
 
 	private async Task<(Workflow Workflow, List<IDisposable> Resources)> BuildCoreAsync(
-		WorkflowConfig config,
+		WorkflowDto config,
 		AiProviderDto[] providers,
 		AIFunction[] tools,
 		CancellationToken cancellationToken)
@@ -56,7 +56,7 @@ internal sealed class WorkflowLoader2
 
 			if(node.Kind == NodeKind.Workflow)
 			{
-				WorkflowConfig subConfig = new WorkflowConfig
+				WorkflowDto subConfig = new WorkflowDto
 				{
 					Name = node.Name,
 					Pattern = node.Pattern,
@@ -75,7 +75,7 @@ internal sealed class WorkflowLoader2
 				var agentResult = await _agentFactory.CreateAgent(
 					provider,
 					nodeTools,
-					node.SystemPrompt,
+					node.SystemPrompt ?? String.Empty,
 					node.Name);
 
 				ownedResources.Add(agentResult);
@@ -97,19 +97,19 @@ internal sealed class WorkflowLoader2
 		return (workflow, ownedResources);
 	}
 
-	private static Workflow BuildGroupChat(WorkflowConfig config, Dictionary<String, AIAgent> agents)
+	private static Workflow BuildGroupChat(WorkflowDto config, Dictionary<String, AIAgent> agents)
 	{
 		Int32 maxRounds = config.MaxRounds ?? 10;
 		return AgentWorkflowBuilder
 			.CreateGroupChatBuilderWith(a => new RoundRobinGroupChatManager(a) { MaximumIterationCount = maxRounds })
 			.AddParticipants([.. agents.Values])
 			.WithName(config.Name)
-			.WithDescription(config.Description)
+			.WithDescription(config.Description ?? String.Empty)
 			.Build();
 	}
 
 	private async Task<(Workflow Workflow, List<IDisposable> Resources)> BuildConditionalGraphAsync(
-		WorkflowConfig config,
+		WorkflowDto config,
 		AiProviderDto[] providers,
 		AIFunction[] tools,
 		CancellationToken cancellationToken)
@@ -125,7 +125,7 @@ internal sealed class WorkflowLoader2
 
 			if(node.Kind == NodeKind.Workflow)
 			{
-				WorkflowConfig subConfig = new WorkflowConfig
+				WorkflowDto subConfig = new WorkflowDto
 				{
 					Name = node.Name,
 					Pattern = node.Pattern,
@@ -158,7 +158,7 @@ internal sealed class WorkflowLoader2
 			throw new InvalidOperationException($"Entrypoint node '{entrypoint}' was not found in the workflow configuration.");
 
 		WorkflowBuilder graphBuilder = new WorkflowBuilder(entryAgent)
-			.WithDescription(config.Description);
+			.WithDescription(config.Description ?? String.Empty);
 
 		foreach(WorkflowNode node in config.Nodes)
 		{
@@ -223,7 +223,7 @@ internal sealed class WorkflowLoader2
 		return (workflow, ownedResources);
 	}
 
-	private static Workflow BuildMagentic(WorkflowConfig config, Dictionary<String, AIAgent> agents)
+	private static Workflow BuildMagentic(WorkflowDto config, Dictionary<String, AIAgent> agents)
 	{
 		String managerName = config.Entrypoint
 			?? config.Nodes.FirstOrDefault(n => n.IsOrchestrator)?.Name
@@ -238,11 +238,11 @@ internal sealed class WorkflowLoader2
 			.AddParticipants(participants)
 			.WithMaxRounds(config.MaxRounds)
 			.WithName(config.Name)
-			.WithDescription(config.Description)
+			.WithDescription(config.Description ?? String.Empty)
 			.Build();
 	}
 
-	private static Workflow BuildHandoff(WorkflowConfig config, Dictionary<String, AIAgent> agents)
+	private static Workflow BuildHandoff(WorkflowDto config, Dictionary<String, AIAgent> agents)
 	{
 		String entryName = config.Entrypoint ?? config.Nodes[0].Name;
 		HandoffWorkflowBuilder builder = AgentWorkflowBuilder.CreateHandoffBuilderWith(agents[entryName]);

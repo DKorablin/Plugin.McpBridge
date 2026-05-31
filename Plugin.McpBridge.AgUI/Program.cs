@@ -37,9 +37,9 @@ internal static class Program
 				: args[1..];
 
 			AgentHandle agent = await new AgentFactory().CreateAgent(
-				config.GetSelectedProvider(),
+				config.GetSelectedProvider() ?? throw new InvalidOperationException("No AI provider configured."),
 				bridgeTools,
-				config.Instructions,
+				config.Instructions ?? String.Empty,
 				skillsDirectory: config.SkillsDirectory,
 				token: lifetimeCts.Token);
 
@@ -112,7 +112,7 @@ internal static class Program
 		var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 
 		var agentBuilder = builder
-			.AddAIAgent(agent.Agent.Name, (sp, name) => agent.Agent.AsBuilder().UseApproval(jsonOptions).Build(sp));
+			.AddAIAgent(agent.Agent.Name!, (sp, name) => agent.Agent.AsBuilder().UseApproval(jsonOptions).Build(sp));
 
 		FileSystemAgentSessionStore? sessionStore = null;
 		if(config.AgUISessionStorageDirectory != null)

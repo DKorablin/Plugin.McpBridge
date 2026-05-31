@@ -29,6 +29,7 @@ public record AiProviderDto : INotifyPropertyChanged
 
 	/// <summary>Gets the unique identifier for this instance.</summary>
 	[DataMember]
+	[ReadOnly(true)]
 	public Guid Id { get; init; } = Guid.NewGuid();
 
 	/// <summary>Selects the provider profile used to initialize the AI client.</summary>

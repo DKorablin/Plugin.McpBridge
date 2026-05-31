@@ -58,6 +58,12 @@ internal sealed class ConfirmationPanel : Panel
 	/// <summary>Cancels any pending confirmation and hides the bar without user interaction.</summary>
 	public void Dismiss()
 	{
+		if(this.InvokeRequired)
+		{
+			this.Invoke(this.Dismiss);
+			return;
+		}
+
 		AgentConfirmationEventArgs? pending = this._pending;
 		if(pending == null)
 			return;
