@@ -54,6 +54,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		private String? _assistantSystemPrompt = Defaults.AssistantSystemPrompt;
 		private String? _skillsDirectory = null;
 		private String? _workflowsDirectory = null;
+		private String? _ragKnowledgeBaseDirectory = null;
 		private String[]? _toolsPermission = null;
 		private String[]? _pluginsPermission = null;
 
@@ -151,6 +152,19 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 				if(String.IsNullOrWhiteSpace(value) || !Directory.Exists(value))
 					value = null;
 				this.SetField(ref this._workflowsDirectory, value, nameof(this.WorkflowsDirectory));
+			}
+		}
+
+		[Category("Instruments")]
+		[Description("An optional directory path where RAG knowledge base files are stored. If not set, RAG tools will not be available.")]
+		public String? RagKnowledgeBaseDirectory
+		{
+			get => this._ragKnowledgeBaseDirectory;
+			set
+			{
+				if(String.IsNullOrWhiteSpace(value) || !Directory.Exists(value))
+					value = null;
+				this.SetField(ref this._ragKnowledgeBaseDirectory, value, nameof(this.RagKnowledgeBaseDirectory));
 			}
 		}
 

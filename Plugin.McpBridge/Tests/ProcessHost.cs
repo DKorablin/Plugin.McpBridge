@@ -137,6 +137,7 @@ internal sealed class ProcessHost : IDisposable
 			SelectedProviderId = settings.SelectedProviderId,
 			SkillsDirectory = settings.SkillsDirectory,
 			WorkflowsDirectory = settings.WorkflowsDirectory,
+			RagKnowledgeBaseDirectory = settings.RagKnowledgeBaseDirectory,
 			AgUISessionStorageDirectory = settings.AgUISessionStorageDirectory,
 			McpServerUrl = settings.McpServerUrl,
 		};

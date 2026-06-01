@@ -32,6 +32,9 @@ public sealed class SettingsDto
 	/// <summary>Gets or sets the directory path used for storing session data for the AG-UI.</summary>
 	public String? AgUISessionStorageDirectory { get; set; }
 
+	/// <summary>Gets or sets the directory path where the RAG knowledge base files are stored.</summary>
+	public String? RagKnowledgeBaseDirectory { get; set; }
+
 	/// <summary>Gets or sets the path to the directory where workflow files are stored.</summary>
 	public String? WorkflowsDirectory { get; set; }
 
