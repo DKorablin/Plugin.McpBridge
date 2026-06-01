@@ -3,8 +3,10 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using Microsoft.SemanticKernel.Connectors.InMemory;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Events;
+using Plugin.McpBridge.RAG;
 using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
 
@@ -18,6 +20,7 @@ internal class AssistantAgent : IDisposable
 	private readonly AgentFactory _agentFactory;
 	private AgentHandle? _handle;
 	private AgentSession? _session;
+	private TextSearchStore? _textSearchStore;
 
 	public event EventHandler<AgentResponseEventArgs>? AiResponseReceived;
 	public event EventHandler<AgentConfirmationEventArgs>? ConfirmationRequired;
@@ -53,14 +56,43 @@ internal class AssistantAgent : IDisposable
 		this._trace.TraceEvent(TraceEventType.Verbose, 0, $"Initialized AssistantAgent with instructions '{instructions}'.");
 	}
 
-	protected virtual Task<AgentHandle> CreateAgent(
+	protected virtual async Task<AgentHandle> CreateAgent(
 		AiProviderDto provider, AIFunction[] tools, String instructions, Settings settings, IEnumerable<AIContextProvider>? contextProviders = null, CancellationToken token = default)
-		=> this._agentFactory.CreateAgent(provider,
+	{
+		List<AIContextProvider> providers = contextProviders == null ? new() : new(contextProviders);
+
+		if(settings.RagKnowledgeBaseDirectory != null
+			&& provider is NetworkProviderDto networkProvider
+			&& networkProvider.EmbeddingModelDimention != null)
+		{
+			var vectorStore = new InMemoryVectorStore(new() { EmbeddingGenerator = AgentFactory.CreateEmbeddingGenerator(provider) });
+			this._textSearchStore = new TextSearchStore(vectorStore, "rag-kb", networkProvider.EmbeddingModelDimention.Value);
+			await this._textSearchStore.UpsertDocumentsAsync(TextSearchStore.GetDocumentsFromFolder(settings.RagKnowledgeBaseDirectory));
+			providers.Add(new TextSearchProvider(this.SearchAsync, new TextSearchProviderOptions
+			{
+				SearchTime = TextSearchProviderOptions.TextSearchBehavior.BeforeAIInvoke,
+			}));
+		}
+
+		return await this._agentFactory.CreateAgent(provider,
 			tools,
 			instructions,
 			skillsDirectory: settings.SkillsDirectory,
-			contextProviders: contextProviders,
+			contextProviders: providers.Count == 0 ? null : providers,
 			token: token);
+	}
+
+	private async Task<IEnumerable<TextSearchProvider.TextSearchResult>> SearchAsync(String text, CancellationToken ct)
+	{
+		var results = await this._textSearchStore!.SearchAsync(text, 3, ct);
+		return results.Select(r => new TextSearchProvider.TextSearchResult
+		{
+			SourceName = r.SourceName,
+			SourceLink = r.SourceLink,
+			Text = r.Text,
+			RawRepresentation = r,
+		});
+	}
 
 	/// <summary>Asynchronously retrieves the current session state as a JSON string.</summary>
 	/// <param name="token">
