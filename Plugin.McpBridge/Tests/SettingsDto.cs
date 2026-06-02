@@ -9,7 +9,7 @@ namespace Plugin.McpBridge.Tests;
 /// <summary>Serializable snapshot of the settings needed to start the UI process.</summary>
 public sealed class SettingsDto : SettingsBase
 {
-	public static String AssemblyName => Assembly.GetExecutingAssembly().GetName().Name ?? "Plugin.McpBridge.Undefined";
+	public static String AssemblyName => System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name ?? "Plugin.McpBridge.Undefined";
 
 	/// <summary>Gets or sets the URL of the user interface server.</summary>
 	public String UiServerUrl { get; set; }
