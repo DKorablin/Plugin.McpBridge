@@ -127,19 +127,6 @@ internal sealed class ProcessHost : IDisposable
 			_ => throw new InvalidOperationException($"Unsupported executable: {this._exeType}"),
 		};
 
-		return new SettingsDto
-		{
-			UiServerUrl = serverUrl,
-			Instructions = settings.BuildSystemInstructions(),
-			ToolsPermission = settings.ToolsPermission,
-			PluginsPermission = settings.PluginsPermission,
-			AiProviders = settings.AiProviders.ToArray(),
-			SelectedProviderId = settings.SelectedProviderId,
-			SkillsDirectory = settings.SkillsDirectory,
-			WorkflowsDirectory = settings.WorkflowsDirectory,
-			RagKnowledgeBaseDirectory = settings.RagKnowledgeBaseDirectory,
-			AgUISessionStorageDirectory = settings.AgUISessionStorageDirectory,
-			McpServerUrl = settings.McpServerUrl,
-		};
+		return new SettingsDto(serverUrl, settings);
 	}
 }

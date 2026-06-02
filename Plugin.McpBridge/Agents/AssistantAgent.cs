@@ -20,7 +20,6 @@ internal class AssistantAgent : IDisposable
 	private readonly AgentFactory _agentFactory;
 	private AgentHandle? _handle;
 	private AgentSession? _session;
-	private TextSearchStore? _textSearchStore;
 
 	public event EventHandler<AgentResponseEventArgs>? AiResponseReceived;
 	public event EventHandler<AgentConfirmationEventArgs>? ConfirmationRequired;
@@ -57,42 +56,13 @@ internal class AssistantAgent : IDisposable
 	}
 
 	protected virtual async Task<AgentHandle> CreateAgent(
-		AiProviderDto provider, AIFunction[] tools, String instructions, Settings settings, IEnumerable<AIContextProvider>? contextProviders = null, CancellationToken token = default)
-	{
-		List<AIContextProvider> providers = contextProviders == null ? new() : new(contextProviders);
-
-		if(settings.RagKnowledgeBaseDirectory != null
-			&& provider is NetworkProviderDto networkProvider
-			&& networkProvider.EmbeddingModelDimention != null)
-		{
-			var vectorStore = new InMemoryVectorStore(new() { EmbeddingGenerator = AgentFactory.CreateEmbeddingGenerator(provider) });
-			this._textSearchStore = new TextSearchStore(vectorStore, "rag-kb", networkProvider.EmbeddingModelDimention.Value);
-			await this._textSearchStore.UpsertDocumentsAsync(TextSearchStore.GetDocumentsFromFolder(settings.RagKnowledgeBaseDirectory));
-			providers.Add(new TextSearchProvider(this.SearchAsync, new TextSearchProviderOptions
-			{
-				SearchTime = TextSearchProviderOptions.TextSearchBehavior.BeforeAIInvoke,
-			}));
-		}
-
-		return await this._agentFactory.CreateAgent(provider,
+		AiProviderDto provider, AIFunction[] tools, String instructions, SettingsBase settings, CancellationToken token = default)
+		=> await this._agentFactory.CreateAgent(
+			settings,
+			provider,
 			tools,
 			instructions,
-			skillsDirectory: settings.SkillsDirectory,
-			contextProviders: providers.Count == 0 ? null : providers,
 			token: token);
-	}
-
-	private async Task<IEnumerable<TextSearchProvider.TextSearchResult>> SearchAsync(String text, CancellationToken ct)
-	{
-		var results = await this._textSearchStore!.SearchAsync(text, 3, ct);
-		return results.Select(r => new TextSearchProvider.TextSearchResult
-		{
-			SourceName = r.SourceName,
-			SourceLink = r.SourceLink,
-			Text = r.Text,
-			RawRepresentation = r,
-		});
-	}
 
 	/// <summary>Asynchronously retrieves the current session state as a JSON string.</summary>
 	/// <param name="token">

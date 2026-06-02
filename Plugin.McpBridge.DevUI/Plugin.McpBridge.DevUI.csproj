@@ -20,5 +20,7 @@
 		<PackageReference Include="Microsoft.Agents.AI.Hosting.OpenAI" />
 		<PackageReference Include="Microsoft.Agents.AI.GitHub.Copilot" />
 		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
+		<!--RAG-->
+		<PackageReference Include="Microsoft.SemanticKernel.Connectors.InMemory" />
 	</ItemGroup>
 </Project>

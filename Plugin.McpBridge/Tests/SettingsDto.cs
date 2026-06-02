@@ -1,45 +1,96 @@
-﻿using Plugin.McpBridge.Data;
+﻿using System.Diagnostics;
+using System.Reflection;
+using System.Runtime.Serialization.Json;
+using Microsoft.Extensions.AI;
+using Plugin.McpBridge.Mcp;
 
 namespace Plugin.McpBridge.Tests;
 
 /// <summary>Serializable snapshot of the settings needed to start the UI process.</summary>
-public sealed class SettingsDto
+public sealed class SettingsDto : SettingsBase
 {
-	/// <summary>Gets or sets the URL of the user interface server.</summary>
-	public required String UiServerUrl { get; set; }
+	public static String AssemblyName => Assembly.GetExecutingAssembly().GetName().Name ?? "Plugin.McpBridge.Undefined";
 
-	/// <summary>Base URL of the in-process tool bridge server (e.g. http://localhost:12345).</summary>
-	public required String McpServerUrl { get; set; }
+	/// <summary>Gets or sets the URL of the user interface server.</summary>
+	public String UiServerUrl { get; set; }
 
 	/// <summary>Gets or sets the instructions associated with this instance.</summary>
-	public required String Instructions { get; set; }
+	public String Instructions { get; set; }
 
-	/// <summary>Gets or sets the list of tool permissions assigned to the user.</summary>
-	public String[]? ToolsPermission { get; set; }
+	public SettingsDto() { }
 
-	/// <summary>Gets or sets the list of plugin permissions granted to the user or application.</summary>
-	public String[]? PluginsPermission { get; set; }
+	public SettingsDto(String uiServerUrl, Settings settings)
+	{
+		this.UiServerUrl = uiServerUrl;
+		this.Instructions = settings.BuildSystemInstructions();
 
-	/// <summary>Gets or sets the collection of available AI providers.</summary>
-	public required AiProviderDto[] AiProviders { get; set; }
+		foreach(PropertyInfo prop in typeof(SettingsBase).GetProperties())
+			if(prop.CanRead && prop.CanWrite)
+				prop.SetValue(this, prop.GetValue(settings));
+	}
 
-	/// <summary>Gets or sets the selected AI provider configuration for this instance.</summary>
-	public required Guid? SelectedProviderId { get; set; }
+	public override String BuildSystemInstructions()
+		=> this.Instructions;
 
-	/// <summary>Gets or sets the path to the directory containing skill definitions.</summary>
-	public String? SkillsDirectory { get; set; }
+	public static SettingsDto CreateSettingsFromArgs(ref String[] args, CancellationTokenSource cts)
+	{
+		SettingsDto settings = SettingsDto.LoadSettingsFromJson(args);
 
-	/// <summary>Gets or sets the directory path used for storing session data for the AG-UI.</summary>
-	public String? AgUISessionStorageDirectory { get; set; }
+		Int32 parentPidIndex = Array.IndexOf(args, "--parent-pid");
+		if(parentPidIndex >= 0 && parentPidIndex + 1 < args.Length && Int32.TryParse(args[parentPidIndex + 1], out Int32 parentPid))
+			_ = WatchParentAsync(parentPid, cts);
 
-	/// <summary>Gets or sets the directory path where the RAG knowledge base files are stored.</summary>
-	public String? RagKnowledgeBaseDirectory { get; set; }
+		args = parentPidIndex >= 0
+			? args[1..parentPidIndex].Concat(args[(parentPidIndex + 2)..]).ToArray()
+			: args[1..];
 
-	/// <summary>Gets or sets the path to the directory where workflow files are stored.</summary>
-	public String? WorkflowsDirectory { get; set; }
+		return settings;
+	}
 
-	public AiProviderDto? GetSelectedProvider()
-		=> this.SelectedProviderId.HasValue
-			? this.AiProviders.FirstOrDefault(p => p.Id == this.SelectedProviderId.Value)
-			: null;
+	private static SettingsDto LoadSettingsFromJson(String[] args)
+	{
+		if(args.Length == 0)
+			throw new InvalidOperationException($"No configuration file provided. Usage: {SettingsDto.AssemblyName} <config-file-path>");
+
+		String configPath = args[0];
+		if(!File.Exists(configPath))
+			throw new InvalidOperationException($"Config file not found: {configPath}");
+
+		SettingsDto config;
+		DataContractJsonSerializer serializer = new DataContractJsonSerializer(typeof(SettingsDto));
+		using(FileStream stream = File.OpenRead(configPath))
+			config = (SettingsDto)serializer.ReadObject(stream)!;
+		File.Delete(configPath);
+		return config;
+	}
+
+	public async Task<AIFunction[]> FetchBridgeToolsAsync()
+	{
+		if(String.IsNullOrEmpty(this.McpServerUrl))
+			return Array.Empty<AIFunction>();
+
+		AIFunction[] tools;
+		using(CancellationTokenSource timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30)))
+		{
+			HttpClient bridgeHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(10), BaseAddress = new Uri(this.McpServerUrl) };
+			tools = await McpClient.FetchAllAsync(SettingsDto.AssemblyName, bridgeHttp, timeoutCts.Token);
+		}
+		return tools;
+	}
+
+	private static async Task WatchParentAsync(Int32 parentPid, CancellationTokenSource cts)
+	{
+		try
+		{
+			Process parent = Process.GetProcessById(parentPid);
+			await parent.WaitForExitAsync(cts.Token);
+			Console.WriteLine($"Parent process {parentPid} exited. Shutting down.");
+		} catch(ArgumentException)
+		{
+			Console.WriteLine($"Parent process {parentPid} not found. Shutting down.");
+		} finally
+		{
+			await cts.CancelAsync();
+		}
+	}
 }

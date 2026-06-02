@@ -1,14 +1,10 @@
-﻿using System.Diagnostics;
-using System.Runtime.Serialization.Json;
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
-using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.AgUI.Agents;
-using Plugin.McpBridge.Mcp;
 using Plugin.McpBridge.Tests;
 using Plugin.McpBridge.Workflows;
 
@@ -16,88 +12,41 @@ namespace Plugin.McpBridge.AgUI;
 
 internal static class Program
 {
-	private static String AssemblyName => typeof(Program).Assembly.GetName().Name ?? "Plugin.McpBridge.Undefined";
+	private static AgentFactory _agentFactory = new AgentFactory();
 
 	private static async Task<Int32> Main(String[] args)
 	{
-		SettingsDto? config = await TryLoadConfigAsync(args);
-		if(config is null)
-			return 1;
-
 		using(CancellationTokenSource lifetimeCts = new CancellationTokenSource())
 		{
-			Int32 parentPidIndex = Array.IndexOf(args, "--parent-pid");
-			if(parentPidIndex >= 0 && parentPidIndex + 1 < args.Length && Int32.TryParse(args[parentPidIndex + 1], out Int32 parentPid))
-				_ = WatchParentAsync(parentPid, lifetimeCts);
+			SettingsDto settings = SettingsDto.CreateSettingsFromArgs(ref args, lifetimeCts);
 
-			var bridgeTools = await FetchBridgeToolsAsync(config);
+			var bridgeTools = await settings.FetchBridgeToolsAsync();
+			Console.WriteLine($"Bridge connected: {bridgeTools.Length:N0} tools loaded from {settings.McpServerUrl}");
 
-			var remainingArgs = parentPidIndex >= 0
-				? args[1..parentPidIndex].Concat(args[(parentPidIndex + 2)..]).ToArray()
-				: args[1..];
-
-			AgentHandle agent = await new AgentFactory().CreateAgent(
-				config.GetSelectedProvider() ?? throw new InvalidOperationException("No AI provider configured."),
+			AgentHandle agent = await _agentFactory.CreateAgent(
+				settings,
+				settings.GetSelectedProvider() ?? throw new InvalidOperationException("No AI provider configured."),
 				bridgeTools,
-				config.Instructions ?? String.Empty,
-				skillsDirectory: config.SkillsDirectory,
+				settings.Instructions ?? String.Empty,
 				token: lifetimeCts.Token);
 
 			List<WorkflowHandle> workflows = new List<WorkflowHandle>();
-			if(config.WorkflowsDirectory is not null)
+			if(settings.WorkflowsDirectory is not null)
 			{
-				foreach(String workflowFile in Directory.EnumerateFiles(config.WorkflowsDirectory, "*.json"))
+				foreach(String workflowFile in Directory.EnumerateFiles(settings.WorkflowsDirectory, "*.json"))
 				{
 					Console.WriteLine($"Loading workflow from {workflowFile}");
-					WorkflowLoader2 loader = new WorkflowLoader2(workflowFile);
-					WorkflowHandle workflowHandle = await loader.BuildAsync(config.AiProviders, bridgeTools);
+					WorkflowLoader2 loader = new WorkflowLoader2(settings, workflowFile);
+					WorkflowHandle workflowHandle = await loader.BuildAsync(settings.AiProviders, bridgeTools);
 					workflows.Add(workflowHandle);
 				}
 			}
 
-			WebApplication app = BuildWebApp(remainingArgs, config, agent, workflows);
-			Console.WriteLine($"AG-UI running at {config.UiServerUrl}/agui");
+			WebApplication app = BuildWebApp(args, settings, agent, workflows);
+			Console.WriteLine($"AG-UI running at {settings.UiServerUrl}/agui");
 			await app.RunAsync(lifetimeCts.Token);
 		}
 		return 0;
-	}
-
-	private static async Task<SettingsDto?> TryLoadConfigAsync(String[] args)
-	{
-		if(args.Length == 0)
-		{
-			await Console.Error.WriteLineAsync($"Usage: {AssemblyName} <config-file>");
-			return null;
-		}
-
-		String configPath = args[0];
-		if(!File.Exists(configPath))
-		{
-			await Console.Error.WriteLineAsync($"Config file not found: {configPath}");
-			return null;
-		}
-
-		SettingsDto config;
-		DataContractJsonSerializer serializer = new DataContractJsonSerializer(typeof(SettingsDto));
-		using(FileStream stream = File.OpenRead(configPath))
-			config = (SettingsDto)serializer.ReadObject(stream)!;
-		File.Delete(configPath);
-		return config;
-	}
-
-	private static async Task<AIFunction[]> FetchBridgeToolsAsync(SettingsDto config)
-	{
-		if(String.IsNullOrEmpty(config.McpServerUrl))
-			return Array.Empty<AIFunction>();
-
-		AIFunction[] tools;
-		using(CancellationTokenSource timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30)))
-		{
-			HttpClient bridgeHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(10), BaseAddress = new Uri(config.McpServerUrl) };
-			tools = await McpClient.FetchAllAsync(AssemblyName, bridgeHttp, timeoutCts.Token);
-		}
-		Console.WriteLine($"Bridge connected: {tools.Length:N0} tools loaded from {config.McpServerUrl}");
-		return tools;
 	}
 
 	private static WebApplication BuildWebApp(String[] args, SettingsDto config, AgentHandle agent, IEnumerable<WorkflowHandle> workflows)
@@ -145,7 +94,7 @@ internal static class Program
 			return Results.Stream(
 				async stream =>
 				{
-					String fullResourceName = $"{AssemblyName}.wwwroot.{resourceName}";
+					String fullResourceName = $"{SettingsDto.AssemblyName}.wwwroot.{resourceName}";
 					using(Stream? resStream = typeof(Program).Assembly.GetManifestResourceStream(fullResourceName))
 					{
 						if(resStream == null)
@@ -161,7 +110,7 @@ internal static class Program
 	{
 		app.MapGet("/history/{threadId}", async (String threadId) =>
 		{
-			if(!Program.IsValidThreadId(threadId))
+			if(!Guid.TryParse(threadId, out _))
 				return Results.BadRequest();
 
 			JsonElement? root = await sessionStore.ReadChatHistory(agentName, threadId);
@@ -175,26 +124,5 @@ internal static class Program
 
 			return Results.Json(messagesElement);
 		});
-	}
-
-	/// <summary>Returns <see langword="true"/> when <paramref name="value"/> is a well-formed UUID/GUID.</summary>
-	private static Boolean IsValidThreadId(String value) => Guid.TryParse(value, out _);
-
-	private static async Task WatchParentAsync(Int32 parentPid, CancellationTokenSource cts)
-	{
-		try
-		{
-			Process parent = Process.GetProcessById(parentPid);
-			await parent.WaitForExitAsync(cts.Token);
-			Console.WriteLine($"Parent process {parentPid:N0} exited. Shutting down.");
-		}
-		catch(ArgumentException)
-		{
-			Console.WriteLine($"Parent process {parentPid:N0} not found. Shutting down.");
-		}
-		finally
-		{
-			await cts.CancelAsync();
-		}
 	}
 }

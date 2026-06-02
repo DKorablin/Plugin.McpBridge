@@ -4,29 +4,44 @@ using Azure.AI.OpenAI;
 using GitHub.Copilot.SDK;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using Microsoft.SemanticKernel.Connectors.InMemory;
 using OpenAI;
 using Plugin.McpBridge.Data;
+using Plugin.McpBridge.RAG;
 
 namespace Plugin.McpBridge.Agents;
 
 /// <summary>Shared factory methods for building AI agent components, usable by both the WinForms chat path and DevUI.</summary>
 internal class AgentFactory
 {
-	public virtual async Task<AgentHandle> CreateAgent(
-		AiProviderDto providerSettings,
+	private TextSearchStore? _textSearchStore;
+
+	public async Task<AgentHandle> CreateAgent(
+		SettingsBase settings,
+		AiProviderDto provider,
 		AIFunction[] tools,
 		String systemInstructions,
 		String? agentRole = null,
-		String? skillsDirectory = null,
+		CancellationToken token = default)
+	{
+		IEnumerable<AIContextProvider>? contextProviders = await this.CreateContextProviders(settings, provider);
+		return await this.CreateAgent(provider, tools, systemInstructions, agentRole, contextProviders, token);
+	}
+
+	public virtual async Task<AgentHandle> CreateAgent(
+		AiProviderDto provider,
+		AIFunction[] tools,
+		String systemInstructions,
+		String? agentRole = null,
 		IEnumerable<AIContextProvider>? contextProviders = null,
 		CancellationToken token = default)
 	{
-		_ = providerSettings ?? throw new ArgumentNullException(nameof(providerSettings));
+		_ = provider ?? throw new ArgumentNullException(nameof(provider));
 
-		switch(providerSettings.ProviderType)
+		switch(provider.ProviderType)
 		{
 		case AiProviderType.CoPilot:
-			CoPilotProviderDto copilotSettings = (CoPilotProviderDto)providerSettings;
+			CoPilotProviderDto copilotSettings = (CoPilotProviderDto)provider;
 			CopilotClientOptions options = new CopilotClientOptions()
 			{
 				CliPath = copilotSettings.CoPilotPath,
@@ -49,7 +64,7 @@ internal class AgentFactory
 
 			return AgentHandle.FromCopilotClient(copilotClient.AsAIAgent(sessionConfig), copilotClient);
 		default:
-			IChatClient chatClient = AgentFactory.CreateChatClient(providerSettings);
+			IChatClient chatClient = AgentFactory.CreateChatClient(provider);
 			var options1 = new ChatClientAgentOptions
 			{
 				//"For in-memory agents, this defaults to a randomly-generated ID" — and the base class generates it as {Name}_{randomHex} so it's human-readable while still unique.
@@ -62,17 +77,7 @@ internal class AgentFactory
 				},
 			};
 
-			List<AIContextProvider> aiContextProviders = new List<AIContextProvider>();
-			if(!String.IsNullOrWhiteSpace(skillsDirectory))
-			{
-				var skillsProvider = new AgentSkillsProvider(skillsDirectory);
-				aiContextProviders.Add(skillsProvider);
-			}
-
-			if(contextProviders != null)
-				aiContextProviders.AddRange(contextProviders);
-
-			options1.AIContextProviders = aiContextProviders.Count == 0 ? null : aiContextProviders;
+			options1.AIContextProviders = contextProviders;
 
 			return AgentHandle.FromChatClient(chatClient.AsAIAgent(options1), chatClient);
 		}
@@ -137,8 +142,33 @@ internal class AgentFactory
 			})
 			.Build();
 
+	public async Task<AIContextProvider[]?> CreateContextProviders(SettingsBase settings, AiProviderDto provider)
+	{
+		List<AIContextProvider> providers = new List<AIContextProvider>();
+
+		if(settings.RagDirectory != null
+			&& provider is NetworkProviderDto networkProvider
+			&& networkProvider.EmbeddingModelDimention != null)
+		{
+			var vectorStore = new InMemoryVectorStore(new() { EmbeddingGenerator = AgentFactory.CreateEmbeddingGenerator(provider) });
+			this._textSearchStore = new TextSearchStore(vectorStore, "rag-kb", networkProvider.EmbeddingModelDimention.Value);
+			await this._textSearchStore.UpsertDocumentsAsync(TextSearchStore.GetDocumentsFromFolder(settings.RagDirectory));
+			providers.Add(new TextSearchProvider(this.SearchAsync, new TextSearchProviderOptions
+			{
+				SearchTime = TextSearchProviderOptions.TextSearchBehavior.BeforeAIInvoke,
+				FunctionToolName = settings.RagToolName,
+				FunctionToolDescription = settings.RagToolDescription,
+				CitationsPrompt = settings.RagCitationsPrompt,
+			}));
+		}
+		if(settings.SkillsDirectory != null)
+			providers.Add(new AgentSkillsProvider(settings.SkillsDirectory));
+
+		return providers.Count == 0 ? null : providers.ToArray();
+	}
+
 	/// <summary>Creates an <see cref="IEmbeddingGenerator{TInput,TEmbedding}"/> for the given provider using <see cref="NetworkProviderDto.EmbeddingModelId"/>.</summary>
-	internal static IEmbeddingGenerator<String, Embedding<Single>> CreateEmbeddingGenerator(AiProviderDto providerSettings)
+	private static IEmbeddingGenerator<String, Embedding<Single>> CreateEmbeddingGenerator(AiProviderDto providerSettings)
 	{
 		switch(providerSettings.ProviderType)
 		{
@@ -168,5 +198,17 @@ internal class AgentFactory
 				.GetEmbeddingClient(networkSettings.EmbeddingModelId!)
 				.AsIEmbeddingGenerator();
 		}
+	}
+
+	private async Task<IEnumerable<TextSearchProvider.TextSearchResult>> SearchAsync(String text, CancellationToken ct)
+	{
+		var results = await this._textSearchStore!.SearchAsync(text, 3, ct);
+		return results.Select(r => new TextSearchProvider.TextSearchResult
+		{
+			SourceName = r.SourceName,
+			SourceLink = r.SourceLink,
+			Text = r.Text,
+			RawRepresentation = r,
+		});
 	}
 }

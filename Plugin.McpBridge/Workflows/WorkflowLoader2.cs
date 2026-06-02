@@ -1,5 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
@@ -11,16 +10,18 @@ namespace Plugin.McpBridge.Workflows;
 /// <summary>Builds a <see cref="WorkflowHandle"/> from a <see cref="WorkflowDto"/> loaded at runtime.</summary>
 internal sealed class WorkflowLoader2
 {
-	private readonly AgentFactory _agentFactory = new AgentFactory();
+	private readonly SettingsBase _settings;
 	private readonly WorkflowDto _config;
+	private readonly AgentFactory _agentFactory = new AgentFactory();
 
-	internal WorkflowLoader2(String workflowPath)
+	internal WorkflowLoader2(SettingsBase settings, String workflowPath)
 	{
 		if(String.IsNullOrWhiteSpace(workflowPath))
 			throw new ArgumentException("Workflow path must be a non-empty string.", nameof(workflowPath));
 		if(!File.Exists(workflowPath))
 			throw new FileNotFoundException($"Workflow config file not found at '{workflowPath}'.", workflowPath);
 
+		this._settings = settings ?? throw new ArgumentNullException(nameof(settings));
 		this._config = WorkflowDto.Load(workflowPath);
 
 		if(this._config.Nodes.Count == 0)
@@ -28,11 +29,16 @@ internal sealed class WorkflowLoader2
 	}
 
 	/// <summary>Builds a <see cref="WorkflowHandle"/> from the loaded config using the supplied providers and tools.</summary>
-	public async Task<WorkflowHandle> BuildAsync(AiProviderDto[] providers, AIFunction[] tools, CancellationToken cancellationToken = default)
+	public async Task<WorkflowHandle> BuildAsync(IEnumerable<AiProviderDto> providers, AIFunction[] tools, CancellationToken cancellationToken = default)
 	{
 		_ = providers ?? throw new ArgumentNullException(nameof(providers));
 
-		(Workflow workflow, List<IDisposable> resources) = await this.BuildCoreAsync(this._config, providers, tools, cancellationToken);
+		(Workflow workflow, List<IDisposable> resources) = await this.BuildCoreAsync(
+			this._config,
+			providers.ToArray(),
+			tools,
+			cancellationToken);
+
 		return new WorkflowHandle(workflow, this._config.Name, resources);
 	}
 

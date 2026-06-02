@@ -25,6 +25,8 @@
 		<PackageReference Include="Microsoft.Agents.AI.Hosting.AGUI.AspNetCore" />
 		<PackageReference Include="Microsoft.Agents.AI.GitHub.Copilot" />
 		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
+		<!--RAG-->
+		<PackageReference Include="Microsoft.SemanticKernel.Connectors.InMemory" />
 	</ItemGroup>
 
 	<Target Name="NpmInstall" BeforeTargets="NpmBuild" Inputs="ClientApp\package.json" Outputs="ClientApp\node_modules\.package-lock.json">
