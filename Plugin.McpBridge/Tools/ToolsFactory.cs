@@ -17,7 +17,7 @@ internal sealed class ToolsFactory
 		{
 			new PluginSettingsTools(host),
 			//new PluginMethodsTools(host),
-			new PluginMethodsToolsExtractor(host, settings),
+			new PluginMethodsToolsExtractor(host, settings, settings.AiAgent),
 			new ShellTools(),
 		};
 

@@ -4,7 +4,6 @@ using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Events;
 using Plugin.McpBridge.Mcp;
-using Plugin.McpBridge.RAG;
 using Plugin.McpBridge.Tests;
 using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
@@ -15,6 +14,7 @@ namespace Plugin.McpBridge
 	public class Plugin : IPlugin, IPluginSettings<Settings>
 	{
 		private Settings? _settings;
+		internal static Plugin? StaticInstance { get; private set; }
 		private AssistantAgent? _agent;
 
 		private ProcessHost? _devUIHost;
@@ -69,6 +69,7 @@ namespace Plugin.McpBridge
 
 		public Plugin(IHost host, ITraceSource trace)
 		{
+			Plugin.StaticInstance = this;
 			this.Host = host ?? throw new ArgumentNullException(nameof(host));
 			this.Trace = trace ?? throw new ArgumentNullException(nameof(trace));
 		}
@@ -82,8 +83,7 @@ namespace Plugin.McpBridge
 			EventHandler<AgentResponseEventArgs> responseHandler = (Object? sender, AgentResponseEventArgs e)
 				=> responses.Add(e.Response);
 
-			var provider = this.Settings.GetSelectedProvider()
-				?? throw new InvalidOperationException("No AI provider configured.");
+			var provider = this.Settings.AiAgent.GetSelectedProvider(this.Settings.AiProviders);
 
 			var agent = Task.Run(() => this.GetAgent(provider)).GetAwaiter().GetResult();
 			agent.AiResponseReceived += responseHandler;

@@ -11,6 +11,7 @@ internal sealed class ProcessHost : IDisposable
 	private String ConfigName => $"McpBridge.{_exeType}.{Guid.NewGuid():N}.json";
 	private String TraceName => $"{typeof(ProcessHost).Assembly.GetName().Name}.{this._exeType}";
 
+	private readonly IHost _host;
 	private readonly ExeType _exeType;
 	private readonly ITraceSource _trace;
 	private Process? _process;
@@ -23,6 +24,7 @@ internal sealed class ProcessHost : IDisposable
 
 	public ProcessHost(IHost host, ExeType type)
 	{
+		this._host = host ?? throw new ArgumentNullException(nameof(host));
 		this._exeType = type;
 		this._trace = host.Plugins.CreateTraceSource(this.TraceName);
 	}
@@ -127,6 +129,6 @@ internal sealed class ProcessHost : IDisposable
 			_ => throw new InvalidOperationException($"Unsupported executable: {this._exeType}"),
 		};
 
-		return new SettingsDto(serverUrl, settings);
+		return new SettingsDto(serverUrl, settings, Settings.BuildSystemInstructions(settings, settings.AiAgent, this._host));
 	}
 }

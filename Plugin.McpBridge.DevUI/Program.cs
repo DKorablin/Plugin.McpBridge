@@ -20,8 +20,8 @@ internal static class Program
 			Console.WriteLine($"Bridge connected: {bridgeTools.Length:N0} tools loaded from {settings.McpServerUrl}");
 
 			AgentHandle agent = await _agentFactory.CreateAgent(
-				settings,
-				settings.GetSelectedProvider() ?? throw new InvalidOperationException("No AI provider configured."),
+				settings.AiAgent,
+				settings.AiAgent.GetSelectedProvider(settings.AiProviders),
 				bridgeTools,
 				settings.Instructions ?? String.Empty,
 				token: lifetimeCts.Token);

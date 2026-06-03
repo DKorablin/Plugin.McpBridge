@@ -19,18 +19,15 @@ public sealed class SettingsDto : SettingsBase
 
 	public SettingsDto() { }
 
-	public SettingsDto(String uiServerUrl, Settings settings)
+	public SettingsDto(String uiServerUrl, Settings settings, String systemInstructions)
 	{
 		this.UiServerUrl = uiServerUrl;
-		this.Instructions = settings.BuildSystemInstructions();
+		this.Instructions = systemInstructions;
 
 		foreach(PropertyInfo prop in typeof(SettingsBase).GetProperties())
 			if(prop.CanRead && prop.CanWrite)
 				prop.SetValue(this, prop.GetValue(settings));
 	}
-
-	public override String BuildSystemInstructions()
-		=> this.Instructions;
 
 	public static SettingsDto CreateSettingsFromArgs(ref String[] args, CancellationTokenSource cts)
 	{

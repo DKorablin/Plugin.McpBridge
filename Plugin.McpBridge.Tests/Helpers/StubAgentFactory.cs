@@ -3,7 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
-using Plugin.McpBridge.Data;
+using Plugin.McpBridge.Data.AiProvider;
 
 namespace Plugin.McpBridge.Tests.Helpers;
 

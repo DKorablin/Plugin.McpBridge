@@ -10,25 +10,14 @@ internal sealed class PluginsPermissionEditor : UITypeEditor
 {
 	public override Object EditValue(ITypeDescriptorContext? context, IServiceProvider provider, Object? value)
 	{
-		if(context?.Instance is Settings settings)
-		{
-			IEnumerable<(String Id, String Name)> plugins = GetPlugins(settings.Plugin.Host.Plugins);
-			PluginPermissionControl control = new PluginPermissionControl(plugins);
-			control.SetValue(value as String[] ?? Array.Empty<String>());
-			((IWindowsFormsEditorService)provider.GetService(typeof(IWindowsFormsEditorService))!).DropDownControl(control);
-			return control.Result;
-		} else
-			return value ?? Array.Empty<String>();
+		PluginPermissionControl control = new PluginPermissionControl(Plugin.StaticInstance.Host.Plugins);
+		control.SetValue(value as String[] ?? Array.Empty<String>());
+		((IWindowsFormsEditorService)provider.GetService(typeof(IWindowsFormsEditorService))!).DropDownControl(control);
+		return control.Result;
 	}
 
 	public override UITypeEditorEditStyle GetEditStyle(ITypeDescriptorContext? context)
 		=> UITypeEditorEditStyle.DropDown;
-
-	private static IEnumerable<(String Id, String Name)> GetPlugins(IPluginStorage plugins)
-	{
-		foreach(IPluginDescription plugin in plugins)
-			yield return (plugin.ID, plugin.Name);
-	}
 
 	private sealed class PluginPermissionControl : UserControl
 	{
@@ -48,7 +37,7 @@ internal sealed class PluginsPermissionEditor : UITypeEditor
 			}
 		}
 
-		public PluginPermissionControl(IEnumerable<(String Id, String Name)> plugins)
+		public PluginPermissionControl(IEnumerable<IPluginDescription> plugins)
 		{
 			this.SuspendLayout();
 			this.BackColor = SystemColors.Control;
@@ -56,12 +45,12 @@ internal sealed class PluginsPermissionEditor : UITypeEditor
 			this._list.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
 			this._list.BorderStyle = BorderStyle.None;
 
-			foreach((String id, String name) in plugins)
+			foreach(var plugin in plugins)
 			{
-				this._pluginIds.Add(id);
-				String label = String.IsNullOrWhiteSpace(name) || name == id
-					? id
-					: $"{id} — {name}";
+				this._pluginIds.Add(plugin.ID);
+				String label = String.IsNullOrWhiteSpace(plugin.Name) || plugin.Name == plugin.ID
+					? plugin.ID
+					: String.Join(" - ", plugin.ID, plugin.Name);
 				this._list.Items.Add(label);
 			}
 
@@ -85,11 +74,11 @@ internal sealed class PluginsPermissionConverter : ArrayConverter
 	public override PropertyDescriptorCollection GetProperties(ITypeDescriptorContext? context, Object value, Attribute[]? attributes)
 	{
 		PropertyDescriptorCollection baseProps = base.GetProperties(context, value, attributes);
-		if(context?.Instance is not Settings settings || value is not String[])
+		if(value is not String[])
 			return baseProps;
 
 		Dictionary<String, String> idToName = new Dictionary<String, String>(StringComparer.Ordinal);
-		foreach(IPluginDescription plugin in settings.Plugin.Host.Plugins)
+		foreach(IPluginDescription plugin in Plugin.StaticInstance.Host.Plugins)
 			if(!String.IsNullOrWhiteSpace(plugin.Name))
 				idToName[plugin.ID] = plugin.Name;
 

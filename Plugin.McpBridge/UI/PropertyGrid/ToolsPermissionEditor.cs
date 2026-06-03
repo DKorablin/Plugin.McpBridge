@@ -13,16 +13,12 @@ internal sealed class ToolsPermissionEditor : UITypeEditor
 
 	public override Object EditValue(ITypeDescriptorContext? context, IServiceProvider provider, Object? value)
 	{
-		if(context?.Instance is Settings settings)
-		{
-			if(this._control == null)
-				this._control = new ToolPermissionControl(new ToolsFactory(settings.Plugin.Host, settings).GetTools());
+		if(this._control == null)
+			this._control = new ToolPermissionControl(new ToolsFactory(Plugin.StaticInstance.Host, Plugin.StaticInstance.Settings).GetTools());
 
-			this._control.SetValue(value as String[] ?? Array.Empty<String>());
-			((IWindowsFormsEditorService)provider.GetService(typeof(IWindowsFormsEditorService))!).DropDownControl(this._control);
-			return this._control.Result;
-		} else
-			return value ?? Array.Empty<String>();
+		this._control.SetValue(value as String[] ?? Array.Empty<String>());
+		((IWindowsFormsEditorService)provider.GetService(typeof(IWindowsFormsEditorService))!).DropDownControl(this._control);
+		return this._control.Result;
 	}
 
 	public override UITypeEditorEditStyle GetEditStyle(ITypeDescriptorContext? context)
@@ -59,7 +55,7 @@ internal sealed class ToolsPermissionEditor : UITypeEditor
 				this._methodNames.Add(tool.Name);
 				String label = String.IsNullOrWhiteSpace(tool.Description)
 					? tool.Name
-					: $"{tool.Name} — {tool.Description}";
+					: String.Join(" - ", tool.Name, tool.Description);
 				this._list.Items.Add(label);
 			}
 

@@ -172,7 +172,9 @@ public record AiProviderDto : INotifyPropertyChanged
 	public event PropertyChangedEventHandler? PropertyChanged;
 	protected Boolean SetField<T>(ref T field, T value, String propertyName)
 	{
-		if(EqualityComparer<T>.Default.Equals(field, value))
+		if(field is Array a && value is Array b
+			? a.Cast<Object>().SequenceEqual(b.Cast<Object>())
+			: EqualityComparer<T>.Default.Equals(field, value))
 			return false;
 
 		field = value;

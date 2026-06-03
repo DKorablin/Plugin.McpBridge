@@ -222,7 +222,6 @@ internal sealed class WorkflowLoader2
 			}
 		}
 
-		// 5. Compile the directed graph schema out to a telemetry-observable Workflow
 		Workflow workflow = graphBuilder.Build();
 		typeof(Workflow).GetProperty(nameof(Workflow.Name))?.SetValue(workflow, config.Name);
 

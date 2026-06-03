@@ -13,15 +13,11 @@ public class AiProviderIdConverter : GuidConverter
 
 	public override StandardValuesCollection? GetStandardValues(ITypeDescriptorContext? context)
 	{
-		if(context?.Instance is Settings settings)
-		{
-			var values = new List<Guid?>() { null }; // Start with null for default "(None)" option
+		var values = new List<Guid?>() { null }; // Start with null for default "(None)" option
 
-			if(settings.AiProviders != null)
-				values.AddRange(settings.AiProviders.Select(p => (Guid?)p.Id));
-			return new StandardValuesCollection(values);
-		}
-		return base.GetStandardValues(context);
+		if(Plugin.StaticInstance.Settings.AiProviders != null)
+			values.AddRange(Plugin.StaticInstance.Settings.AiProviders.Select(p => (Guid?)p.Id));
+		return new StandardValuesCollection(values);
 	}
 
 	public override Object? ConvertTo(ITypeDescriptorContext? context, CultureInfo? culture, Object? value, Type destinationType)
@@ -31,13 +27,11 @@ public class AiProviderIdConverter : GuidConverter
 			if(value == null)
 				return NoneDisplay;
 
-			if(context?.Instance is Settings settings && settings.AiProviders != null)
-			{
-				var provider = settings.AiProviders.FirstOrDefault(p => p.Id == (Guid)value);
-				if(provider != null)
-					return provider.ToString();
-			}
+			var provider = Plugin.StaticInstance.Settings.AiProviders?.FirstOrDefault(p => p.Id == (Guid)value);
+			if(provider != null)
+				return provider.ToString();
 		}
+
 		return base.ConvertTo(context, culture, value, destinationType);
 	}
 
@@ -49,14 +43,11 @@ public class AiProviderIdConverter : GuidConverter
 				return null;
 
 			// If the user selected from the dropdown, find the matching ID by name
-			if(context?.Instance is Settings settings && settings.AiProviders != null)
-			{
-				var match = settings.AiProviders.FirstOrDefault(p => p.ToString() == s);
-
-				if(match != null)
-					return match.Id;
-			}
+			var match = Plugin.StaticInstance.Settings.AiProviders?.FirstOrDefault(p => p.ToString() == s);
+			if(match != null)
+				return match.Id;
 		}
+
 		return base.ConvertFrom(context, culture, value);
 	}
 }

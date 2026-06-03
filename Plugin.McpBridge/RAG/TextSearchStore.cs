@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.VectorData;
+﻿using Google.Protobuf.WellKnownTypes;
+using Microsoft.Extensions.VectorData;
 using Microsoft.SemanticKernel.Connectors.InMemory;
 
 namespace Plugin.McpBridge.RAG;
@@ -52,6 +53,17 @@ public class TextSearchStore
 			});
 		}
 		return documents;
+	}
+
+	public static void AssertDocumentsInFolder(String folderPath)
+	{
+		if(!Directory.Exists(folderPath))
+			throw new DirectoryNotFoundException($"The specified RAG directory does not exist: {folderPath}");
+
+		var extensions = new[] { ".txt", ".md" };
+		if(!Directory.EnumerateFiles(folderPath, "*.*", SearchOption.AllDirectories)
+			.Any(file => extensions.Any(ext => file.EndsWith(ext, StringComparison.OrdinalIgnoreCase))))
+			throw new DirectoryNotFoundException($"The specified folder '{folderPath}' does not exist or does not contain any supported document files (*.txt, *.md).");
 	}
 
 	public static IEnumerable<TextSearchDocument> GetDocumentsFromFolder(String folderPath)

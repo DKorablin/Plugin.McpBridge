@@ -1,4 +1,5 @@
-﻿using System.ComponentModel;
+﻿using System.Collections;
+using System.ComponentModel;
 using System.Drawing.Design;
 using System.Runtime.Serialization.Json;
 using Plugin.McpBridge.Data;
@@ -8,38 +9,25 @@ using Plugin.McpBridge.UI.PropertyGrid;
 namespace Plugin.McpBridge
 {
 	/// <summary>Configuration settings for the MCP Bridge plugin.</summary>
-	public abstract class SettingsBase : INotifyPropertyChanged
+	public class SettingsBase : INotifyPropertyChanged
 	{
 		private static class Defaults
 		{
-			public const String AssistantSystemPrompt = @"You are a SAL automation assistant.
-Use available MCP tools when useful.
-Return clear user-facing responses, or a command payload only when automation is required.
-Before using relative dates (today, yesterday, last hour), obtain the current system time from the SystemInformation tool.";
-			public const String RagToolName = "SearchKnowledgeBase";
-			public const String RagToolDescription = "Search the knowledge base for relevant information to assist in answering the user's question. Use this tool when the user is asking for specific information, or if you want to provide a more comprehensive answer. The input to this tool is a string representing the search query, and the output is a list of relevant search results.";
-			public const String RagCitationsPrompt = "Always cite sources at the end of your response using the format: **Source:** [SourceName](SourceLink)";
 			public const String McpServerUrl = "http://localhost:5050";
 			public const String DevUIServerUrl = "http://localhost:5051";
 			public const String AgUIServerUrl = "http://localhost:5052";
 		}
 
-		private static DataContractJsonSerializer Serializer = new DataContractJsonSerializer(typeof(AiProviderDto[]));
+		private static DataContractJsonSerializer ProvidersSerializer = new DataContractJsonSerializer(typeof(AiProviderDto[]));
+		private static DataContractJsonSerializer AgentSerializer = new DataContractJsonSerializer(typeof(AiAgentDto));
 
 		private String? _aiProvidersJson = null;
 		private BindingList<AiProviderDto>? _aiProviders = null;
-		private Guid? _selectedProviderId;
-		private String? _assistantSystemPrompt = Defaults.AssistantSystemPrompt;
-		private String? _skillsDirectory = null;
+
+		private String? _aiAgentJson = null;
+		private AiAgentDto? _aiAgent = null;
+
 		private String? _workflowsDirectory = null;
-
-		private String? _ragToolName = null;
-		private String? _ragToolDescription = null;
-		private String? _ragDirectory = null;
-		private String? _ragCitationsPrompt = null;
-
-		private String[]? _toolsPermission = null;
-		private String[]? _pluginsPermission = null;
 
 		private Boolean _devUIEnabled = false;
 		private String? _devUIServerUrl = null;
@@ -49,21 +37,24 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		private Boolean _mcpServerEnabled = false;
 		private String? _mcpServerUrl = null;
 
+		private String[]? _toolsPermission = null;
+		private String[]? _pluginsPermission = null;
+
 		[Browsable(false)]
 		public String? AiProvidersJson
 		{
 			get => this._aiProvidersJson;
 			set
 			{
-				if(String.IsNullOrEmpty(value))
+				if(String.IsNullOrWhiteSpace(value))
 					value = null;
 				this.SetField(ref this._aiProvidersJson, value, nameof(this.AiProvidersJson));
 			}
 		}
 
-		[Category("AI Provider")]
+		[Category("Agent")]
 		[Description("The list of AI providers available for selection. Managed through the AI Providers Manager UI.")]
-		[DisplayName("AI Providers")]
+		[DisplayName("AI Providers Configuration")]
 		[TypeConverter(typeof(BindingListConverter<AiProviderDto>))]
 		public BindingList<AiProviderDto> AiProviders
 		{
@@ -74,7 +65,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 					AiProviderDto[]? arrProviders = null;
 					if(this.AiProvidersJson != null)
 						using(MemoryStream stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(this.AiProvidersJson)))
-							arrProviders = (AiProviderDto[]?)Serializer.ReadObject(stream);
+							arrProviders = (AiProviderDto[]?)ProvidersSerializer.ReadObject(stream);
 
 					List<AiProviderDto> aiProviders = new List<AiProviderDto>(arrProviders ?? Array.Empty<AiProviderDto>());
 
@@ -85,47 +76,47 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 			}
 		}
 
-		[Category("AI Provider")]
-		[DisplayName("Selected Provider")]
-		[Description("The active AI provider profile to use.")]
-		[TypeConverter(typeof(AiProviderIdConverter))]
-		[DefaultValue(null)]
-		public Guid? SelectedProviderId
+		[Browsable(false)]
+		public String? AiAgentJson
 		{
-			get => _selectedProviderId;
-			set => this.SetField(ref this._selectedProviderId, value, nameof(this.SelectedProviderId));
-		}
-
-		/// <summary>The system prompt that defines the assistant's behavior and persona.</summary>
-		[Category("Instruments")]
-		[DefaultValue(Defaults.AssistantSystemPrompt)]
-		[Description("The system prompt that defines the assistant's behavior and persona.")]
-		public String? AssistantSystemPrompt
-		{
-			get => this._assistantSystemPrompt;
+			get => this._aiAgentJson;
 			set
 			{
 				if(String.IsNullOrWhiteSpace(value))
-					value = Defaults.AssistantSystemPrompt;
-
-				this.SetField(ref this._assistantSystemPrompt, value, nameof(this.AssistantSystemPrompt));
-			}
-		}
-
-		[Category("Instruments")]
-		[Description("An optional directory path where the assistant can read/write files when using skills. If not set, skills will not be available.")]
-		public String? SkillsDirectory
-		{
-			get => this._skillsDirectory;
-			set
-			{
-				if(String.IsNullOrWhiteSpace(value) || !Directory.Exists(value))
 					value = null;
-				this.SetField(ref this._skillsDirectory, value, nameof(this.SkillsDirectory));
+				this.SetField(ref this._aiAgentJson, value, nameof(this.AiAgentJson));
 			}
 		}
 
-		[Category("Instruments")]
+		[Category("Agent")]
+		[DisplayName("AI Agent Configuration")]
+		public AiAgentDto AiAgent
+		{
+			get
+			{
+				if(this._aiAgent == null)
+				{
+					if(this.AiAgentJson != null)
+						using(MemoryStream stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(this.AiAgentJson)))
+							this._aiAgent = (AiAgentDto?)AgentSerializer.ReadObject(stream) ?? new AiAgentDto();
+					else
+						this._aiAgent = new AiAgentDto() { AssistantSystemPrompt = AiAgentDto.Defaults.AssistantSystemPrompt, };
+
+					this._aiAgent.PropertyChanged += (s, e) =>
+					{
+						using(MemoryStream stream = new MemoryStream())
+						{
+							AgentSerializer.WriteObject(stream, this._aiAgent);
+							stream.Seek(0, SeekOrigin.Begin);
+							this.AiAgentJson = System.Text.Encoding.UTF8.GetString(stream.ToArray());
+						}
+					};
+				}
+				return this._aiAgent;
+			}
+		}
+
+		[Category("Agent")]
 		[Description("An optional directory path where workfows definitions are stored.")]
 		public String? WorkflowsDirectory
 		{
@@ -138,59 +129,108 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 			}
 		}
 
-		[Category("RAG")]
-		[Description("The name of the RAG knowledge base search tool, which provides relevant information to assist in answering user questions. This should be a concise name that identifies the tool's purpose and can be used to invoke it in agent responses.")]
-		[DefaultValue(Defaults.RagToolName)]
-		public String? RagToolName
+		[Category("DevUI")]
+		[DefaultValue(false)]
+		[Description("When enabled, starts an embedded web server exposing the DevUI interface for local agent diagnostics.")]
+		[DisplayName("DevUI Enabled")]
+		public Boolean DevUIEnabled
 		{
-			get => this._ragToolName ?? Defaults.RagToolName;
+			get => this._devUIEnabled && ProcessHost.GetExePath(ProcessHost.ExeType.DevUI, false) != null;
+			set
+			{
+				if(value)
+					_ = ProcessHost.GetExePath(ProcessHost.ExeType.DevUI, true);
+
+				this.SetField(ref this._devUIEnabled, value, nameof(this.DevUIEnabled));
+			}
+		}
+
+		[Category("DevUI")]
+		[DefaultValue(Defaults.DevUIServerUrl)]
+		[Description("The URL of the embedded web server for the DevUI interface. Must be a valid absolute URL. If empty, defaults to " + Defaults.DevUIServerUrl)]
+		[DisplayName("DevUI Server Url")]
+		public String DevUIServerUrl
+		{
+			get => this._devUIServerUrl ?? Defaults.DevUIServerUrl;
+			set
+			{
+				if(String.IsNullOrWhiteSpace(value) || !Uri.IsWellFormedUriString(value, UriKind.Absolute))
+					value = null!;
+
+				this.SetField(ref this._devUIServerUrl, value, nameof(this.DevUIServerUrl));
+			}
+		}
+
+		[Category("AG-UI")]
+		[DefaultValue(false)]
+		[Description("When enabled, starts an embedded web server exposing the AG-UI interface for agent interaction and testing.")]
+		[DisplayName("AG-UI Enabled")]
+		public Boolean AgUIEnabled
+		{
+			get => this._agUIEnabled && ProcessHost.GetExePath(ProcessHost.ExeType.AgUI, false) != null;
+			set
+			{
+				if(value)
+					_ = ProcessHost.GetExePath(ProcessHost.ExeType.AgUI, true);
+
+				this.SetField(ref this._agUIEnabled, value, nameof(this.AgUIEnabled));
+			}
+		}
+
+		[Category("AG-UI")]
+		[DefaultValue(Defaults.AgUIServerUrl)]
+		[Description("The URL of the embedded web server for the AG-UI interface. Must be a valid absolute URL. If empty, defaults to " + Defaults.AgUIServerUrl)]
+		[DisplayName("AG-UI Server Url")]
+		public String AgUIServerUrl
+		{
+			get
+			{
+				return this._agUIServerUrl ?? Defaults.AgUIServerUrl;
+			}
+			set
+			{
+				if(String.IsNullOrWhiteSpace(value)
+					|| !Uri.IsWellFormedUriString(value, UriKind.Absolute))
+					value = null!;
+
+				this.SetField(ref this._agUIServerUrl, value, nameof(this.AgUIServerUrl));
+			}
+		}
+
+		[Category("AG-UI")]
+		[Description("An optional directory path where the AG-UI can read/write session data. If not set, AG-UI sessions will not be stored.")]
+		public String? AgUISessionStorageDirectory
+		{
+			get => this._agUISessionStorageDirectory;
 			set
 			{
 				if(String.IsNullOrWhiteSpace(value))
 					value = null;
 
-				this.SetField(ref this._ragToolName, value, nameof(this.RagToolName));
+				this.SetField(ref this._agUISessionStorageDirectory, value, nameof(this.AgUISessionStorageDirectory));
 			}
 		}
 
-		[Category("RAG")]
-		[DefaultValue(Defaults.RagToolDescription)]
-		[Description("The description for the RAG knowledge base search tool, which provides relevant information to assist in answering user questions. This should explain when and how the tool should be used, as well as the expected input and output formats.")]
-		public String? RagToolDescription
+		[Category("Network")]
+		[Description("When enabled, starts an MCP server that tools can connect to for execution. Requires at least one tool with 'MCP Bridge' selected as its execution mode.")]
+		public Boolean McpServerEnabled
 		{
-			get => this._ragToolDescription ?? Defaults.RagToolDescription;
-			set
-			{
-				if(String.IsNullOrWhiteSpace(value))
-					value = null;
-				this.SetField(ref this._ragToolDescription, value, nameof(this.RagToolDescription));
-			}
+			get => this._mcpServerEnabled || this._devUIEnabled || this._agUIEnabled;
+			set => this.SetField(ref this._mcpServerEnabled, value, nameof(this.McpServerEnabled));
 		}
 
-		[Category("RAG")]
-		[DefaultValue(Defaults.RagCitationsPrompt)]
-		[Description("A prompt to instruct the assistant to include citations when using RAG tools. This should explain the required format for citing sources, and can be used to ensure that the assistant provides proper attribution for information retrieved from the knowledge base.")]
-		public String? RagCitationsPrompt
+		[Category("Network")]
+		[DefaultValue(Defaults.McpServerUrl)]
+		[Description("The URL of the MCP server that tools will connect to for execution. Must be a valid absolute URL. If empty, defaults to " + Defaults.McpServerUrl)]
+		public String McpServerUrl
 		{
-			get => this._ragCitationsPrompt ?? Defaults.RagCitationsPrompt;
+			get	=> this._mcpServerUrl ?? Defaults.McpServerUrl;
 			set
 			{
-				if(String.IsNullOrWhiteSpace(value))
-					value = null;
-				this.SetField(ref this._ragCitationsPrompt, value, nameof(this.RagCitationsPrompt));
-			}
-		}
+				if(String.IsNullOrWhiteSpace(value) || !Uri.IsWellFormedUriString(value, UriKind.Absolute))
+					value = null!;
 
-		[Category("RAG")]
-		[Description("An optional directory path where RAG knowledge base files are stored. If not set, RAG tools will not be available.")]
-		public String? RagDirectory
-		{
-			get => this._ragDirectory;
-			set
-			{
-				if(String.IsNullOrWhiteSpace(value) || !Directory.Exists(value))
-					value = null;
-				this.SetField(ref this._ragDirectory, value, nameof(this.RagDirectory));
+				this.SetField(ref this._mcpServerUrl, value, nameof(this.McpServerUrl));
 			}
 		}
 
@@ -227,126 +267,6 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 			}
 		}
 
-		[Category("DevUI")]
-		[DefaultValue(false)]
-		[Description("When enabled, starts an embedded web server exposing the DevUI interface for local agent diagnostics.")]
-		[DisplayName("DevUI Enabled")]
-		public Boolean DevUIEnabled
-		{
-			get => this._devUIEnabled && ProcessHost.GetExePath(ProcessHost.ExeType.DevUI, false) != null;
-			set
-			{
-				if(value)
-					_ = ProcessHost.GetExePath(ProcessHost.ExeType.DevUI, true);
-
-				this.SetField(ref this._devUIEnabled, value, nameof(this.DevUIEnabled));
-			}
-		}
-
-		[Category("DevUI")]
-		[DefaultValue(Defaults.DevUIServerUrl)]
-		[Description("The URL of the embedded web server for the DevUI interface. Must be a valid absolute URL. If empty, defaults to " + Defaults.DevUIServerUrl)]
-		[DisplayName("DevUI Server Url")]
-		public String DevUIServerUrl
-		{
-			get
-			{
-				if(this._devUIServerUrl == null)
-					this._devUIServerUrl = Defaults.DevUIServerUrl;
-				return this._devUIServerUrl;
-			}
-			set
-			{
-				if(String.IsNullOrWhiteSpace(value) || !Uri.IsWellFormedUriString(value, UriKind.Absolute))
-					value = null!;
-
-				this.SetField(ref this._devUIServerUrl, value, nameof(this.DevUIServerUrl));
-			}
-		}
-
-		[Category("AG-UI")]
-		[DefaultValue(false)]
-		[Description("When enabled, starts an embedded web server exposing the AG-UI interface for agent interaction and testing.")]
-		[DisplayName("AG-UI Enabled")]
-		public Boolean AgUIEnabled
-		{
-			get => this._agUIEnabled && ProcessHost.GetExePath(ProcessHost.ExeType.AgUI, false) != null;
-			set
-			{
-				if(value)
-					_ = ProcessHost.GetExePath(ProcessHost.ExeType.AgUI, true);
-
-				this.SetField(ref this._agUIEnabled, value, nameof(this.AgUIEnabled));
-			}
-		}
-
-		[Category("AG-UI")]
-		[DefaultValue(Defaults.AgUIServerUrl)]
-		[Description("The URL of the embedded web server for the AG-UI interface. Must be a valid absolute URL. If empty, defaults to " + Defaults.AgUIServerUrl)]
-		[DisplayName("AG-UI Server Url")]
-		public String AgUIServerUrl
-		{
-			get
-			{
-				if(this._agUIServerUrl == null)
-					this._agUIServerUrl = Defaults.AgUIServerUrl;
-				return this._agUIServerUrl;
-			}
-			set
-			{
-				if(String.IsNullOrWhiteSpace(value) || !Uri.IsWellFormedUriString(value, UriKind.Absolute))
-					value = null!;
-
-				this.SetField(ref this._agUIServerUrl, value, nameof(this.AgUIServerUrl));
-			}
-		}
-
-		[Category("AG-UI")]
-		[Description("An optional directory path where the AG-UI can read/write session data. If not set, AG-UI sessions will not be stored.")]
-		public String? AgUISessionStorageDirectory
-		{
-			get => this._agUISessionStorageDirectory;
-			set
-			{
-				if(String.IsNullOrWhiteSpace(value))
-					value = null;
-				this.SetField(ref this._agUISessionStorageDirectory, value, nameof(this.AgUISessionStorageDirectory));
-			}
-		}
-
-		[Category("Network")]
-		[Description("When enabled, starts an MCP server that tools can connect to for execution. Requires at least one tool with 'MCP Bridge' selected as its execution mode.")]
-		public Boolean McpServerEnabled
-		{
-			get => this._mcpServerEnabled || this._devUIEnabled || this._agUIEnabled;
-			set => this.SetField(ref this._mcpServerEnabled, value, nameof(this.McpServerEnabled));
-		}
-
-		[Category("Network")]
-		[DefaultValue(Defaults.McpServerUrl)]
-		[Description("The URL of the MCP server that tools will connect to for execution. Must be a valid absolute URL. If empty, defaults to " + Defaults.McpServerUrl)]
-		public String McpServerUrl
-		{
-			get
-			{
-				if(this._mcpServerUrl == null)
-					this._mcpServerUrl = Defaults.McpServerUrl;
-				return this._mcpServerUrl;
-			}
-			set
-			{
-				if(String.IsNullOrWhiteSpace(value) || !Uri.IsWellFormedUriString(value, UriKind.Absolute))
-					value = null!;
-
-				this.SetField(ref this._mcpServerUrl, value, nameof(this.McpServerUrl));
-			}
-		}
-
-		internal AiProviderDto? GetSelectedProvider()
-			=> this.AiProviders.FirstOrDefault(x => x.Id == this.SelectedProviderId) ?? this.AiProviders.FirstOrDefault();
-
-		public abstract String BuildSystemInstructions();
-
 		private Boolean _listChangedPending = false;
 
 		private void AiProviders_ListChanged(Object? sender, ListChangedEventArgs e)
@@ -375,7 +295,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 						this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.AiProviders)));
 					using(MemoryStream stream = new MemoryStream())
 					{
-						Serializer.WriteObject(stream, this._aiProviders.ToArray());
+						ProvidersSerializer.WriteObject(stream, this._aiProviders.ToArray());
 						stream.Seek(0, SeekOrigin.Begin);
 						this.AiProvidersJson = System.Text.Encoding.UTF8.GetString(stream.ToArray());
 					}
@@ -383,8 +303,8 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 
 				this._listChangedPending = false;
 
-				if(this.SelectedProviderId != null && this._aiProviders?.Any(p => p.Id == this.SelectedProviderId) != true)
-					this.SelectedProviderId = null;
+				if(this.AiAgent.SelectedProviderId != null && this._aiProviders?.Any(p => p.Id == this.AiAgent.SelectedProviderId) != true)
+					this.AiAgent.SelectedProviderId = null;
 			}, null);
 		}
 
@@ -392,7 +312,9 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		public event PropertyChangedEventHandler? PropertyChanged;
 		private Boolean SetField<T>(ref T field, T value, String propertyName)
 		{
-			if(EqualityComparer<T>.Default.Equals(field, value))
+			if(field is Array a && value is Array b
+				? a.Cast<Object>().SequenceEqual(b.Cast<Object>())
+				: EqualityComparer<T>.Default.Equals(field, value))
 				return false;
 
 			field = value;

@@ -34,8 +34,6 @@ internal enum NodeKind
 /// <summary>A node in the workflow graph — either a leaf <see cref="NodeKind.Agent"/> or a nested <see cref="NodeKind.Workflow"/>.</summary>
 internal sealed record WorkflowNode
 {
-	// ── Common ───────────────────────────────────────────────────────────────
-
 	/// <summary>Unique name used to identify this node and resolve <see cref="Targets"/> references.</summary>
 	public String Name { get; set; } = String.Empty;
 

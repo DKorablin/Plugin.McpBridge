@@ -17,14 +17,14 @@ internal class AgentFactory
 	private TextSearchStore? _textSearchStore;
 
 	public async Task<AgentHandle> CreateAgent(
-		SettingsBase settings,
+		AiAgentDto agent,
 		AiProviderDto provider,
 		AIFunction[] tools,
 		String systemInstructions,
 		String? agentRole = null,
 		CancellationToken token = default)
 	{
-		IEnumerable<AIContextProvider>? contextProviders = await this.CreateContextProviders(settings, provider);
+		IEnumerable<AIContextProvider>? contextProviders = await this.CreateContextProviders(agent, provider);
 		return await this.CreateAgent(provider, tools, systemInstructions, agentRole, contextProviders, token);
 	}
 
@@ -142,27 +142,30 @@ internal class AgentFactory
 			})
 			.Build();
 
-	public async Task<AIContextProvider[]?> CreateContextProviders(SettingsBase settings, AiProviderDto provider)
+	public async Task<AIContextProvider[]?> CreateContextProviders(AiAgentDto agent, AiProviderDto provider)
 	{
 		List<AIContextProvider> providers = new List<AIContextProvider>();
 
-		if(settings.RagDirectory != null
+		if(agent.RagDirectory != null
 			&& provider is NetworkProviderDto networkProvider
 			&& networkProvider.EmbeddingModelDimention != null)
 		{
+			TextSearchStore.AssertDocumentsInFolder(agent.RagDirectory);
+
+			var documents = TextSearchStore.GetDocumentsFromFolder(agent.RagDirectory);
 			var vectorStore = new InMemoryVectorStore(new() { EmbeddingGenerator = AgentFactory.CreateEmbeddingGenerator(provider) });
 			this._textSearchStore = new TextSearchStore(vectorStore, "rag-kb", networkProvider.EmbeddingModelDimention.Value);
-			await this._textSearchStore.UpsertDocumentsAsync(TextSearchStore.GetDocumentsFromFolder(settings.RagDirectory));
+			await this._textSearchStore.UpsertDocumentsAsync(documents);
 			providers.Add(new TextSearchProvider(this.SearchAsync, new TextSearchProviderOptions
 			{
 				SearchTime = TextSearchProviderOptions.TextSearchBehavior.BeforeAIInvoke,
-				FunctionToolName = settings.RagToolName,
-				FunctionToolDescription = settings.RagToolDescription,
-				CitationsPrompt = settings.RagCitationsPrompt,
+				FunctionToolName = agent.RagToolName,
+				FunctionToolDescription = agent.RagToolDescription,
+				CitationsPrompt = agent.RagCitationsPrompt,
 			}));
 		}
-		if(settings.SkillsDirectory != null)
-			providers.Add(new AgentSkillsProvider(settings.SkillsDirectory));
+		if(agent.SkillsDirectory != null)
+			providers.Add(new AgentSkillsProvider(agent.SkillsDirectory));
 
 		return providers.Count == 0 ? null : providers.ToArray();
 	}

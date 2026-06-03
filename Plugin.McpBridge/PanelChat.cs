@@ -20,7 +20,7 @@ public partial class PanelChat : UserControl
 
 	private IWindow Window => (IWindow)base.Parent;
 
-	private AiProviderDto? CurrentProvider => this.Plugin.Settings.GetSelectedProvider();
+	private AiProviderDto? CurrentProvider => this.Plugin.Settings.AiAgent.GetSelectedProvider(this.Plugin.Settings.AiProviders);
 
 	public PanelChat()
 		=> this.InitializeComponent();
@@ -188,8 +188,8 @@ public partial class PanelChat : UserControl
 	{
 		tsbnSend.DropDownItems.Clear();
 		var providers = this.Plugin.Settings.AiProviders;
-		var selectedProviderId = this.Plugin.Settings.SelectedProviderId == null && providers.Count > 0
-			? providers[0].Id : this.Plugin.Settings.SelectedProviderId;
+		var selectedProviderId = this.Plugin.Settings.AiAgent.SelectedProviderId == null && providers.Count > 0
+			? providers[0].Id : this.Plugin.Settings.AiAgent.SelectedProviderId;
 		foreach(AiProviderDto provider in this.Plugin.Settings.AiProviders)
 		{
 			ToolStripMenuItem item = new ToolStripMenuItem(provider.ToString())
@@ -205,7 +205,7 @@ public partial class PanelChat : UserControl
 	private void tsbnSend_ProviderItem_Click(Object? sender, EventArgs e)
 	{
 		ToolStripMenuItem item = (ToolStripMenuItem)sender!;
-		this.Plugin.Settings.SelectedProviderId = (Guid)item.Tag;
+		this.Plugin.Settings.AiAgent.SelectedProviderId = (Guid)item.Tag;
 	}
 
 	private void tsbnSend_Click(Object sender, EventArgs e)

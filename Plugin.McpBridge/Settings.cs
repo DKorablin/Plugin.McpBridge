@@ -35,54 +35,52 @@ namespace Plugin.McpBridge
 					: new StreamReader(stream).ReadToEnd();
 		}
 
-		public override String BuildSystemInstructions()
+		public static String BuildSystemInstructions(SettingsBase settings, Data.AiAgentDto agent, IHost host)
 		{
-			String pluginInventory = this.ListPluginInventory();
-			return this.BuildSystemInstructions(pluginInventory);
-		}
+			String pluginInventory = ListPluginInventory(agent, host);
+			return BuildSystemInstructions(agent.AssistantSystemPrompt, pluginInventory);
 
-		/// <summary>Builds the system prompt from <paramref name="settings"/> and a pre-built plugin inventory string.</summary>
-		private String BuildSystemInstructions(String pluginInventory)
-		{
-			StringBuilder sb = new StringBuilder(this.AssistantSystemPrompt);
-
-			sb.AppendLine();
-			sb.AppendLine();
-			if(pluginInventory.Length > 0)
+			String BuildSystemInstructions(String? systemPrompt, String pluginInventory)
 			{
-				sb.AppendLine("Loaded SAL plugins:");
-				sb.AppendLine(pluginInventory);
-			} else
-				sb.AppendLine("No SAL plugins are available.");
+				StringBuilder sb = new StringBuilder(systemPrompt);
 
-			return sb.ToString().TrimEnd();
-		}
+				sb.AppendLine();
+				sb.AppendLine();
+				if(pluginInventory.Length > 0)
+				{
+					sb.AppendLine("Loaded SAL plugins:");
+					sb.AppendLine(pluginInventory);
+				} else
+					sb.AppendLine("No SAL plugins are available.");
 
-		/// <summary>Returns a formatted inventory of SAL plugins visible to the agent, filtered by <paramref name="disallowedPlugins"/>.</summary>
-		internal String ListPluginInventory()
-		{
-			var disallowedPlugins = this.PluginsPermission;
-			StringBuilder pluginsText = new StringBuilder();
-			Boolean allAllowed = disallowedPlugins == null || disallowedPlugins.Length == 0;
-			foreach(IPluginDescription pluginDescription in this.Plugin.Host.Plugins)
-			{
-				if(!allAllowed && Array.Exists(disallowedPlugins!, p => p == pluginDescription.ID))
-					continue;
-
-				pluginsText.Append("- ");
-				pluginsText.Append(pluginDescription.ID);
-				pluginsText.Append(" | ");
-				pluginsText.Append(pluginDescription.Name);
-				pluginsText.Append(" | ");
-				pluginsText.Append(pluginDescription.Version?.ToString());
-				pluginsText.Append(" | Settings: ");
-				pluginsText.Append(PluginSettingsTools.HasPluginSettings(pluginDescription) ? "yes" : "no");
-				pluginsText.Append(" | Members: ");
-				pluginsText.Append(PluginMethodsTools.HasCallableMembers(pluginDescription) ? "yes" : "no");
-				pluginsText.AppendLine();
+				return sb.ToString().TrimEnd();
 			}
 
-			return pluginsText.ToString().Trim();
+			String ListPluginInventory(Data.AiAgentDto agent, IHost host)
+			{
+				var disallowedPlugins = agent.PluginsPermission;
+				StringBuilder pluginsText = new StringBuilder();
+				Boolean allAllowed = disallowedPlugins == null || disallowedPlugins.Length == 0;
+				foreach(IPluginDescription pluginDescription in host.Plugins)
+				{
+					if(!allAllowed && Array.Exists(disallowedPlugins!, p => p == pluginDescription.ID))
+						continue;
+
+					pluginsText.Append("- ");
+					pluginsText.Append(pluginDescription.ID);
+					pluginsText.Append(" | ");
+					pluginsText.Append(pluginDescription.Name);
+					pluginsText.Append(" | ");
+					pluginsText.Append(pluginDescription.Version?.ToString());
+					pluginsText.Append(" | Settings: ");
+					pluginsText.Append(PluginSettingsTools.HasPluginSettings(pluginDescription) ? "yes" : "no");
+					pluginsText.Append(" | Members: ");
+					pluginsText.Append(PluginMethodsTools.HasCallableMembers(pluginDescription) ? "yes" : "no");
+					pluginsText.AppendLine();
+				}
+
+				return pluginsText.ToString().Trim();
+			}
 		}
 	}
 }

@@ -7,7 +7,7 @@ using FluentAssertions;
 using Microsoft.Extensions.AI;
 using Moq;
 using Plugin.McpBridge.Agents;
-using Plugin.McpBridge.Data;
+using Plugin.McpBridge.Data.AiProvider;
 using Plugin.McpBridge.Events;
 using Plugin.McpBridge.Tests.Helpers;
 using Plugin.McpBridge.Tools;

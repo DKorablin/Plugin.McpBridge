@@ -3,10 +3,8 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
-using Microsoft.SemanticKernel.Connectors.InMemory;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Events;
-using Plugin.McpBridge.RAG;
 using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
 
@@ -16,6 +14,7 @@ namespace Plugin.McpBridge.Agents;
 internal class AssistantAgent : IDisposable
 {
 	private readonly ITraceSource _trace;
+	private readonly IHost _host;
 	private readonly ToolsFactory _toolsFactory;
 	private readonly AgentFactory _agentFactory;
 	private AgentHandle? _handle;
@@ -30,6 +29,7 @@ internal class AssistantAgent : IDisposable
 		ToolsFactory toolsFactory,
 		AgentFactory? agentFactory)
 	{
+		this._host = host ?? throw new ArgumentNullException(nameof(host));
 		this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
 		this._toolsFactory = toolsFactory ?? throw new ArgumentNullException(nameof(toolsFactory));
 		this._agentFactory = agentFactory ?? throw new ArgumentNullException(nameof(agentFactory));
@@ -44,8 +44,8 @@ internal class AssistantAgent : IDisposable
 		this._handle?.Dispose();
 
 		var tools = this._toolsFactory.CreateTools(this._trace).ToArray();
-		var instructions = settings.BuildSystemInstructions();
-		this._handle = await this.CreateAgent(provider, tools, instructions, settings);
+		var instructions = Settings.BuildSystemInstructions(settings, settings.AiAgent, this._host);
+		this._handle = await this.CreateAgent(provider, tools, instructions, settings.AiAgent);
 
 		if(sessionJson != null)
 			this._session = await this._handle.Agent.DeserializeSessionAsync(
@@ -56,9 +56,9 @@ internal class AssistantAgent : IDisposable
 	}
 
 	protected virtual async Task<AgentHandle> CreateAgent(
-		AiProviderDto provider, AIFunction[] tools, String instructions, SettingsBase settings, CancellationToken token = default)
+		AiProviderDto provider, AIFunction[] tools, String instructions, AiAgentDto agent, CancellationToken token = default)
 		=> await this._agentFactory.CreateAgent(
-			settings,
+			agent,
 			provider,
 			tools,
 			instructions,
