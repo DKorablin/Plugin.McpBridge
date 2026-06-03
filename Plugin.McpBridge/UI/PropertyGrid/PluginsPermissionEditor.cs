@@ -8,12 +8,13 @@ namespace Plugin.McpBridge.UI.PropertyGrid;
 /// <summary>Drop-down property-grid editor that renders each loaded plugin as a named checkbox.</summary>
 internal sealed class PluginsPermissionEditor : UITypeEditor
 {
-	public override Object EditValue(ITypeDescriptorContext? context, IServiceProvider provider, Object? value)
+	public override Object? EditValue(ITypeDescriptorContext? context, IServiceProvider provider, Object? value)
 	{
-		PluginPermissionControl control = new PluginPermissionControl(Plugin.StaticInstance.Host.Plugins);
-		control.SetValue(value as String[] ?? Array.Empty<String>());
-		((IWindowsFormsEditorService)provider.GetService(typeof(IWindowsFormsEditorService))!).DropDownControl(control);
-		return control.Result;
+		var plugin = Plugin.StaticInstance;
+		var ctrl = new PluginPermissionControl(plugin.Host.Plugins);
+		ctrl.SetValue((String[]?)value);
+		((IWindowsFormsEditorService)provider.GetService(typeof(IWindowsFormsEditorService))!).DropDownControl(ctrl);
+		return ctrl.Result;
 	}
 
 	public override UITypeEditorEditStyle GetEditStyle(ITypeDescriptorContext? context)
@@ -25,15 +26,20 @@ internal sealed class PluginsPermissionEditor : UITypeEditor
 		private readonly List<String> _pluginIds = new List<String>();
 
 		/// <summary>Returns the unchecked plugin IDs (blocked plugins), or an empty array when all items are checked (meaning all plugins are allowed).</summary>
-		public String[] Result
+		public String[]? Result
 		{
 			get
 			{
-				List<String> blocked = new List<String>();
-				for(Int32 i = 0; i < this._list.Items.Count; i++)
-					if(!this._list.GetItemChecked(i))
-						blocked.Add(this._pluginIds[i]);
-				return blocked.ToArray();
+				List<String> allowed = new List<String>();
+				Int32 count = this._list.Items.Count;
+
+				for(Int32 i = 0; i < count; i++)
+					if(this._list.GetItemChecked(i))
+						allowed.Add(this._pluginIds[i]);
+
+				return allowed.Count == count
+					? null
+					: allowed.ToArray();
 			}
 		}
 
@@ -60,10 +66,11 @@ internal sealed class PluginsPermissionEditor : UITypeEditor
 			this.ResumeLayout();
 		}
 
-		public void SetValue(String[] blockedPlugins)
+		public void SetValue(String[]? enabledPlugins)
 		{
+			Boolean allowAll = enabledPlugins == null;
 			for(Int32 i = 0; i < this._list.Items.Count; i++)
-				this._list.SetItemChecked(i, !Array.Exists(blockedPlugins, p => p == this._pluginIds[i]));
+				this._list.SetItemChecked(i, allowAll || Array.Exists(enabledPlugins!, p => p == this._pluginIds[i]));
 		}
 	}
 }

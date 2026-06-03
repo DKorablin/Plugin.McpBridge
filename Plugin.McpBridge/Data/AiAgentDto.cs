@@ -73,7 +73,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 	}
 
 	[Category("RAG")]
-	[DisplayName("Tool Name")]
+	[DisplayName("RAG Tool Name")]
 	[Description("The name of the RAG knowledge base search tool, which provides relevant information to assist in answering user questions. This should be a concise name that identifies the tool's purpose and can be used to invoke it in agent responses.")]
 	public String? RagToolName
 	{
@@ -88,7 +88,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 	}
 
 	[Category("RAG")]
-	[DisplayName("Tool Description")]
+	[DisplayName("RAG Tool Description")]
 	[Description("The description for the RAG knowledge base search tool, which provides relevant information to assist in answering user questions. This should explain when and how the tool should be used, as well as the expected input and output formats.")]
 	public String? RagToolDescription
 	{
@@ -103,7 +103,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 	}
 
 	[Category("RAG")]
-	[DisplayName("Citations Prompt")]
+	[DisplayName("RAG Citations Prompt")]
 	[Description("A prompt to instruct the assistant to include citations when using RAG tools. This should explain the required format for citing sources, and can be used to ensure that the assistant provides proper attribution for information retrieved from the knowledge base.")]
 	public String? RagCitationsPrompt
 	{
@@ -117,7 +117,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 	}
 
 	[Category("RAG")]
-	[DisplayName("Knowledge Base Directory")]
+	[DisplayName("RAG Knowledge Base Directory")]
 	[Description("An optional directory path where RAG knowledge base files are stored (Supported extensions: *.txt, *.md).")]
 	public String? RagDirectory
 	{
@@ -136,34 +136,22 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 	[Category("Security")]
 	[DefaultValue(null)]
 	[Editor(typeof(ToolsPermissionEditor), typeof(UITypeEditor))]
-	[Description("Controls which tools the assistant may use. Leave empty to allow all tools; otherwise only the listed method names are enabled.")]
+	[Description("Controls which tools the assistant may use.")]
 	public String[]? ToolsPermission
 	{
 		get => this._toolsPermission;
-		set
-		{
-			if(value?.Length == 0)
-				value = null;
-
-			this.SetField(ref this._toolsPermission, value, nameof(this.ToolsPermission));
-		}
+		set => this.SetField(ref this._toolsPermission, value, nameof(this.ToolsPermission));
 	}
 
 	[Category("Security")]
 	[DefaultValue(null)]
 	[Editor(typeof(PluginsPermissionEditor), typeof(UITypeEditor))]
 	[TypeConverter(typeof(PluginsPermissionConverter))]
-	[Description("Controls which plugins the assistant may use. Leave empty to allow all plugins")]
+	[Description("Controls which plugins the assistant may use.")]
 	public String[]? PluginsPermission
 	{
 		get => this._pluginsPermission;
-		set
-		{
-			if(value?.Length == 0)
-				value = null;
-
-			this.SetField(ref this._pluginsPermission, value, nameof(this.PluginsPermission));
-		}
+		set => this.SetField(ref this._pluginsPermission, value, nameof(this.PluginsPermission));
 	}
 
 	internal AiProviderDto GetSelectedProvider(IEnumerable<AiProviderDto> providers)

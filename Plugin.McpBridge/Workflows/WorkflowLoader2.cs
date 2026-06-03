@@ -10,11 +10,11 @@ namespace Plugin.McpBridge.Workflows;
 /// <summary>Builds a <see cref="WorkflowHandle"/> from a <see cref="WorkflowDto"/> loaded at runtime.</summary>
 internal sealed class WorkflowLoader2
 {
-	private readonly SettingsBase _settings;
+	private readonly Settings _settings;
 	private readonly WorkflowDto _config;
 	private readonly AgentFactory _agentFactory = new AgentFactory();
 
-	internal WorkflowLoader2(SettingsBase settings, String workflowPath)
+	internal WorkflowLoader2(Settings settings, String workflowPath)
 	{
 		if(String.IsNullOrWhiteSpace(workflowPath))
 			throw new ArgumentException("Workflow path must be a non-empty string.", nameof(workflowPath));

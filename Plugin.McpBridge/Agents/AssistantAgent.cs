@@ -44,7 +44,7 @@ internal class AssistantAgent : IDisposable
 		this._handle?.Dispose();
 
 		var tools = this._toolsFactory.CreateTools(this._trace).ToArray();
-		var instructions = Settings.BuildSystemInstructions(settings, settings.AiAgent, this._host);
+		var instructions = AgentFactory.BuildSystemInstructions(settings, settings.AiAgent, this._host);
 		this._handle = await this.CreateAgent(provider, tools, instructions, settings.AiAgent);
 
 		if(sessionJson != null)

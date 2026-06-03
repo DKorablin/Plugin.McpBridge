@@ -1,5 +1,6 @@
 ﻿using System.ClientModel;
 using System.ClientModel.Primitives;
+using System.Text;
 using Azure.AI.OpenAI;
 using GitHub.Copilot.SDK;
 using Microsoft.Agents.AI;
@@ -8,6 +9,8 @@ using Microsoft.SemanticKernel.Connectors.InMemory;
 using OpenAI;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.RAG;
+using Plugin.McpBridge.Tools;
+using SAL.Flatbed;
 
 namespace Plugin.McpBridge.Agents;
 
@@ -83,15 +86,61 @@ internal class AgentFactory
 		}
 	}
 
+	public static String BuildSystemInstructions(Settings settings, Data.AiAgentDto agent, IHost host)
+	{
+		String pluginInventory = ListPluginInventory(agent, host);
+		return BuildSystemInstructions(agent.AssistantSystemPrompt, pluginInventory);
+
+		String BuildSystemInstructions(String? systemPrompt, String pluginInventory)
+		{
+			StringBuilder sb = new StringBuilder(systemPrompt);
+
+			sb.AppendLine();
+			sb.AppendLine();
+			if(pluginInventory.Length > 0)
+			{
+				sb.AppendLine("Loaded SAL plugins:");
+				sb.AppendLine(pluginInventory);
+			} else
+				sb.AppendLine("No SAL plugins are available.");
+
+			return sb.ToString().TrimEnd();
+		}
+
+		String ListPluginInventory(AiAgentDto agent, IHost host)
+		{
+			var allowedPlugins = agent.PluginsPermission;
+			StringBuilder pluginsText = new StringBuilder();
+			Boolean allAllowed = allowedPlugins == null || allowedPlugins.Length == 0;
+			foreach(IPluginDescription pluginDescription in host.Plugins)
+			{
+				if(!allAllowed && !Array.Exists(allowedPlugins!, p => p == pluginDescription.ID))
+					continue;
+
+				pluginsText.Append("- ");
+				pluginsText.Append(pluginDescription.ID);
+				pluginsText.Append(" | ");
+				pluginsText.Append(pluginDescription.Name);
+				pluginsText.Append(" | ");
+				pluginsText.Append(pluginDescription.Version?.ToString());
+				pluginsText.Append(" | Settings: ");
+				pluginsText.Append(PluginSettingsTools.HasPluginSettings(pluginDescription) ? "yes" : "no");
+				pluginsText.AppendLine();
+			}
+
+			return pluginsText.ToString().Trim();
+		}
+	}
+
 	/// <summary>Creates a raw <see cref="IChatClient"/> for the given provider using the supplied <see cref="HttpClient"/>.</summary>
-	internal static IChatClient CreateChatClient(AiProviderDto providerSettings)
+	private static IChatClient CreateChatClient(AiProviderDto providerSettings)
 	{
 		IChatClient chatClient;
 
 		switch(providerSettings.ProviderType)
 		{
 		case AiProviderType.Stub:
-			chatClient = new Tests.StubChatClient();
+			chatClient = new Agents.StubChatClient();
 			break;
 		case AiProviderType.Azure:
 			var azureSettings = (AzureProviderDto)providerSettings;
@@ -142,7 +191,7 @@ internal class AgentFactory
 			})
 			.Build();
 
-	public async Task<AIContextProvider[]?> CreateContextProviders(AiAgentDto agent, AiProviderDto provider)
+	private async Task<AIContextProvider[]?> CreateContextProviders(AiAgentDto agent, AiProviderDto provider)
 	{
 		List<AIContextProvider> providers = new List<AIContextProvider>();
 

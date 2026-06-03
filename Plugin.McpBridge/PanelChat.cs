@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel;
-using System.Drawing.Imaging;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
@@ -12,6 +11,11 @@ namespace Plugin.McpBridge;
 
 public partial class PanelChat : UserControl
 {
+	private static class Defaults
+	{
+		public const String AgentStateFileName = "PanelChat_agentState.json";
+	}
+
 	private AssistantAgent? _agent;
 	private Boolean _streamingActive;
 	private CancellationTokenSource? _cts;
@@ -34,7 +38,7 @@ public partial class PanelChat : UserControl
 
 		Task.Run(async () =>
 		{
-			String? sessionJson = this.Plugin.Settings.LoadAgentSession();
+			String? sessionJson = this.LoadAgentSession();
 			if(sessionJson != null)
 				this.LoadSessionHistory(sessionJson);
 		});
@@ -104,7 +108,7 @@ public partial class PanelChat : UserControl
 			if(this.CurrentProvider == null)
 				throw new InvalidOperationException("No AI provider configured.");
 
-			String? sessionJson = this.Plugin.Settings.LoadAgentSession();
+			String? sessionJson = this.LoadAgentSession();
 			this._agent = await this.Plugin.InitializeAgent(this.CurrentProvider, sessionJson);
 			this._agent.AiResponseReceived += this.Agent_AiResponseReceived;
 			this._agent.ConfirmationRequired += this.Agent_ConfirmationRequired;
@@ -141,6 +145,23 @@ public partial class PanelChat : UserControl
 		}
 	}
 
+	private void SaveAgentSession(String? sessionJson)
+	{
+		if(String.IsNullOrWhiteSpace(sessionJson))
+			this.Plugin.Host.Plugins.Settings(this.Plugin).RemoveAssemblyBlob(Defaults.AgentStateFileName);
+		else
+			using(MemoryStream ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(sessionJson)))
+				this.Plugin.Host.Plugins.Settings(this.Plugin).SaveAssemblyBlob(Defaults.AgentStateFileName, ms);
+	}
+
+	private String? LoadAgentSession()
+	{
+		using(Stream stream = this.Plugin.Host.Plugins.Settings(this.Plugin).LoadAssemblyBlob(Defaults.AgentStateFileName))
+			return stream == null
+				? null
+				: new StreamReader(stream).ReadToEnd();
+	}
+
 	private void Agent_AiResponseReceived(Object? sender, AgentResponseEventArgs e)
 	{
 		this.Invoke(() =>
@@ -163,7 +184,7 @@ public partial class PanelChat : UserControl
 					{
 						String? json = await agent.GetSessionState();
 						if(json != null)
-							this.Plugin.Settings.SaveAgentSession(json);
+							this.SaveAgentSession(json);
 					});
 			}
 		});
@@ -180,7 +201,7 @@ public partial class PanelChat : UserControl
 
 	private void bnNewConversation_Click(Object sender, EventArgs e)
 	{
-		this.Plugin.Settings.SaveAgentSession(null);
+		this.SaveAgentSession(null);
 		this.ResetAgent();
 	}
 

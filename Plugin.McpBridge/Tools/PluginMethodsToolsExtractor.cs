@@ -21,31 +21,45 @@ internal class PluginMethodsToolsExtractor : ToolsDiscoveryBase
 
 	public override IEnumerable<ToolMethodDto> GetTools()
 	{
-		var disallowedPlugins = this._settings.PluginsPermission;
-		Boolean allAllowed = disallowedPlugins == null || disallowedPlugins.Length == 0;
+		var allowedPlugins = this._agent.PluginsPermission;
+		Boolean allAllowed = allowedPlugins == null;
+		var allowedSet = allAllowed ? null : new HashSet<String>(allowedPlugins!);
+
 		foreach(var pluginDescription in this._host.Plugins)
-		{
-			if(!allAllowed && Array.Exists(disallowedPlugins!, p => p == pluginDescription.ID))
-				continue;
-
-			IEnumerable<IPluginMemberInfo> callableMembers = PluginMethodsTools.GetCallableMembers(pluginDescription);
-			foreach(var member in callableMembers)
+			if(allAllowed || allowedSet!.Contains(pluginDescription.ID))
 			{
-				if(member.MemberType != MemberTypes.Method)
-					continue;
+				IEnumerable<IPluginMemberInfo> callableMembers = PluginMethodsToolsExtractor.GetCallableMembers(pluginDescription);
+				foreach(var member in callableMembers)
+				{
+					if(member.MemberType != MemberTypes.Method)
+						continue;
 
-				IPluginMethodInfo method = (IPluginMethodInfo)member;
-				XmlReflectionDto? docs = this._xmlReader.FindDocumentation(pluginDescription, member);
-				String description = docs?.Summary ?? String.Empty;
+					var method = (IPluginMethodInfo)member;
+					var docs = this._xmlReader.FindDocumentation(pluginDescription, member);
 
-				PluginMethodAIFunction function = new PluginMethodAIFunction(
-					$"{pluginDescription.ID}_{method.Name}",
-					description,
-					method,
-					docs?.Parameters);
+					// Allowed tool name: ^[a-zA-Z0-9_]+$
+					var toolName = $"{pluginDescription.Name.Replace("-", String.Empty)}.{method.Name}";
+					var description = docs?.Summary ?? String.Empty;
 
-				yield return new ToolMethodDto(true, function.Name, description, function);
+					PluginMethodAIFunction function = new PluginMethodAIFunction(
+						toolName,
+						description,
+						method,
+						docs?.Parameters);
+
+					yield return new ToolMethodDto(true, function.Name, description, function);
+				}
 			}
-		}
+	}
+
+	public static Boolean HasCallableMembers(IPluginDescription pluginDescription)
+		=> GetCallableMembers(pluginDescription).Any();
+
+	public static IEnumerable<IPluginMemberInfo> GetCallableMembers(IPluginDescription pluginDescription)
+	{
+		if(pluginDescription.Type != null && pluginDescription.Type.Members != null)
+			foreach(IPluginMemberInfo pluginMember in pluginDescription.Type.Members)
+				if(pluginMember != null && pluginMember.MemberType == System.Reflection.MemberTypes.Method)
+					yield return pluginMember;
 	}
 }

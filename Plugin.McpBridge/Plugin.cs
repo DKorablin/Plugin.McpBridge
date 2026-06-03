@@ -33,7 +33,7 @@ namespace Plugin.McpBridge
 			{
 				if(this._settings == null)
 				{
-					this._settings = new Settings(this);
+					this._settings = new Settings();
 					this.Host.Plugins.Settings(this).LoadAssemblyParameters(this._settings);
 					this._settings.PropertyChanged += _settings_PropertyChanged;
 				}
@@ -109,7 +109,7 @@ namespace Plugin.McpBridge
 
 		internal async Task<AssistantAgent> InitializeAgent(AiProviderDto provider, String? sessionJson = null)
 		{
-			ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings);
+			ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings, this.Settings.AiAgent);
 			AgentFactory agentFactory = new AgentFactory();
 
 			var result = new AssistantAgent(this.Trace, this.Host, toolsFactory, agentFactory);
@@ -139,7 +139,7 @@ namespace Plugin.McpBridge
 
 		private void Plugins_PluginsLoaded(Object? sender, EventArgs e)
 		{
-			ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings);
+			ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings, this.Settings.AiAgent);
 
 			if(this.Settings.McpServerEnabled)
 			{

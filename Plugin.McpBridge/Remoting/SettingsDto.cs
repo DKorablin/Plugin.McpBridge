@@ -7,24 +7,24 @@ using Plugin.McpBridge.Mcp;
 namespace Plugin.McpBridge.Tests;
 
 /// <summary>Serializable snapshot of the settings needed to start the UI process.</summary>
-public sealed class SettingsDto : SettingsBase
+public sealed class SettingsDto : Settings
 {
-	public static String AssemblyName => System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name ?? "Plugin.McpBridge.Undefined";
+	public static String AssemblyName => Assembly.GetEntryAssembly()?.GetName().Name ?? "Plugin.McpBridge.Undefined";
 
 	/// <summary>Gets or sets the URL of the user interface server.</summary>
-	public String UiServerUrl { get; set; }
+	public String UiServerUrl { get; set; } = String.Empty;
 
 	/// <summary>Gets or sets the instructions associated with this instance.</summary>
-	public String Instructions { get; set; }
+	public String Instructions { get; set; } = String.Empty;
 
-	public SettingsDto() { }
+	public SettingsDto() { }//Used for serialization purposes
 
-	public SettingsDto(String uiServerUrl, Settings settings, String systemInstructions)
+	internal SettingsDto(String uiServerUrl, Settings settings, String systemInstructions)
 	{
 		this.UiServerUrl = uiServerUrl;
 		this.Instructions = systemInstructions;
 
-		foreach(PropertyInfo prop in typeof(SettingsBase).GetProperties())
+		foreach(PropertyInfo prop in typeof(Settings).GetProperties())
 			if(prop.CanRead && prop.CanWrite)
 				prop.SetValue(this, prop.GetValue(settings));
 	}

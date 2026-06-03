@@ -9,16 +9,13 @@ namespace Plugin.McpBridge.UI.PropertyGrid;
 /// <summary>Drop-down property-grid editor that renders each discovered tool method as a named, described checkbox.</summary>
 internal sealed class ToolsPermissionEditor : UITypeEditor
 {
-	private ToolPermissionControl? _control;
-
-	public override Object EditValue(ITypeDescriptorContext? context, IServiceProvider provider, Object? value)
+	public override Object? EditValue(ITypeDescriptorContext? context, IServiceProvider provider, Object? value)
 	{
-		if(this._control == null)
-			this._control = new ToolPermissionControl(new ToolsFactory(Plugin.StaticInstance.Host, Plugin.StaticInstance.Settings).GetTools());
-
-		this._control.SetValue(value as String[] ?? Array.Empty<String>());
-		((IWindowsFormsEditorService)provider.GetService(typeof(IWindowsFormsEditorService))!).DropDownControl(this._control);
-		return this._control.Result;
+		var plugin = Plugin.StaticInstance!;
+		var ctrl = new ToolPermissionControl(new ToolsFactory(plugin.Host, plugin.Settings, plugin.Settings.AiAgent).GetTools());
+		ctrl.SetValue((String[]?)value);
+		((IWindowsFormsEditorService)provider.GetService(typeof(IWindowsFormsEditorService))!).DropDownControl(ctrl);
+		return ctrl.Result;
 	}
 
 	public override UITypeEditorEditStyle GetEditStyle(ITypeDescriptorContext? context)
@@ -30,15 +27,20 @@ internal sealed class ToolsPermissionEditor : UITypeEditor
 		private readonly List<String> _methodNames = new List<String>();
 
 		/// <summary>Returns the unchecked method names (blocked tools), or an empty array when all items are checked (meaning all tools are allowed).</summary>
-		public String[] Result
+		public String[]? Result
 		{
 			get
 			{
-				List<String> blocked = new List<String>();
-				for(Int32 i = 0; i < this._list.Items.Count; i++)
-					if(!this._list.GetItemChecked(i))
-						blocked.Add(this._methodNames[i]);
-				return blocked.ToArray();
+				List<String> allowed = new List<String>();
+				Int32 count = this._list.Items.Count;
+
+				for(Int32 i = 0; i < count; i++)
+					if(this._list.GetItemChecked(i))
+						allowed.Add(this._methodNames[i]);
+
+				return allowed.Count == count
+					? null
+					: allowed.ToArray();
 			}
 		}
 
@@ -65,10 +67,11 @@ internal sealed class ToolsPermissionEditor : UITypeEditor
 			this.ResumeLayout();
 		}
 
-		public void SetValue(String[] blockedTools)
+		public void SetValue(String[]? availableTools)
 		{
+			Boolean allowAll = availableTools == null;
 			for(Int32 i = 0; i < this._list.Items.Count; i++)
-				this._list.SetItemChecked(i, !Array.Exists(blockedTools, p => p == this._methodNames[i]));
+				this._list.SetItemChecked(i, allowAll || Array.Exists(availableTools!, p => p == this._methodNames[i]));
 		}
 	}
 }
