@@ -1,10 +1,21 @@
 ﻿using System.ComponentModel;
 using System.Drawing.Design;
+using System.Globalization;
 using System.Windows.Forms.Design;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Tools;
 
 namespace Plugin.McpBridge.UI.PropertyGrid;
+
+internal sealed class ToolsPermissionConverter : ArrayConverter
+{
+	public override Object? ConvertTo(ITypeDescriptorContext? context, CultureInfo? culture, Object? value, Type destinationType)
+	{
+		if(destinationType == typeof(String))
+			return value is null ? "(All)" : value is String[] arr && arr.Length == 0 ? "(None)" : base.ConvertTo(context, culture, value, destinationType);
+		return base.ConvertTo(context, culture, value, destinationType);
+	}
+}
 
 /// <summary>Drop-down property-grid editor that renders each discovered tool method as a named, described checkbox.</summary>
 internal sealed class ToolsPermissionEditor : UITypeEditor
@@ -12,7 +23,7 @@ internal sealed class ToolsPermissionEditor : UITypeEditor
 	public override Object? EditValue(ITypeDescriptorContext? context, IServiceProvider provider, Object? value)
 	{
 		var plugin = Plugin.StaticInstance!;
-		var ctrl = new ToolPermissionControl(new ToolsFactory(plugin.Host, plugin.Settings, plugin.Settings.AiAgent).GetTools());
+		var ctrl = new ToolPermissionControl(new ToolsFactory(plugin.Host, plugin.Settings, plugin.Settings.SelectedAgent).GetTools());
 		ctrl.SetValue((String[]?)value);
 		((IWindowsFormsEditorService)provider.GetService(typeof(IWindowsFormsEditorService))!).DropDownControl(ctrl);
 		return ctrl.Result;

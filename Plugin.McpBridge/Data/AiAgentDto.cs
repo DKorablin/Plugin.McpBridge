@@ -32,7 +32,11 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 	private String? _ragDirectory = null;
 	private String? _ragCitationsPrompt = null;
 
-	[Category("AI Provider")]
+	/// <summary>Gets the unique identifier for this instance.</summary>
+	[ReadOnly(true)]
+	public Guid Id { get; init; } = Guid.NewGuid();
+
+	[Category("Provider")]
 	[DisplayName("Selected Provider")]
 	[Description("The active AI provider profile to use.")]
 	[TypeConverter(typeof(AiProviderIdConverter))]
@@ -47,6 +51,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 	[Category("Instruments")]
 	[DefaultValue(Defaults.AssistantSystemPrompt)]
 	[Description("The system prompt that defines the assistant's behavior and persona.")]
+	[Editor(typeof(System.ComponentModel.Design.MultilineStringEditor), typeof(System.Drawing.Design.UITypeEditor))]
 	public String? AssistantSystemPrompt
 	{
 		get => this._assistantSystemPrompt ?? Defaults.AssistantSystemPrompt;
@@ -61,6 +66,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 
 	[Category("Instruments")]
 	[Description("An optional directory path where the assistant can read/write files when using skills. If not set, skills will not be available.")]
+	[Editor(typeof(System.Windows.Forms.Design.FolderNameEditor), typeof(System.Drawing.Design.UITypeEditor))]
 	public String? SkillsDirectory
 	{
 		get => this._skillsDirectory;
@@ -119,6 +125,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 	[Category("RAG")]
 	[DisplayName("RAG Knowledge Base Directory")]
 	[Description("An optional directory path where RAG knowledge base files are stored (Supported extensions: *.txt, *.md).")]
+	[Editor(typeof(System.Windows.Forms.Design.FolderNameEditor), typeof(System.Drawing.Design.UITypeEditor))]
 	public String? RagDirectory
 	{
 		get => this._ragDirectory;
@@ -136,6 +143,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 	[Category("Security")]
 	[DefaultValue(null)]
 	[Editor(typeof(ToolsPermissionEditor), typeof(UITypeEditor))]
+	[TypeConverter(typeof(ToolsPermissionConverter))]
 	[Description("Controls which tools the assistant may use.")]
 	public String[]? ToolsPermission
 	{

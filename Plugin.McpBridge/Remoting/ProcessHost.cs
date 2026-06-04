@@ -130,6 +130,6 @@ internal sealed class ProcessHost : IDisposable
 			_ => throw new InvalidOperationException($"Unsupported executable: {this._exeType}"),
 		};
 
-		return new SettingsDto(serverUrl, settings, AgentFactory.BuildSystemInstructions(settings, settings.AiAgent, this._host));
+		return new SettingsDto(serverUrl, settings, AgentFactory.BuildSystemInstructions(settings, settings.SelectedAgent, this._host));
 	}
 }

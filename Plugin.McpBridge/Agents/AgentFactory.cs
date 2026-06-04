@@ -93,42 +93,36 @@ internal class AgentFactory
 
 		String BuildSystemInstructions(String? systemPrompt, String pluginInventory)
 		{
-			StringBuilder sb = new StringBuilder(systemPrompt);
-
-			sb.AppendLine();
-			sb.AppendLine();
 			if(pluginInventory.Length > 0)
 			{
+				StringBuilder sb = new StringBuilder(systemPrompt);
+				sb.AppendLine();
+				sb.AppendLine();
 				sb.AppendLine("Loaded SAL plugins:");
 				sb.AppendLine(pluginInventory);
+				return sb.ToString().Trim();
 			} else
-				sb.AppendLine("No SAL plugins are available.");
-
-			return sb.ToString().TrimEnd();
+				return systemPrompt;
 		}
 
 		String ListPluginInventory(AiAgentDto agent, IHost host)
 		{
 			var allowedPlugins = agent.PluginsPermission;
-			StringBuilder pluginsText = new StringBuilder();
-			Boolean allAllowed = allowedPlugins == null || allowedPlugins.Length == 0;
+			if(allowedPlugins?.Length == 0)
+				return String.Empty;
+
+			List<String> pluginsText = new List<String>();
+			Boolean allAllowed = allowedPlugins == null;
+			var allowedSet = allAllowed ? null : new HashSet<String>(allowedPlugins!);
 			foreach(IPluginDescription pluginDescription in host.Plugins)
-			{
-				if(!allAllowed && !Array.Exists(allowedPlugins!, p => p == pluginDescription.ID))
-					continue;
+				if(allAllowed || allowedSet!.Contains(pluginDescription.ID))
+				{
+					String hasSettings = PluginSettingsTools.HasPluginSettings(pluginDescription) ? "yes" : "no";
+					String pluginText = @$"- {pluginDescription.ID} | {pluginDescription.Name} | {pluginDescription.Version} | Settings: {hasSettings}";
+					pluginsText.Add(pluginText);
+				}
 
-				pluginsText.Append("- ");
-				pluginsText.Append(pluginDescription.ID);
-				pluginsText.Append(" | ");
-				pluginsText.Append(pluginDescription.Name);
-				pluginsText.Append(" | ");
-				pluginsText.Append(pluginDescription.Version?.ToString());
-				pluginsText.Append(" | Settings: ");
-				pluginsText.Append(PluginSettingsTools.HasPluginSettings(pluginDescription) ? "yes" : "no");
-				pluginsText.AppendLine();
-			}
-
-			return pluginsText.ToString().Trim();
+			return String.Join(Environment.NewLine, pluginsText.ToArray());
 		}
 	}
 

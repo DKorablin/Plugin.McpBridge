@@ -1,5 +1,6 @@
 ﻿using Microsoft.Agents.AI.DevUI;
 using Microsoft.Agents.AI.Hosting;
+using Microsoft.Agents.ObjectModel;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Tests;
 using Plugin.McpBridge.Workflows;
@@ -19,9 +20,10 @@ internal static class Program
 			var bridgeTools = await settings.FetchBridgeToolsAsync();
 			Console.WriteLine($"Bridge connected: {bridgeTools.Length:N0} tools loaded from {settings.McpServerUrl}");
 
+			var agentDto = settings.SelectedAgent;
 			AgentHandle agent = await _agentFactory.CreateAgent(
-				settings.AiAgent,
-				settings.AiAgent.GetSelectedProvider(settings.AiProviders),
+				agentDto,
+				agentDto.GetSelectedProvider(settings.AiProviders),
 				bridgeTools,
 				settings.Instructions ?? String.Empty,
 				token: lifetimeCts.Token);

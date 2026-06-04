@@ -83,7 +83,7 @@ namespace Plugin.McpBridge
 			EventHandler<AgentResponseEventArgs> responseHandler = (Object? sender, AgentResponseEventArgs e)
 				=> responses.Add(e.Response);
 
-			var provider = this.Settings.AiAgent.GetSelectedProvider(this.Settings.AiProviders);
+			var provider = this.Settings.SelectedAgent.GetSelectedProvider(this.Settings.AiProviders);
 
 			var agent = Task.Run(() => this.GetAgent(provider)).GetAwaiter().GetResult();
 			agent.AiResponseReceived += responseHandler;
@@ -109,7 +109,7 @@ namespace Plugin.McpBridge
 
 		internal async Task<AssistantAgent> InitializeAgent(AiProviderDto provider, String? sessionJson = null)
 		{
-			ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings, this.Settings.AiAgent);
+			ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings, this.Settings.SelectedAgent);
 			AgentFactory agentFactory = new AgentFactory();
 
 			var result = new AssistantAgent(this.Trace, this.Host, toolsFactory, agentFactory);
@@ -139,7 +139,7 @@ namespace Plugin.McpBridge
 
 		private void Plugins_PluginsLoaded(Object? sender, EventArgs e)
 		{
-			ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings, this.Settings.AiAgent);
+			ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings, this.Settings.SelectedAgent);
 
 			if(this.Settings.McpServerEnabled)
 			{

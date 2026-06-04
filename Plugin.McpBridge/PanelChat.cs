@@ -24,7 +24,7 @@ public partial class PanelChat : UserControl
 
 	private IWindow Window => (IWindow)base.Parent;
 
-	private AiProviderDto? CurrentProvider => this.Plugin.Settings.AiAgent.GetSelectedProvider(this.Plugin.Settings.AiProviders);
+	private AiProviderDto? CurrentProvider => this.Plugin.Settings.SelectedAgent.GetSelectedProvider(this.Plugin.Settings.AiProviders);
 
 	public PanelChat()
 		=> this.InitializeComponent();
@@ -208,10 +208,31 @@ public partial class PanelChat : UserControl
 	private void tsbnSend_DropDownOpening(Object sender, EventArgs e)
 	{
 		tsbnSend.DropDownItems.Clear();
-		var providers = this.Plugin.Settings.AiProviders;
-		var selectedProviderId = this.Plugin.Settings.AiAgent.SelectedProviderId == null && providers.Count > 0
-			? providers[0].Id : this.Plugin.Settings.AiAgent.SelectedProviderId;
-		foreach(AiProviderDto provider in this.Plugin.Settings.AiProviders)
+
+		Settings settings = this.Plugin.Settings;
+		Guid selectedAgentId = settings.SelectedAgent.Id;
+
+		ToolStripMenuItem agentsHeader = new ToolStripMenuItem("Agents") { Enabled = false };
+		tsbnSend.DropDownItems.Add(agentsHeader);
+		for(Int32 i = 0; i < settings.AiAgents.Count; i++)
+		{
+			AiAgentDto agentDto = settings.AiAgents[i];
+			ToolStripMenuItem item = new ToolStripMenuItem($"Agent {i + 1}")
+			{
+				Tag = agentDto.Id,
+				Checked = agentDto.Id == selectedAgentId,
+			};
+			item.Click += this.tsbnSend_AgentItem_Click;
+			tsbnSend.DropDownItems.Add(item);
+		}
+
+		tsbnSend.DropDownItems.Add(new ToolStripSeparator());
+
+		ToolStripMenuItem providersHeader = new ToolStripMenuItem("Providers") { Enabled = false };
+		tsbnSend.DropDownItems.Add(providersHeader);
+		Guid? selectedProviderId = settings.SelectedAgent.SelectedProviderId
+			?? (settings.AiProviders.Count > 0 ? settings.AiProviders[0].Id : (Guid?)null);
+		foreach(AiProviderDto provider in settings.AiProviders)
 		{
 			ToolStripMenuItem item = new ToolStripMenuItem(provider.ToString())
 			{
@@ -223,10 +244,16 @@ public partial class PanelChat : UserControl
 		}
 	}
 
+	private void tsbnSend_AgentItem_Click(Object? sender, EventArgs e)
+	{
+		ToolStripMenuItem item = (ToolStripMenuItem)sender!;
+		this.Plugin.Settings.SelectedAgentId = (Guid)item.Tag;
+	}
+
 	private void tsbnSend_ProviderItem_Click(Object? sender, EventArgs e)
 	{
 		ToolStripMenuItem item = (ToolStripMenuItem)sender!;
-		this.Plugin.Settings.AiAgent.SelectedProviderId = (Guid)item.Tag;
+		this.Plugin.Settings.SelectedAgent.SelectedProviderId = (Guid)item.Tag;
 	}
 
 	private void tsbnSend_Click(Object sender, EventArgs e)
@@ -304,9 +331,11 @@ public partial class PanelChat : UserControl
 		tsbnSend.Image = isProcessing ? _imgCancel : _imgSend;
 
 		// Window Caption Logic
-		String providerInfo = this.CurrentProvider?.ToString() ?? "Undefinded";
+		Int32 agentIndex = this.Plugin.Settings.AiAgents.IndexOf(this.Plugin.Settings.SelectedAgent);
+		String agentInfo = this.Plugin.Settings.AiAgents.Count > 1 ? $"Agent {agentIndex + 1} | " : String.Empty;
+		String providerInfo = this.CurrentProvider?.ToString() ?? "Undefined";
 		String statusIcon = needsConfirmation ? " (!)" : String.Empty;
-		this.Window.Caption = providerInfo + statusIcon;
+		this.Window.Caption = agentInfo + providerInfo + statusIcon;
 
 		// Input Logic
 		if(!isProcessing && !needsConfirmation && hasProvider)

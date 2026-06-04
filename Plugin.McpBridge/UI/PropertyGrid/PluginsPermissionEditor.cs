@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Drawing.Design;
+using System.Globalization;
 using System.Windows.Forms.Design;
 using SAL.Flatbed;
 
@@ -78,6 +79,13 @@ internal sealed class PluginsPermissionEditor : UITypeEditor
 /// <summary>Replaces plugin IDs with their display names when the PluginsPermission array is expanded in the PropertyGrid.</summary>
 internal sealed class PluginsPermissionConverter : ArrayConverter
 {
+	public override Object? ConvertTo(ITypeDescriptorContext? context, CultureInfo? culture, Object? value, Type destinationType)
+	{
+		if(destinationType == typeof(String))
+			return value is null ? "(All)" : value is String[] arr && arr.Length == 0 ? "(None)" : base.ConvertTo(context, culture, value, destinationType);
+		return base.ConvertTo(context, culture, value, destinationType);
+	}
+
 	public override PropertyDescriptorCollection GetProperties(ITypeDescriptorContext? context, Object value, Attribute[]? attributes)
 	{
 		PropertyDescriptorCollection baseProps = base.GetProperties(context, value, attributes);
