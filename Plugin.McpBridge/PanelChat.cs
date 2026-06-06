@@ -24,7 +24,17 @@ public partial class PanelChat : UserControl
 
 	private IWindow Window => (IWindow)base.Parent;
 
-	private AiProviderDto? CurrentProvider => this.Plugin.Settings.SelectedAgent.GetSelectedProvider(this.Plugin.Settings.AiProviders);
+	private AiProviderDto? CurrentProvider
+	{
+		get
+		{
+			BindingList<AiProviderDto> providers = this.Plugin.Settings.AiProviders;
+			if(providers.Count == 0)
+				return null;
+
+			return this.Plugin.Settings.SelectedAgent.GetSelectedProvider(providers);
+		}
+	}
 
 	public PanelChat()
 		=> this.InitializeComponent();
