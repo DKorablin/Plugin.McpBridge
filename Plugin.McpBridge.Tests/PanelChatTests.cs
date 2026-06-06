@@ -51,7 +51,7 @@ public class PanelChatTests
 
 			// Assert
 			form.IsHandleCreated.Should().BeTrue();
-			testWindow.Caption.Should().Be("Undefinded");
+			testWindow.Caption.Should().Be("Undefined");
 		}
 	}
 }

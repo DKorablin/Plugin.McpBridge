@@ -167,7 +167,7 @@ async function runAgent(input: RunAgentInput, assistantEl: HTMLElement): Promise
 						break;
 
 					case EventType.RUN_ERROR: {
-						const e = event as { message: string; code: string };
+						const e = event as unknown as { message: string; code: string };
 						assistantEl.classList.add("error");
 						assistantEl.innerHTML = `
 							<div class="error-header"><span>&#10060;</span> Run Error</div>
@@ -178,20 +178,20 @@ async function runAgent(input: RunAgentInput, assistantEl: HTMLElement): Promise
 					}
 
 					case EventType.TOOL_CALL_START: {
-						const e = event as { toolCallId: string; toolCallName: string };
+						const e = event as unknown as { toolCallId: string; toolCallName: string };
 						toolCallNames.set(e.toolCallId, e.toolCallName);
 						toolCallArgs.set(e.toolCallId, "");
 						break;
 					}
 
 					case EventType.TOOL_CALL_ARGS: {
-						const e = event as { toolCallId: string; delta: string };
+						const e = event as unknown as { toolCallId: string; delta: string };
 						toolCallArgs.set(e.toolCallId, (toolCallArgs.get(e.toolCallId) ?? "") + e.delta);
 						break;
 					}
 
 					case EventType.TOOL_CALL_END: {
-						const e = event as { toolCallId: string };
+						const e = event as unknown as { toolCallId: string };
 						const callId = e.toolCallId;
 						const name = toolCallNames.get(callId) ?? "";
 						const argsRaw = toolCallArgs.get(callId) ?? "{}";

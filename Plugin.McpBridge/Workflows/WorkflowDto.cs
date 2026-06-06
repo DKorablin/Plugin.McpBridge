@@ -34,8 +34,6 @@ internal enum NodeKind
 /// <summary>A node in the workflow graph — either a leaf <see cref="NodeKind.Agent"/> or a nested <see cref="NodeKind.Workflow"/>.</summary>
 internal sealed record WorkflowNode
 {
-	// ── Common ───────────────────────────────────────────────────────────────
-
 	/// <summary>Unique name used to identify this node and resolve <see cref="Targets"/> references.</summary>
 	public String Name { get; set; } = String.Empty;
 
@@ -99,7 +97,7 @@ internal sealed record NodeEdge
 }
 
 /// <summary>Top-level descriptor for a multi-agent workflow loaded from JSON.</summary>
-internal record WorkflowConfig
+internal record WorkflowDto
 {
 	/// <summary>Logical name for the workflow; also used as the <c>AIAgent</c> name exposed to callers.</summary>
 	public String Name { get; set; } = String.Empty;
@@ -127,11 +125,11 @@ internal record WorkflowConfig
 		Converters = { new JsonStringEnumConverter() },
 	};
 
-	/// <summary>Loads and deserializes a <see cref="WorkflowConfig"/> from a JSON file at <paramref name="filePath"/>.</summary>
-	internal static WorkflowConfig Load(String filePath)
+	/// <summary>Loads and deserializes a <see cref="WorkflowDto"/> from a JSON file at <paramref name="filePath"/>.</summary>
+	internal static WorkflowDto Load(String filePath)
 	{
 		String json = File.ReadAllText(filePath);
-		return JsonSerializer.Deserialize<WorkflowConfig>(json, _options)
+		return JsonSerializer.Deserialize<WorkflowDto>(json, _options)
 			?? throw new InvalidOperationException($"Failed to deserialize workflow config from '{filePath}'.");
 	}
 }

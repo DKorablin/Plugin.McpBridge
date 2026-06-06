@@ -14,6 +14,7 @@ namespace Plugin.McpBridge
 	public class Plugin : IPlugin, IPluginSettings<Settings>
 	{
 		private Settings? _settings;
+		internal static Plugin? StaticInstance { get; private set; }
 		private AssistantAgent? _agent;
 
 		private ProcessHost? _devUIHost;
@@ -32,7 +33,7 @@ namespace Plugin.McpBridge
 			{
 				if(this._settings == null)
 				{
-					this._settings = new Settings(this);
+					this._settings = new Settings();
 					this.Host.Plugins.Settings(this).LoadAssemblyParameters(this._settings);
 					this._settings.PropertyChanged += _settings_PropertyChanged;
 				}
@@ -68,6 +69,7 @@ namespace Plugin.McpBridge
 
 		public Plugin(IHost host, ITraceSource trace)
 		{
+			Plugin.StaticInstance = this;
 			this.Host = host ?? throw new ArgumentNullException(nameof(host));
 			this.Trace = trace ?? throw new ArgumentNullException(nameof(trace));
 		}
@@ -81,10 +83,9 @@ namespace Plugin.McpBridge
 			EventHandler<AgentResponseEventArgs> responseHandler = (Object? sender, AgentResponseEventArgs e)
 				=> responses.Add(e.Response);
 
-			var provider = this.Settings.GetSelectedProvider()
-				?? throw new InvalidOperationException("No AI provider configured.");
+			var provider = this.Settings.SelectedAgent.GetSelectedProvider(this.Settings.AiProviders);
 
-			var agent = this.GetAgent(provider);
+			var agent = Task.Run(() => this.GetAgent(provider)).GetAwaiter().GetResult();
 			agent.AiResponseReceived += responseHandler;
 
 			try
@@ -99,19 +100,20 @@ namespace Plugin.McpBridge
 			return responses;
 		}
 
-		private AssistantAgent GetAgent(AiProviderDto provider)
+		private async Task<AssistantAgent> GetAgent(AiProviderDto provider)
 		{
 			if(this._agent == null)
-				this._agent = Task.Run(() => this.InitializeAgent(provider)).GetAwaiter().GetResult();
+				this._agent = await this.InitializeAgent(provider);
 			return this._agent;
 		}
 
 		internal async Task<AssistantAgent> InitializeAgent(AiProviderDto provider, String? sessionJson = null)
 		{
-			ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings);
+			ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings, this.Settings.SelectedAgent);
 			AgentFactory agentFactory = new AgentFactory();
 
 			var result = new AssistantAgent(this.Trace, this.Host, toolsFactory, agentFactory);
+			//var result = new RAG.IronMindRagAgent(this.Trace, this.Host, toolsFactory, agentFactory);
 			await result.Initialize(this.Settings, provider, sessionJson);
 			return result;
 		}
@@ -137,7 +139,7 @@ namespace Plugin.McpBridge
 
 		private void Plugins_PluginsLoaded(Object? sender, EventArgs e)
 		{
-			ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings);
+			ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings, this.Settings.SelectedAgent);
 
 			if(this.Settings.McpServerEnabled)
 			{

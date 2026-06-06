@@ -4,6 +4,7 @@ using System.Runtime.Serialization;
 namespace Plugin.McpBridge.Data;
 
 [DataContract]
+[TypeConverter(typeof(ExpandableObjectConverter))]
 public record AzureProviderDto : NetworkProviderDto
 {
 	private String? _deploymentName;
@@ -16,7 +17,7 @@ public record AzureProviderDto : NetworkProviderDto
 	[DefaultValue(null)]
 	public String? DeploymentName
 	{
-		get => _deploymentName;
+		get => this._deploymentName;
 		set
 		{
 			if(String.IsNullOrWhiteSpace(value))

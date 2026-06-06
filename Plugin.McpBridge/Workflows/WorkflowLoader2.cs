@@ -1,5 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
@@ -8,36 +7,43 @@ using Plugin.McpBridge.Data;
 
 namespace Plugin.McpBridge.Workflows;
 
-/// <summary>Builds a <see cref="WorkflowHandle"/> from a <see cref="WorkflowConfig"/> loaded at runtime.</summary>
+/// <summary>Builds a <see cref="WorkflowHandle"/> from a <see cref="WorkflowDto"/> loaded at runtime.</summary>
 internal sealed class WorkflowLoader2
 {
+	private readonly Settings _settings;
+	private readonly WorkflowDto _config;
 	private readonly AgentFactory _agentFactory = new AgentFactory();
-	private readonly WorkflowConfig _config;
 
-	internal WorkflowLoader2(String workflowPath)
+	internal WorkflowLoader2(Settings settings, String workflowPath)
 	{
 		if(String.IsNullOrWhiteSpace(workflowPath))
 			throw new ArgumentException("Workflow path must be a non-empty string.", nameof(workflowPath));
 		if(!File.Exists(workflowPath))
 			throw new FileNotFoundException($"Workflow config file not found at '{workflowPath}'.", workflowPath);
 
-		this._config = WorkflowConfig.Load(workflowPath);
+		this._settings = settings ?? throw new ArgumentNullException(nameof(settings));
+		this._config = WorkflowDto.Load(workflowPath);
 
 		if(this._config.Nodes.Count == 0)
 			throw new InvalidOperationException("WorkflowConfig must contain at least one node.");
 	}
 
 	/// <summary>Builds a <see cref="WorkflowHandle"/> from the loaded config using the supplied providers and tools.</summary>
-	public async Task<WorkflowHandle> BuildAsync(AiProviderDto[] providers, AIFunction[] tools, CancellationToken cancellationToken = default)
+	public async Task<WorkflowHandle> BuildAsync(IEnumerable<AiProviderDto> providers, AIFunction[] tools, CancellationToken cancellationToken = default)
 	{
 		_ = providers ?? throw new ArgumentNullException(nameof(providers));
 
-		(Workflow workflow, List<IDisposable> resources) = await this.BuildCoreAsync(this._config, providers, tools, cancellationToken);
+		(Workflow workflow, List<IDisposable> resources) = await this.BuildCoreAsync(
+			this._config,
+			providers.ToArray(),
+			tools,
+			cancellationToken);
+
 		return new WorkflowHandle(workflow, this._config.Name, resources);
 	}
 
 	private async Task<(Workflow Workflow, List<IDisposable> Resources)> BuildCoreAsync(
-		WorkflowConfig config,
+		WorkflowDto config,
 		AiProviderDto[] providers,
 		AIFunction[] tools,
 		CancellationToken cancellationToken)
@@ -56,7 +62,7 @@ internal sealed class WorkflowLoader2
 
 			if(node.Kind == NodeKind.Workflow)
 			{
-				WorkflowConfig subConfig = new WorkflowConfig
+				WorkflowDto subConfig = new WorkflowDto
 				{
 					Name = node.Name,
 					Pattern = node.Pattern,
@@ -75,7 +81,7 @@ internal sealed class WorkflowLoader2
 				var agentResult = await _agentFactory.CreateAgent(
 					provider,
 					nodeTools,
-					node.SystemPrompt,
+					node.SystemPrompt ?? String.Empty,
 					node.Name);
 
 				ownedResources.Add(agentResult);
@@ -97,19 +103,19 @@ internal sealed class WorkflowLoader2
 		return (workflow, ownedResources);
 	}
 
-	private static Workflow BuildGroupChat(WorkflowConfig config, Dictionary<String, AIAgent> agents)
+	private static Workflow BuildGroupChat(WorkflowDto config, Dictionary<String, AIAgent> agents)
 	{
 		Int32 maxRounds = config.MaxRounds ?? 10;
 		return AgentWorkflowBuilder
 			.CreateGroupChatBuilderWith(a => new RoundRobinGroupChatManager(a) { MaximumIterationCount = maxRounds })
 			.AddParticipants([.. agents.Values])
 			.WithName(config.Name)
-			.WithDescription(config.Description)
+			.WithDescription(config.Description ?? String.Empty)
 			.Build();
 	}
 
 	private async Task<(Workflow Workflow, List<IDisposable> Resources)> BuildConditionalGraphAsync(
-		WorkflowConfig config,
+		WorkflowDto config,
 		AiProviderDto[] providers,
 		AIFunction[] tools,
 		CancellationToken cancellationToken)
@@ -125,7 +131,7 @@ internal sealed class WorkflowLoader2
 
 			if(node.Kind == NodeKind.Workflow)
 			{
-				WorkflowConfig subConfig = new WorkflowConfig
+				WorkflowDto subConfig = new WorkflowDto
 				{
 					Name = node.Name,
 					Pattern = node.Pattern,
@@ -158,7 +164,7 @@ internal sealed class WorkflowLoader2
 			throw new InvalidOperationException($"Entrypoint node '{entrypoint}' was not found in the workflow configuration.");
 
 		WorkflowBuilder graphBuilder = new WorkflowBuilder(entryAgent)
-			.WithDescription(config.Description);
+			.WithDescription(config.Description ?? String.Empty);
 
 		foreach(WorkflowNode node in config.Nodes)
 		{
@@ -216,14 +222,13 @@ internal sealed class WorkflowLoader2
 			}
 		}
 
-		// 5. Compile the directed graph schema out to a telemetry-observable Workflow
 		Workflow workflow = graphBuilder.Build();
 		typeof(Workflow).GetProperty(nameof(Workflow.Name))?.SetValue(workflow, config.Name);
 
 		return (workflow, ownedResources);
 	}
 
-	private static Workflow BuildMagentic(WorkflowConfig config, Dictionary<String, AIAgent> agents)
+	private static Workflow BuildMagentic(WorkflowDto config, Dictionary<String, AIAgent> agents)
 	{
 		String managerName = config.Entrypoint
 			?? config.Nodes.FirstOrDefault(n => n.IsOrchestrator)?.Name
@@ -238,11 +243,11 @@ internal sealed class WorkflowLoader2
 			.AddParticipants(participants)
 			.WithMaxRounds(config.MaxRounds)
 			.WithName(config.Name)
-			.WithDescription(config.Description)
+			.WithDescription(config.Description ?? String.Empty)
 			.Build();
 	}
 
-	private static Workflow BuildHandoff(WorkflowConfig config, Dictionary<String, AIAgent> agents)
+	private static Workflow BuildHandoff(WorkflowDto config, Dictionary<String, AIAgent> agents)
 	{
 		String entryName = config.Entrypoint ?? config.Nodes[0].Name;
 		HandoffWorkflowBuilder builder = AgentWorkflowBuilder.CreateHandoffBuilderWith(agents[entryName]);

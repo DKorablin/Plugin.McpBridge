@@ -1,7 +1,4 @@
 ﻿using System.ComponentModel;
-using System.Drawing.Design;
-using System.Net;
-using System.Net.Sockets;
 using System.Runtime.Serialization.Json;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Tests;
@@ -9,49 +6,28 @@ using Plugin.McpBridge.UI.PropertyGrid;
 
 namespace Plugin.McpBridge
 {
-	/// <summary>Specifies the available AI provider types that can be used for generating responses.</summary>
-	/// <remarks>
-	/// Use this enumeration to select the AI service or backend for processing requests.
-	/// The available options include cloud-based providers, local engines, and a stub for testing purposes.
-	/// The choice of provider may affect capabilities, required credentials, and network connectivity.
-	/// </remarks>
-	public enum AiProviderType
-	{
-		OpenAI,
-		Azure,
-		CoPilot,
-		Local,
-		Grok,
-		Gemini,
-		/// <summary>Returns scripted responses locally. No credentials or network required. Intended for UI testing.</summary>
-		Stub,
-	}
-
 	/// <summary>Configuration settings for the MCP Bridge plugin.</summary>
-	public class Settings : INotifyPropertyChanged
+	public partial class Settings : INotifyPropertyChanged
 	{
 		private static class Defaults
 		{
-			public const String AssistantSystemPrompt = @"You are a SAL automation assistant.
-Use available MCP tools when useful.
-Return clear user-facing responses, or a command payload only when automation is required.
-Before using relative dates (today, yesterday, last hour), obtain the current system time from the SystemInformation tool.";
 			public const String McpServerUrl = "http://localhost:5050";
 			public const String DevUIServerUrl = "http://localhost:5051";
 			public const String AgUIServerUrl = "http://localhost:5052";
-			public const String AgentStateFileName = "agentState.json";
 		}
 
-		private static DataContractJsonSerializer Serializer = new DataContractJsonSerializer(typeof(AiProviderDto[]));
+		private static DataContractJsonSerializer ProvidersSerializer = new DataContractJsonSerializer(typeof(AiProviderDto[]));
+		private static DataContractJsonSerializer AgentSerializer = new DataContractJsonSerializer(typeof(AiAgentDto[]));
 
 		private String? _aiProvidersJson = null;
 		private BindingList<AiProviderDto>? _aiProviders = null;
-		private Guid? _selectedProviderId;
-		private String? _assistantSystemPrompt = Defaults.AssistantSystemPrompt;
-		private String? _skillsDirectory = null;
+
+		private String? _aiAgentsJson = null;
+		private BindingList<AiAgentDto>? _aiAgents = null;
+
+		private Guid? _selectedAgentId;
+
 		private String? _workflowsDirectory = null;
-		private String[]? _toolsPermission = null;
-		private String[]? _pluginsPermission = null;
 
 		private Boolean _devUIEnabled = false;
 		private String? _devUIServerUrl = null;
@@ -67,16 +43,17 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 			get => this._aiProvidersJson;
 			set
 			{
-				if(String.IsNullOrEmpty(value))
+				if(String.IsNullOrWhiteSpace(value))
 					value = null;
 				this.SetField(ref this._aiProvidersJson, value, nameof(this.AiProvidersJson));
 			}
 		}
 
-		[Category("AI Provider")]
+		[Category("Agent")]
 		[Description("The list of AI providers available for selection. Managed through the AI Providers Manager UI.")]
-		[DisplayName("AI Providers")]
+		[DisplayName("AI Providers Configuration")]
 		[TypeConverter(typeof(BindingListConverter<AiProviderDto>))]
+		[Editor(typeof(CollectionWithDescriptionEditor), typeof(System.Drawing.Design.UITypeEditor))]
 		public BindingList<AiProviderDto> AiProviders
 		{
 			get
@@ -86,7 +63,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 					AiProviderDto[]? arrProviders = null;
 					if(this.AiProvidersJson != null)
 						using(MemoryStream stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(this.AiProvidersJson)))
-							arrProviders = (AiProviderDto[]?)Serializer.ReadObject(stream);
+							arrProviders = (AiProviderDto[]?)ProvidersSerializer.ReadObject(stream);
 
 					List<AiProviderDto> aiProviders = new List<AiProviderDto>(arrProviders ?? Array.Empty<AiProviderDto>());
 
@@ -97,48 +74,63 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 			}
 		}
 
-		[Category("AI Provider")]
-		[DisplayName("Selected Provider")]
-		[Description("The active AI provider profile to use.")]
-		[TypeConverter(typeof(AiProviderIdConverter))]
-		[DefaultValue(null)]
-		public Guid? SelectedProviderId
+		[Browsable(false)]
+		public String? AiAgentsJson
 		{
-			get => _selectedProviderId;
-			set => this.SetField(ref this._selectedProviderId, value, nameof(this.SelectedProviderId));
-		}
-
-		/// <summary>The system prompt that defines the assistant's behavior and persona.</summary>
-		[Category("Instruments")]
-		[DefaultValue(Defaults.AssistantSystemPrompt)]
-		[Description("The system prompt that defines the assistant's behavior and persona.")]
-		public String? AssistantSystemPrompt
-		{
-			get => this._assistantSystemPrompt;
+			get => this._aiAgentsJson;
 			set
 			{
 				if(String.IsNullOrWhiteSpace(value))
-					value = Defaults.AssistantSystemPrompt;
-
-				this.SetField(ref this._assistantSystemPrompt, value, nameof(this.AssistantSystemPrompt));
-			}
-		}
-
-		[Category("Instruments")]
-		[Description("An optional directory path where the assistant can read/write files when using skills. If not set, skills will not be available.")]
-		public String? SkillsDirectory
-		{
-			get => this._skillsDirectory;
-			set
-			{
-				if(String.IsNullOrWhiteSpace(value) || !Directory.Exists(value))
 					value = null;
-				this.SetField(ref this._skillsDirectory, value, nameof(this.SkillsDirectory));
+				this.SetField(ref this._aiAgentsJson, value, nameof(this.AiAgentsJson));
 			}
 		}
 
-		[Category("Instruments")]
+		[Category("Agent")]
+		[DisplayName("AI Agents Configuration")]
+		[TypeConverter(typeof(BindingListConverter<AiAgentDto>))]
+		[Editor(typeof(CollectionWithDescriptionEditor), typeof(System.Drawing.Design.UITypeEditor))]
+		public BindingList<AiAgentDto> AiAgents
+		{
+			get
+			{
+				if(this._aiAgents == null)
+				{
+					AiAgentDto[]? arrAgents = null;
+					if(this.AiAgentsJson != null)
+						using(MemoryStream stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(this.AiAgentsJson)))
+							arrAgents = (AiAgentDto[]?)AgentSerializer.ReadObject(stream);
+
+					List<AiAgentDto> aiAgents = arrAgents?.Length > 0
+						? new List<AiAgentDto>(arrAgents)
+						: new List<AiAgentDto> { new AiAgentDto() { AssistantSystemPrompt = AiAgentDto.Defaults.AssistantSystemPrompt, }, };
+
+					this._aiAgents = new BindingList<AiAgentDto>(aiAgents);
+					this._aiAgents.ListChanged += this.AiAgents_ListChanged;
+				}
+				return this._aiAgents;
+			}
+		}
+
+		[Category("Agent")]
+		[DisplayName("Selected Agent")]
+		[TypeConverter(typeof(AiAgentIdConverter))]
+		[DefaultValue(null)]
+		public Guid? SelectedAgentId
+		{
+			get => _selectedAgentId;
+			set => this.SetField(ref this._selectedAgentId, value, nameof(this.SelectedAgentId));
+		}
+
+		[Browsable(false)]
+		public AiAgentDto SelectedAgent
+			=> this._selectedAgentId.HasValue
+				? this.AiAgents.FirstOrDefault(a => a.Id == this._selectedAgentId) ?? this.AiAgents[0]
+				: this.AiAgents[0];
+
+		[Category("Agent")]
 		[Description("An optional directory path where workfows definitions are stored.")]
+		[Editor(typeof(System.Windows.Forms.Design.FolderNameEditor), typeof(System.Drawing.Design.UITypeEditor))]
 		public String? WorkflowsDirectory
 		{
 			get => this._workflowsDirectory;
@@ -150,43 +142,10 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 			}
 		}
 
-		[Category("Security")]
-		[DefaultValue(null)]
-		[Editor(typeof(ToolsPermissionEditor), typeof(UITypeEditor))]
-		[Description("Controls which tools the assistant may use. Leave empty to allow all tools; otherwise only the listed method names are enabled.")]
-		public String[]? ToolsPermission
-		{
-			get => this._toolsPermission;
-			set
-			{
-				if(value?.Length == 0)
-					value = null;
-
-				this.SetField(ref this._toolsPermission, value, nameof(this.ToolsPermission));
-			}
-		}
-
-		[Category("Security")]
-		[DefaultValue(null)]
-		[Editor(typeof(PluginsPermissionEditor), typeof(UITypeEditor))]
-		[TypeConverter(typeof(PluginsPermissionConverter))]
-		[Description("Controls which plugins the assistant may use. Leave empty to allow all plugins")]
-		public String[]? PluginsPermission
-		{
-			get => this._pluginsPermission;
-			set
-			{
-				if(value?.Length == 0)
-					value = null;
-
-				this.SetField(ref this._pluginsPermission, value, nameof(this.PluginsPermission));
-			}
-		}
-
-		[Category("DevUI")]
-		[DefaultValue(false)]
-		[Description("When enabled, starts an embedded web server exposing the DevUI interface for local agent diagnostics.")]
+		[Category("Network")]
 		[DisplayName("DevUI Enabled")]
+		[Description("When enabled, starts an embedded web server exposing the DevUI interface for local agent diagnostics.")]
+		[DefaultValue(false)]
 		public Boolean DevUIEnabled
 		{
 			get => this._devUIEnabled && ProcessHost.GetExePath(ProcessHost.ExeType.DevUI, false) != null;
@@ -199,18 +158,13 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 			}
 		}
 
-		[Category("DevUI")]
-		[DefaultValue(Defaults.DevUIServerUrl)]
-		[Description("The URL of the embedded web server for the DevUI interface. Must be a valid absolute URL. If empty, defaults to " + Defaults.DevUIServerUrl)]
+		[Category("Network")]
 		[DisplayName("DevUI Server Url")]
+		[Description("The URL of the embedded web server for the DevUI interface. Must be a valid absolute URL. If empty, defaults to " + Defaults.DevUIServerUrl)]
+		[DefaultValue(Defaults.DevUIServerUrl)]
 		public String DevUIServerUrl
 		{
-			get
-			{
-				if(this._devUIServerUrl == null)
-					this._devUIServerUrl = Defaults.DevUIServerUrl;
-				return this._devUIServerUrl;
-			}
+			get => this._devUIServerUrl ?? Defaults.DevUIServerUrl;
 			set
 			{
 				if(String.IsNullOrWhiteSpace(value) || !Uri.IsWellFormedUriString(value, UriKind.Absolute))
@@ -220,10 +174,10 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 			}
 		}
 
-		[Category("AG-UI")]
-		[DefaultValue(false)]
-		[Description("When enabled, starts an embedded web server exposing the AG-UI interface for agent interaction and testing.")]
+		[Category("Network")]
 		[DisplayName("AG-UI Enabled")]
+		[Description("When enabled, starts an embedded web server exposing the AG-UI interface for agent interaction and testing.")]
+		[DefaultValue(false)]
 		public Boolean AgUIEnabled
 		{
 			get => this._agUIEnabled && ProcessHost.GetExePath(ProcessHost.ExeType.AgUI, false) != null;
@@ -236,29 +190,27 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 			}
 		}
 
-		[Category("AG-UI")]
-		[DefaultValue(Defaults.AgUIServerUrl)]
-		[Description("The URL of the embedded web server for the AG-UI interface. Must be a valid absolute URL. If empty, defaults to " + Defaults.AgUIServerUrl)]
+		[Category("Network")]
 		[DisplayName("AG-UI Server Url")]
+		[Description("The URL of the embedded web server for the AG-UI interface. Must be a valid absolute URL. If empty, defaults to " + Defaults.AgUIServerUrl)]
+		[DefaultValue(Defaults.AgUIServerUrl)]
 		public String AgUIServerUrl
 		{
-			get
-			{
-				if(this._agUIServerUrl == null)
-					this._agUIServerUrl = Defaults.AgUIServerUrl;
-				return this._agUIServerUrl;
-			}
+			get	=> this._agUIServerUrl ?? Defaults.AgUIServerUrl;
 			set
 			{
-				if(String.IsNullOrWhiteSpace(value) || !Uri.IsWellFormedUriString(value, UriKind.Absolute))
+				if(String.IsNullOrWhiteSpace(value)
+					|| !Uri.IsWellFormedUriString(value, UriKind.Absolute))
 					value = null!;
 
 				this.SetField(ref this._agUIServerUrl, value, nameof(this.AgUIServerUrl));
 			}
 		}
 
-		[Category("AG-UI")]
+		[Category("Network")]
+		[DisplayName("AG-UI Session Directory")]
 		[Description("An optional directory path where the AG-UI can read/write session data. If not set, AG-UI sessions will not be stored.")]
+		[Editor(typeof(System.Windows.Forms.Design.FolderNameEditor), typeof(System.Drawing.Design.UITypeEditor))]
 		public String? AgUISessionStorageDirectory
 		{
 			get => this._agUISessionStorageDirectory;
@@ -266,6 +218,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 			{
 				if(String.IsNullOrWhiteSpace(value))
 					value = null;
+
 				this.SetField(ref this._agUISessionStorageDirectory, value, nameof(this.AgUISessionStorageDirectory));
 			}
 		}
@@ -283,21 +236,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		[Description("The URL of the MCP server that tools will connect to for execution. Must be a valid absolute URL. If empty, defaults to " + Defaults.McpServerUrl)]
 		public String McpServerUrl
 		{
-			get
-			{
-				if(this._mcpServerUrl == null)
-					this._mcpServerUrl = Defaults.McpServerUrl;
-				return this._mcpServerUrl;
-
-				Int32 FindFreePort()
-				{
-					using TcpListener probe = new TcpListener(IPAddress.Loopback, 0);
-					probe.Start();
-					Int32 port = ((IPEndPoint)probe.LocalEndpoint).Port;
-					probe.Stop();
-					return port;
-				}
-			}
+			get	=> this._mcpServerUrl ?? Defaults.McpServerUrl;
 			set
 			{
 				if(String.IsNullOrWhiteSpace(value) || !Uri.IsWellFormedUriString(value, UriKind.Absolute))
@@ -306,86 +245,5 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 				this.SetField(ref this._mcpServerUrl, value, nameof(this.McpServerUrl));
 			}
 		}
-
-		internal Plugin Plugin { get; }
-
-		public Settings() : this(null!) { }
-
-		internal Settings(Plugin plugin)
-			=> this.Plugin = plugin ?? throw new ArgumentNullException(nameof(plugin));
-
-		internal AiProviderDto? GetSelectedProvider()
-			=> this.AiProviders.FirstOrDefault(x => x.Id == this.SelectedProviderId) ?? this.AiProviders.FirstOrDefault();
-
-		internal void SaveAgentSession(String? sessionJson)
-		{
-			if(String.IsNullOrWhiteSpace(sessionJson))
-				this.Plugin.Host.Plugins.Settings(this.Plugin).RemoveAssemblyBlob(Defaults.AgentStateFileName);
-			else
-				using(MemoryStream ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(sessionJson)))
-					this.Plugin.Host.Plugins.Settings(this.Plugin).SaveAssemblyBlob(Defaults.AgentStateFileName, ms);
-		}
-
-		internal String? LoadAgentSession()
-		{
-			using(Stream stream = this.Plugin.Host.Plugins.Settings(this.Plugin).LoadAssemblyBlob(Defaults.AgentStateFileName))
-				return stream == null
-					? null
-					: new StreamReader(stream).ReadToEnd();
-		}
-
-		private Boolean _listChangedPending = false;
-
-		private void AiProviders_ListChanged(Object? sender, ListChangedEventArgs e)
-		{
-			if(this._listChangedPending)
-				return;
-			this._listChangedPending = true;
-
-			SynchronizationContext.Current?.Post(_ =>
-			{
-				if(this._aiProviders == null || this._aiProviders.Count == 0)
-					this.AiProvidersJson = null;
-				else
-				{
-					Boolean morphed = false;
-					for(Int32 i = 0; i < this._aiProviders.Count; i++)
-					{
-						AiProviderDto morphedItem = AiProviderDto.Morph(this._aiProviders[i]);
-						if(!ReferenceEquals(morphedItem, this._aiProviders[i]))
-						{
-							this._aiProviders[i] = morphedItem;
-							morphed = true;
-						}
-					}
-					if(morphed)
-						this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.AiProviders)));
-					using(MemoryStream stream = new MemoryStream())
-					{
-						Serializer.WriteObject(stream, this._aiProviders.ToArray());
-						stream.Seek(0, SeekOrigin.Begin);
-						this.AiProvidersJson = System.Text.Encoding.UTF8.GetString(stream.ToArray());
-					}
-				}
-
-				this._listChangedPending = false;
-
-				if(this.SelectedProviderId != null && this._aiProviders?.Any(p => p.Id == this.SelectedProviderId) != true)
-					this.SelectedProviderId = null;
-			}, null);
-		}
-
-		#region INotifyPropertyChanged
-		public event PropertyChangedEventHandler? PropertyChanged;
-		private Boolean SetField<T>(ref T field, T value, String propertyName)
-		{
-			if(EqualityComparer<T>.Default.Equals(field, value))
-				return false;
-
-			field = value;
-			this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-			return true;
-		}
-		#endregion INotifyPropertyChanged
 	}
 }

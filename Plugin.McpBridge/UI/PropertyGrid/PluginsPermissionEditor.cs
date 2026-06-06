@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Drawing.Design;
+using System.Globalization;
 using System.Windows.Forms.Design;
 using SAL.Flatbed;
 
@@ -8,27 +9,17 @@ namespace Plugin.McpBridge.UI.PropertyGrid;
 /// <summary>Drop-down property-grid editor that renders each loaded plugin as a named checkbox.</summary>
 internal sealed class PluginsPermissionEditor : UITypeEditor
 {
-	public override Object EditValue(ITypeDescriptorContext? context, IServiceProvider provider, Object? value)
+	public override Object? EditValue(ITypeDescriptorContext? context, IServiceProvider provider, Object? value)
 	{
-		if(context?.Instance is Settings settings)
-		{
-			IEnumerable<(String Id, String Name)> plugins = GetPlugins(settings.Plugin.Host.Plugins);
-			PluginPermissionControl control = new PluginPermissionControl(plugins);
-			control.SetValue(value as String[] ?? Array.Empty<String>());
-			((IWindowsFormsEditorService)provider.GetService(typeof(IWindowsFormsEditorService))!).DropDownControl(control);
-			return control.Result;
-		} else
-			return value ?? Array.Empty<String>();
+		var plugin = Plugin.StaticInstance;
+		var ctrl = new PluginPermissionControl(plugin.Host.Plugins);
+		ctrl.SetValue((String[]?)value);
+		((IWindowsFormsEditorService)provider.GetService(typeof(IWindowsFormsEditorService))!).DropDownControl(ctrl);
+		return ctrl.Result;
 	}
 
 	public override UITypeEditorEditStyle GetEditStyle(ITypeDescriptorContext? context)
 		=> UITypeEditorEditStyle.DropDown;
-
-	private static IEnumerable<(String Id, String Name)> GetPlugins(IPluginStorage plugins)
-	{
-		foreach(IPluginDescription plugin in plugins)
-			yield return (plugin.ID, plugin.Name);
-	}
 
 	private sealed class PluginPermissionControl : UserControl
 	{
@@ -36,19 +27,24 @@ internal sealed class PluginsPermissionEditor : UITypeEditor
 		private readonly List<String> _pluginIds = new List<String>();
 
 		/// <summary>Returns the unchecked plugin IDs (blocked plugins), or an empty array when all items are checked (meaning all plugins are allowed).</summary>
-		public String[] Result
+		public String[]? Result
 		{
 			get
 			{
-				List<String> blocked = new List<String>();
-				for(Int32 i = 0; i < this._list.Items.Count; i++)
-					if(!this._list.GetItemChecked(i))
-						blocked.Add(this._pluginIds[i]);
-				return blocked.ToArray();
+				List<String> allowed = new List<String>();
+				Int32 count = this._list.Items.Count;
+
+				for(Int32 i = 0; i < count; i++)
+					if(this._list.GetItemChecked(i))
+						allowed.Add(this._pluginIds[i]);
+
+				return allowed.Count == count
+					? null
+					: allowed.ToArray();
 			}
 		}
 
-		public PluginPermissionControl(IEnumerable<(String Id, String Name)> plugins)
+		public PluginPermissionControl(IEnumerable<IPluginDescription> plugins)
 		{
 			this.SuspendLayout();
 			this.BackColor = SystemColors.Control;
@@ -56,12 +52,12 @@ internal sealed class PluginsPermissionEditor : UITypeEditor
 			this._list.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
 			this._list.BorderStyle = BorderStyle.None;
 
-			foreach((String id, String name) in plugins)
+			foreach(var plugin in plugins)
 			{
-				this._pluginIds.Add(id);
-				String label = String.IsNullOrWhiteSpace(name) || name == id
-					? id
-					: $"{id} — {name}";
+				this._pluginIds.Add(plugin.ID);
+				String label = String.IsNullOrWhiteSpace(plugin.Name) || plugin.Name == plugin.ID
+					? plugin.ID
+					: String.Join(" - ", plugin.ID, plugin.Name);
 				this._list.Items.Add(label);
 			}
 
@@ -71,10 +67,11 @@ internal sealed class PluginsPermissionEditor : UITypeEditor
 			this.ResumeLayout();
 		}
 
-		public void SetValue(String[] blockedPlugins)
+		public void SetValue(String[]? enabledPlugins)
 		{
+			Boolean allowAll = enabledPlugins == null;
 			for(Int32 i = 0; i < this._list.Items.Count; i++)
-				this._list.SetItemChecked(i, !Array.Exists(blockedPlugins, p => p == this._pluginIds[i]));
+				this._list.SetItemChecked(i, allowAll || Array.Exists(enabledPlugins!, p => p == this._pluginIds[i]));
 		}
 	}
 }
@@ -82,14 +79,21 @@ internal sealed class PluginsPermissionEditor : UITypeEditor
 /// <summary>Replaces plugin IDs with their display names when the PluginsPermission array is expanded in the PropertyGrid.</summary>
 internal sealed class PluginsPermissionConverter : ArrayConverter
 {
+	public override Object? ConvertTo(ITypeDescriptorContext? context, CultureInfo? culture, Object? value, Type destinationType)
+	{
+		if(destinationType == typeof(String))
+			return value is null ? "(All)" : value is String[] arr && arr.Length == 0 ? "(None)" : base.ConvertTo(context, culture, value, destinationType);
+		return base.ConvertTo(context, culture, value, destinationType);
+	}
+
 	public override PropertyDescriptorCollection GetProperties(ITypeDescriptorContext? context, Object value, Attribute[]? attributes)
 	{
 		PropertyDescriptorCollection baseProps = base.GetProperties(context, value, attributes);
-		if(context?.Instance is not Settings settings || value is not String[])
+		if(value is not String[])
 			return baseProps;
 
 		Dictionary<String, String> idToName = new Dictionary<String, String>(StringComparer.Ordinal);
-		foreach(IPluginDescription plugin in settings.Plugin.Host.Plugins)
+		foreach(IPluginDescription plugin in Plugin.StaticInstance.Host.Plugins)
 			if(!String.IsNullOrWhiteSpace(plugin.Name))
 				idToName[plugin.ID] = plugin.Name;
 

@@ -24,7 +24,7 @@ internal sealed class PluginMethodsTools : ToolsDiscoveryBase
 		if(pluginDescription == null)
 			return Task.FromResult($"Plugin with ID '{pluginId}' was not found.");
 
-		IPluginMemberInfo[] callableMembers = PluginMethodsTools.GetCallableMembers(pluginDescription).ToArray();
+		IPluginMemberInfo[] callableMembers = PluginMethodsToolsExtractor.GetCallableMembers(pluginDescription).ToArray();
 		if(callableMembers.Length == 0)
 			return Task.FromResult($"Plugin '{pluginDescription.ID}' does not expose any callable methods.");
 
@@ -77,7 +77,7 @@ internal sealed class PluginMethodsTools : ToolsDiscoveryBase
 		var pluginDescription = this._host.Plugins[pluginId]
 			?? throw new ArgumentException($"Plugin '{pluginId}' was not found.");
 
-		var member = PluginMethodsTools.GetCallableMembers(pluginDescription).FirstOrDefault(m => m.Name == methodName)
+		var member = PluginMethodsToolsExtractor.GetCallableMembers(pluginDescription).FirstOrDefault(m => m.Name == methodName)
 			?? throw new ArgumentException($"Method '{methodName}' was not found in plugin '{pluginId}'.");
 
 		if(member.MemberType == MemberTypes.Method)
@@ -94,16 +94,5 @@ internal sealed class PluginMethodsTools : ToolsDiscoveryBase
 		exc.Data.Add(nameof(methodName), methodName);
 		exc.Data.Add(nameof(argumentsJson), argumentsJson);
 		throw exc;
-	}
-
-	public static Boolean HasCallableMembers(IPluginDescription pluginDescription)
-		=> GetCallableMembers(pluginDescription).Any();
-
-	public static IEnumerable<IPluginMemberInfo> GetCallableMembers(IPluginDescription pluginDescription)
-	{
-		if(pluginDescription.Type != null && pluginDescription.Type.Members != null)
-			foreach(IPluginMemberInfo pluginMember in pluginDescription.Type.Members)
-				if(pluginMember != null && pluginMember.MemberType == System.Reflection.MemberTypes.Method)
-					yield return pluginMember;
 	}
 }

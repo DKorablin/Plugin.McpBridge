@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel;
-using System.Drawing.Imaging;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
@@ -12,6 +11,11 @@ namespace Plugin.McpBridge;
 
 public partial class PanelChat : UserControl
 {
+	private static class Defaults
+	{
+		public const String AgentStateFileName = "PanelChat_agentState.json";
+	}
+
 	private AssistantAgent? _agent;
 	private Boolean _streamingActive;
 	private CancellationTokenSource? _cts;
@@ -20,7 +24,17 @@ public partial class PanelChat : UserControl
 
 	private IWindow Window => (IWindow)base.Parent;
 
-	private AiProviderDto? CurrentProvider => this.Plugin.Settings.GetSelectedProvider();
+	private AiProviderDto? CurrentProvider
+	{
+		get
+		{
+			BindingList<AiProviderDto> providers = this.Plugin.Settings.AiProviders;
+			if(providers.Count == 0)
+				return null;
+
+			return this.Plugin.Settings.SelectedAgent.GetSelectedProvider(providers);
+		}
+	}
 
 	public PanelChat()
 		=> this.InitializeComponent();
@@ -34,7 +48,7 @@ public partial class PanelChat : UserControl
 
 		Task.Run(async () =>
 		{
-			String? sessionJson = this.Plugin.Settings.LoadAgentSession();
+			String? sessionJson = this.LoadAgentSession();
 			if(sessionJson != null)
 				this.LoadSessionHistory(sessionJson);
 		});
@@ -104,7 +118,7 @@ public partial class PanelChat : UserControl
 			if(this.CurrentProvider == null)
 				throw new InvalidOperationException("No AI provider configured.");
 
-			String? sessionJson = this.Plugin.Settings.LoadAgentSession();
+			String? sessionJson = this.LoadAgentSession();
 			this._agent = await this.Plugin.InitializeAgent(this.CurrentProvider, sessionJson);
 			this._agent.AiResponseReceived += this.Agent_AiResponseReceived;
 			this._agent.ConfirmationRequired += this.Agent_ConfirmationRequired;
@@ -118,11 +132,12 @@ public partial class PanelChat : UserControl
 	{
 		pnlConfirmation.Dismiss();
 		this._streamingActive = false;
-		this.UpdateUiState();
 
 		this._cts?.Dispose();
 		this._cts = new CancellationTokenSource();
 		CancellationToken token = this._cts.Token;
+
+		this.UpdateUiState();
 
 		try
 		{
@@ -138,6 +153,23 @@ public partial class PanelChat : UserControl
 
 			this.UpdateUiState();
 		}
+	}
+
+	private void SaveAgentSession(String? sessionJson)
+	{
+		if(String.IsNullOrWhiteSpace(sessionJson))
+			this.Plugin.Host.Plugins.Settings(this.Plugin).RemoveAssemblyBlob(Defaults.AgentStateFileName);
+		else
+			using(MemoryStream ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(sessionJson)))
+				this.Plugin.Host.Plugins.Settings(this.Plugin).SaveAssemblyBlob(Defaults.AgentStateFileName, ms);
+	}
+
+	private String? LoadAgentSession()
+	{
+		using(Stream stream = this.Plugin.Host.Plugins.Settings(this.Plugin).LoadAssemblyBlob(Defaults.AgentStateFileName))
+			return stream == null
+				? null
+				: new StreamReader(stream).ReadToEnd();
 	}
 
 	private void Agent_AiResponseReceived(Object? sender, AgentResponseEventArgs e)
@@ -162,7 +194,7 @@ public partial class PanelChat : UserControl
 					{
 						String? json = await agent.GetSessionState();
 						if(json != null)
-							this.Plugin.Settings.SaveAgentSession(json);
+							this.SaveAgentSession(json);
 					});
 			}
 		});
@@ -179,17 +211,38 @@ public partial class PanelChat : UserControl
 
 	private void bnNewConversation_Click(Object sender, EventArgs e)
 	{
-		this.Plugin.Settings.SaveAgentSession(null);
+		this.SaveAgentSession(null);
 		this.ResetAgent();
 	}
 
 	private void tsbnSend_DropDownOpening(Object sender, EventArgs e)
 	{
 		tsbnSend.DropDownItems.Clear();
-		var providers = this.Plugin.Settings.AiProviders;
-		var selectedProviderId = this.Plugin.Settings.SelectedProviderId == null && providers.Count > 0
-			? providers[0].Id : this.Plugin.Settings.SelectedProviderId;
-		foreach(AiProviderDto provider in this.Plugin.Settings.AiProviders)
+
+		Settings settings = this.Plugin.Settings;
+		Guid selectedAgentId = settings.SelectedAgent.Id;
+
+		ToolStripMenuItem agentsHeader = new ToolStripMenuItem("Agents") { Enabled = false };
+		tsbnSend.DropDownItems.Add(agentsHeader);
+		for(Int32 i = 0; i < settings.AiAgents.Count; i++)
+		{
+			AiAgentDto agentDto = settings.AiAgents[i];
+			ToolStripMenuItem item = new ToolStripMenuItem($"Agent {i + 1}")
+			{
+				Tag = agentDto.Id,
+				Checked = agentDto.Id == selectedAgentId,
+			};
+			item.Click += this.tsbnSend_AgentItem_Click;
+			tsbnSend.DropDownItems.Add(item);
+		}
+
+		tsbnSend.DropDownItems.Add(new ToolStripSeparator());
+
+		ToolStripMenuItem providersHeader = new ToolStripMenuItem("Providers") { Enabled = false };
+		tsbnSend.DropDownItems.Add(providersHeader);
+		Guid? selectedProviderId = settings.SelectedAgent.SelectedProviderId
+			?? (settings.AiProviders.Count > 0 ? settings.AiProviders[0].Id : (Guid?)null);
+		foreach(AiProviderDto provider in settings.AiProviders)
 		{
 			ToolStripMenuItem item = new ToolStripMenuItem(provider.ToString())
 			{
@@ -201,10 +254,16 @@ public partial class PanelChat : UserControl
 		}
 	}
 
+	private void tsbnSend_AgentItem_Click(Object? sender, EventArgs e)
+	{
+		ToolStripMenuItem item = (ToolStripMenuItem)sender!;
+		this.Plugin.Settings.SelectedAgentId = (Guid)item.Tag;
+	}
+
 	private void tsbnSend_ProviderItem_Click(Object? sender, EventArgs e)
 	{
 		ToolStripMenuItem item = (ToolStripMenuItem)sender!;
-		this.Plugin.Settings.SelectedProviderId = (Guid)item.Tag;
+		this.Plugin.Settings.SelectedAgent.SelectedProviderId = (Guid)item.Tag;
 	}
 
 	private void tsbnSend_Click(Object sender, EventArgs e)
@@ -223,8 +282,8 @@ public partial class PanelChat : UserControl
 			return;
 
 		txtRequest.Clear();
+		mdResponse.AppendMessage(request, MarkdownTextBox.MessageKind.User);
 		DataContent[] attachments = pnlAttachments.GetAttachments().ToArray();
-
 		Task.Run(async () => await this.InvokeMessage(request, attachments));
 	}
 
@@ -282,9 +341,11 @@ public partial class PanelChat : UserControl
 		tsbnSend.Image = isProcessing ? _imgCancel : _imgSend;
 
 		// Window Caption Logic
-		String providerInfo = this.CurrentProvider?.ToString() ?? "Undefinded";
+		Int32 agentIndex = this.Plugin.Settings.AiAgents.IndexOf(this.Plugin.Settings.SelectedAgent);
+		String agentInfo = this.Plugin.Settings.AiAgents.Count > 1 ? $"Agent {agentIndex + 1} | " : String.Empty;
+		String providerInfo = this.CurrentProvider?.ToString() ?? "Undefined";
 		String statusIcon = needsConfirmation ? " (!)" : String.Empty;
-		this.Window.Caption = providerInfo + statusIcon;
+		this.Window.Caption = agentInfo + providerInfo + statusIcon;
 
 		// Input Logic
 		if(!isProcessing && !needsConfirmation && hasProvider)

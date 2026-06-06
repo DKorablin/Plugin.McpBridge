@@ -10,14 +10,15 @@ internal sealed class ToolsFactory
 {
 	private readonly ToolsDiscoveryBase[] _targets;
 	private readonly Settings? _settings;
+	private readonly AiAgentDto _agent;
 
-	public ToolsFactory(IHost host, Settings settings)
+	public ToolsFactory(IHost host, Settings settings, AiAgentDto agent)
 	{
 		List<ToolsDiscoveryBase> tools = new List<ToolsDiscoveryBase>()
 		{
 			new PluginSettingsTools(host),
 			//new PluginMethodsTools(host),
-			new PluginMethodsToolsExtractor(host, settings),
+			new PluginMethodsToolsExtractor(host, settings, agent),
 			new ShellTools(),
 		};
 
@@ -26,14 +27,7 @@ internal sealed class ToolsFactory
 
 		this._targets = tools.ToArray();
 		this._settings = settings;
-	}
-
-	public ToolsFactory(params ToolsDiscoveryBase[] toolsHosts)
-	{
-		if(toolsHosts == null || toolsHosts.Length == 0)
-			throw new ArgumentException("At least one tools host must be provided.", nameof(toolsHosts));
-
-		this._targets = toolsHosts;
+		this._agent = agent;
 	}
 
 	public IEnumerable<ToolMethodDto> GetTools()
@@ -44,22 +38,22 @@ internal sealed class ToolsFactory
 	}
 
 	public IEnumerable<AIFunction> CreateTools(ITraceSource trace)
-		=> this.CreateTools(trace, this._settings?.ToolsPermission);
+		=> this.CreateTools(trace, this._agent.ToolsPermission);
 
-	public IEnumerable<AIFunction> CreateTools(ITraceSource trace, String[]? exclusionList)
+	public IEnumerable<AIFunction> CreateTools(ITraceSource trace, String[]? availableTools)
 	{
 		_ = trace ?? throw new ArgumentNullException(nameof(trace));
 
-		Boolean allAllowed = exclusionList == null || exclusionList.Length == 0;
-		foreach(var method in this.GetTools())
-		{
-			if(!allAllowed && Array.Exists(exclusionList!, p => p == method.Name))
-				continue;
+		Boolean allAllowed = availableTools == null;
+		var allowedSet = allAllowed ? null : new HashSet<String>(availableTools!);
 
-			var tool = new ToolFacade(trace, method.Function, method.ConfirmationRequired);
-			yield return method.ConfirmationRequired
-				? new ApprovalRequiredAIFunction(tool)
-				: tool;
-		}
+		foreach(var method in this.GetTools())
+			if(allAllowed || allowedSet!.Contains(method.Name))
+			{
+				var tool = new ToolFacade(trace, method.Function, method.ConfirmationRequired);
+				yield return method.ConfirmationRequired
+					? new ApprovalRequiredAIFunction(tool)
+					: tool;
+			}
 	}
 }

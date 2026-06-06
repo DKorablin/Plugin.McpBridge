@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Runtime.Serialization.Json;
 using Plugin.McpBridge.Agents;
-using Plugin.McpBridge.Data;
 using SAL.Flatbed;
 
 namespace Plugin.McpBridge.Tests;
@@ -26,7 +25,7 @@ internal sealed class ProcessHost : IDisposable
 
 	public ProcessHost(IHost host, ExeType type)
 	{
-		this._host = host;
+		this._host = host ?? throw new ArgumentNullException(nameof(host));
 		this._exeType = type;
 		this._trace = host.Plugins.CreateTraceSource(this.TraceName);
 	}
@@ -131,18 +130,6 @@ internal sealed class ProcessHost : IDisposable
 			_ => throw new InvalidOperationException($"Unsupported executable: {this._exeType}"),
 		};
 
-		return new SettingsDto
-		{
-			UiServerUrl = serverUrl,
-			Instructions = AgentFactory.BuildSystemInstructions(this._host, settings),
-			ToolsPermission = settings.ToolsPermission,
-			PluginsPermission = settings.PluginsPermission,
-			AiProviders = settings.AiProviders.ToArray(),
-			SelectedProviderId = settings.SelectedProviderId,
-			SkillsDirectory = settings.SkillsDirectory,
-			WorkflowsDirectory = settings.WorkflowsDirectory,
-			AgUISessionStorageDirectory = settings.AgUISessionStorageDirectory,
-			McpServerUrl = settings.McpServerUrl,
-		};
+		return new SettingsDto(serverUrl, settings, AgentFactory.BuildSystemInstructions(settings, settings.SelectedAgent, this._host));
 	}
 }
