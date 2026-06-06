@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.AI;
 using Moq;
 using Plugin.McpBridge.Agents;
-using Plugin.McpBridge.Data.AiProvider;
+using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Tests.Helpers;
 using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
@@ -33,14 +33,18 @@ internal static class TestUtils
 
 	public static ToolsFactory CreateToolFactory(IPluginDescription? pluginDescription = null, TimeProvider? timeProvider = null)
 	{
-		(IHost _, PluginSettingsTools settings, PluginMethodsTools methods, ShellTools shell) = CreateDependencies(pluginDescription, timeProvider);
-		return new ToolsFactory(shell, settings, methods);
+		(IHost host, PluginSettingsTools _, PluginMethodsTools _, ShellTools _) = CreateDependencies(pluginDescription, timeProvider);
+		Settings settings = new Settings();
+		AiAgentDto agent = settings.SelectedAgent;
+		return new ToolsFactory(host, settings, agent);
 	}
 
 	public static AssistantAgent CreateSut(IPluginDescription? pluginDescription = null)
 	{
-		(IHost host, PluginSettingsTools settings, PluginMethodsTools methods, ShellTools shell) = CreateDependencies(pluginDescription);
-		ToolsFactory toolFactory = new ToolsFactory(shell, settings, methods);
+		(IHost host, PluginSettingsTools _, PluginMethodsTools _, ShellTools _) = CreateDependencies(pluginDescription);
+		Settings settings = new Settings();
+		AiAgentDto agent = settings.SelectedAgent;
+		ToolsFactory toolFactory = new ToolsFactory(host, settings, agent);
 		return new AssistantAgent(Trace, host, toolFactory, new AgentFactory());
 	}
 
@@ -49,16 +53,17 @@ internal static class TestUtils
 		TimeProvider? timeProvider = null,
 		Mock<IChatClient>? mockChatClient = null)
 	{
-		(IHost host, PluginSettingsTools settingsTools, PluginMethodsTools methodsTools, ShellTools shellTools) = CreateDependencies(pluginDescription, timeProvider);
-		ToolsFactory toolFactory = new ToolsFactory(shellTools, settingsTools, methodsTools);
+		(IHost host, PluginSettingsTools _, PluginMethodsTools _, ShellTools _) = CreateDependencies(pluginDescription, timeProvider);
+		Settings settings = new Settings();
+		AiAgentDto agentSettings = settings.SelectedAgent;
+		ToolsFactory toolFactory = new ToolsFactory(host, settings, agentSettings);
 		mockChatClient ??= new Mock<IChatClient>();
 
-		Settings settings = new Settings();
 		AiProviderDto provider = new AiProviderDto { ProviderType = AiProviderType.Local };
 
-		AssistantAgent agent = new AssistantAgent(Trace, host, toolFactory, new StubAgentFactory(mockChatClient.Object));
-		await agent.Initialize(settings, provider);
-		return agent;
+		AssistantAgent assistant = new AssistantAgent(Trace, host, toolFactory, new StubAgentFactory(mockChatClient.Object));
+		await assistant.Initialize(settings, provider);
+		return assistant;
 	}
 
 	private static Mock<IPluginStorage> CreateStorage(IPluginDescription? pluginDescription)

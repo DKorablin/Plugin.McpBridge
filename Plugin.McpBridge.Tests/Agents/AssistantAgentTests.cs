@@ -7,7 +7,7 @@ using FluentAssertions;
 using Microsoft.Extensions.AI;
 using Moq;
 using Plugin.McpBridge.Agents;
-using Plugin.McpBridge.Data.AiProvider;
+using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Events;
 using Plugin.McpBridge.Tests.Helpers;
 using Plugin.McpBridge.Tools;
@@ -62,10 +62,10 @@ namespace Plugin.McpBridge.Tests.Agents
 			mockClient.Setup(x => x.GetResponseAsync(It.IsAny<IEnumerable<ChatMessage>>(), It.IsAny<ChatOptions?>(), It.IsAny<CancellationToken>()))
 				.ReturnsAsync(new ChatResponse(new ChatMessage(ChatRole.Assistant, "ok")));
 
-			(IHost host, PluginSettingsTools settings, PluginMethodsTools methods, ShellTools shell) = TestUtils.CreateDependencies();
-			ToolsFactory factory = new ToolsFactory(shell, settings, methods);
+			(IHost host, PluginSettingsTools _, PluginMethodsTools _, ShellTools _) = TestUtils.CreateDependencies();
+			Settings agentSettings = new Settings();
+			ToolsFactory factory = new ToolsFactory(host, agentSettings, agentSettings.SelectedAgent);
 			AssistantAgent sut = new AssistantAgent(TestUtils.Trace, host, factory, new StubAgentFactory(mockClient.Object));
-			Settings agentSettings = new Settings(host);
 			AiProviderDto provider = new AiProviderDto { ProviderType = AiProviderType.Local };
 
 			await sut.Initialize(agentSettings, provider);

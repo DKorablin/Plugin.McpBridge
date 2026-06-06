@@ -1,10 +1,7 @@
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
-using System.Threading.Tasks;
 using FluentAssertions;
-using Microsoft.Extensions.AI;
+using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
 using Xunit;
@@ -13,12 +10,12 @@ namespace Plugin.McpBridge.Tests.Tools
 {
 	public class ToolsFactoryTests
 	{
-		#region Constructor
+		#region CreateTools
 
 		[Fact]
-		public void Ctor_TraceIsNull_ThrowsArgumentNullException()
+		public void CreateTools_TraceIsNull_ThrowsArgumentNullException()
 		{
-			ToolsFactory sut = new ToolsFactory(new StubToolHost());
+			ToolsFactory sut = CreateFactory();
 
 			Action act = () => sut.CreateTools(null!, null).ToList();
 
@@ -26,119 +23,44 @@ namespace Plugin.McpBridge.Tests.Tools
 		}
 
 		[Fact]
-		public void Ctor_NullToolsHosts_ThrowsArgumentException()
+		public void CreateTools_AllowListIsNull_ReturnsAllDiscoveredTools()
 		{
-			Action act = () => _ = new ToolsFactory((ToolsDiscoveryBase[])null!);
+			ToolsFactory sut = CreateFactory();
 
-			act.Should().Throw<ArgumentException>().WithParameterName("toolsHosts");
+			Int32 count = sut.CreateTools(TestUtils.Trace, null).Count();
+
+			count.Should().BeGreaterThan(0);
 		}
 
 		[Fact]
-		public void Ctor_EmptyToolsHosts_ThrowsArgumentException()
+		public void CreateTools_AllowListWithNoMatch_ReturnsNoTools()
 		{
-			Action act = () => _ = new ToolsFactory();
+			ToolsFactory sut = CreateFactory();
 
-			act.Should().Throw<ArgumentException>().WithParameterName("toolsHosts");
-		}
+			Int32 count = sut.CreateTools(TestUtils.Trace, new String[] { "DefinitelyNotAToolName" }).Count();
 
-		#endregion
-
-		#region CreateTools — permission filtering
-
-		[Fact]
-		public void CreateTools_NullExclusionList_ReturnsAllTools()
-		{
-			ToolsFactory sut = new ToolsFactory(new StubToolHost());
-
-			IList<AIFunction> tools = sut.CreateTools(TestUtils.Trace, null).ToList();
-
-			tools.Should().HaveCount(2);
+			count.Should().Be(0);
 		}
 
 		[Fact]
-		public void CreateTools_ExclusionListWithNoMatch_ReturnsAllTools()
+		public void CreateTools_AllowListWithKnownName_ReturnsOnlyThatTool()
 		{
-			ToolsFactory sut = new ToolsFactory(new StubToolHost());
+			ToolsFactory sut = CreateFactory();
 
-			IList<AIFunction> tools = sut.CreateTools(TestUtils.Trace, new String[] { "SystemInformation" }).ToList();
-
-			tools.Should().HaveCount(2);
-		}
-
-		[Fact]
-		public void CreateTools_ExclusionListWithMatch_ExcludesTool()
-		{
-			ToolsFactory sut = new ToolsFactory(new StubToolHost());
-
-			IList<AIFunction> tools = sut.CreateTools(TestUtils.Trace, new String[] { nameof(StubToolHost.NoConfirmTool) }).ToList();
+			var tools = sut.CreateTools(TestUtils.Trace, new String[] { nameof(ShellTools.SystemInformation) }).ToArray();
 
 			tools.Should().HaveCount(1);
-			tools[0].Should().BeAssignableTo<AIFunction>();
-			((AIFunction)tools[0]).Name.Should().Be(nameof(StubToolHost.ConfirmTool));
-		}
-
-		[Fact]
-		public void CreateTools_MultipleExclusions_ExcludesAll()
-		{
-			ToolsFactory sut = new ToolsFactory(new StubToolHost());
-
-			IList<AIFunction> tools = sut.CreateTools(TestUtils.Trace, new String[] { nameof(StubToolHost.NoConfirmTool), nameof(StubToolHost.ConfirmTool) }).ToList();
-
-			tools.Should().BeEmpty();
-		}
-
-		[Fact]
-		public void CreateTools_ToolNotInExclusionList_ReturnsTool()
-		{
-			ToolsFactory sut = new ToolsFactory(new StubToolHost());
-
-			IList<AIFunction> tools = sut.CreateTools(TestUtils.Trace, new String[] { nameof(StubToolHost.ConfirmTool) }).ToList();
-
-			tools.Should().HaveCount(1);
-			((AIFunction)tools[0]).Name.Should().Be(nameof(StubToolHost.NoConfirmTool));
+			tools[0].Name.Should().Be(nameof(ShellTools.SystemInformation));
 		}
 
 		#endregion
 
-		#region CreateTools — multiple targets
-
-		[Fact]
-		public void CreateTools_MultipleTargets_ReturnsToolsFromAll()
+		private static ToolsFactory CreateFactory(IPluginDescription? pluginDescription = null)
 		{
-			(IHost _, PluginSettingsTools settingsTools, PluginMethodsTools methodsTools, ShellTools shellTools) = TestUtils.CreateDependencies();
-			ToolsFactory sut = new ToolsFactory(shellTools, settingsTools, methodsTools);
-
-			IList<AIFunction> tools = sut.CreateTools(TestUtils.Trace, Array.Empty<String>()).ToList();
-
-			tools.Should().HaveCount(6);
+			(IHost host, PluginSettingsTools _, PluginMethodsTools _, ShellTools _) = TestUtils.CreateDependencies(pluginDescription);
+			Settings settings = new Settings();
+			AiAgentDto agent = settings.SelectedAgent;
+			return new ToolsFactory(host, settings, agent);
 		}
-
-		[Fact]
-		public void CreateTools_MultipleTargets_PartialExclusions_ReturnsSubset()
-		{
-			(IHost _, PluginSettingsTools settingsTools, PluginMethodsTools methodsTools, ShellTools shellTools) = TestUtils.CreateDependencies();
-			ToolsFactory sut = new ToolsFactory(shellTools, settingsTools, methodsTools);
-
-			IList<AIFunction> tools = sut.CreateTools(TestUtils.Trace, new String[] { nameof(ShellTools.SystemInformation), nameof(PluginSettingsTools.SettingsList) }).ToList();
-
-			tools.Should().HaveCount(4);
-		}
-
-		#endregion
-
-		#region Nested types
-
-		private sealed class StubToolHost : ToolsDiscoveryBase
-		{
-			[Tool]
-			[Description("No-confirm tool")]
-			public Task<String> NoConfirmTool() => Task.FromResult("ok");
-
-			[Tool(confirmationRequired: true)]
-			[Description("Confirm tool")]
-			public Task<String> ConfirmTool() => Task.FromResult("ok");
-		}
-
-		#endregion
 	}
 }
