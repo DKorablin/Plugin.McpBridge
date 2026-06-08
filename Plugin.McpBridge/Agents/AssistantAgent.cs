@@ -45,7 +45,7 @@ internal class AssistantAgent : IDisposable
 
 		var tools = this._toolsFactory.CreateTools(this._trace).ToArray();
 		var instructions = AgentFactory.BuildSystemInstructions(settings, settings.SelectedAgent, this._host);
-		this._handle = await this.CreateAgent(provider, tools, instructions, settings.SelectedAgent);
+		this._handle = await this.CreateAgent(provider, tools, instructions, settings.SelectedAgent, settings.AiProviders);
 
 		if(sessionJson != null)
 			this._session = await this._handle.Agent.DeserializeSessionAsync(
@@ -56,10 +56,11 @@ internal class AssistantAgent : IDisposable
 	}
 
 	protected virtual async Task<AgentHandle> CreateAgent(
-		AiProviderDto provider, AIFunction[] tools, String instructions, AiAgentDto agent, CancellationToken token = default)
+		AiProviderDto provider, AIFunction[] tools, String instructions, AiAgentDto agent, IEnumerable<AiProviderDto> providers, CancellationToken token = default)
 		=> await this._agentFactory.CreateAgent(
 			agent,
 			provider,
+			providers,
 			tools,
 			instructions,
 			token: token);

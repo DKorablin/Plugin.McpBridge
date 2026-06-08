@@ -43,6 +43,7 @@
 		<PackageReference Include="Microsoft.Agents.AI.Workflows" />
 		<!--RAG-->
 		<PackageReference Include="Microsoft.SemanticKernel.Connectors.InMemory" />
+		<PackageReference Include="Microsoft.SemanticKernel.Connectors.SqliteVec" />
 	</ItemGroup>
 
 	<PropertyGroup Condition="'$(Configuration)'=='Release'">

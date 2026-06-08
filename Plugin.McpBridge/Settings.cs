@@ -34,6 +34,7 @@ namespace Plugin.McpBridge
 		private Boolean _agUIEnabled = false;
 		private String? _agUIServerUrl = null;
 		private String? _agUISessionStorageDirectory = null;
+		private Boolean _ragProcessEnabled = false;
 		private Boolean _mcpServerEnabled = false;
 		private String? _mcpServerUrl = null;
 
@@ -220,6 +221,22 @@ namespace Plugin.McpBridge
 					value = null;
 
 				this.SetField(ref this._agUISessionStorageDirectory, value, nameof(this.AgUISessionStorageDirectory));
+			}
+		}
+
+		[Category("RAG")]
+		[DisplayName("RAG Sidecar Enabled")]
+		[Description("When enabled, starts the Plugin.McpBridge.RAG process to keep SQLite vector indexes synchronized with configured RAG directories.")]
+		[DefaultValue(false)]
+		public Boolean RagProcessEnabled
+		{
+			get => this._ragProcessEnabled && ProcessHost.GetExePath(ProcessHost.ExeType.RAG, false) != null;
+			set
+			{
+				if(value)
+					_ = ProcessHost.GetExePath(ProcessHost.ExeType.RAG, true);
+
+				this.SetField(ref this._ragProcessEnabled, value, nameof(this.RagProcessEnabled));
 			}
 		}
 

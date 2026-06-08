@@ -69,8 +69,17 @@ namespace Plugin.McpBridge
 
 				this._listChangedPending = false;
 
-				if(this.SelectedAgent.SelectedProviderId != null && this._aiProviders?.Any(p => p.Id == this.SelectedAgent.SelectedProviderId) != true)
-					this.SelectedAgent.SelectedProviderId = null;
+				if(this._aiAgents != null && this._aiProviders != null)
+				{
+					HashSet<Guid> providerIds = this._aiProviders.Select(x => x.Id).ToHashSet();
+					foreach(AiAgentDto agent in this._aiAgents)
+					{
+						if(agent.SelectedProviderId != null && !providerIds.Contains(agent.SelectedProviderId.Value))
+							agent.SelectedProviderId = null;
+						if(agent.EmbeddingProviderId != null && !providerIds.Contains(agent.EmbeddingProviderId.Value))
+							agent.EmbeddingProviderId = null;
+					}
+				}
 			}, null);
 		}
 

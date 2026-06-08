@@ -5,7 +5,9 @@ using Azure.AI.OpenAI;
 using GitHub.Copilot.SDK;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using Microsoft.Data.Sqlite;
 using Microsoft.SemanticKernel.Connectors.InMemory;
+using Microsoft.SemanticKernel.Connectors.SqliteVec;
 using OpenAI;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.RAG;
@@ -22,12 +24,14 @@ internal class AgentFactory
 	public async Task<AgentHandle> CreateAgent(
 		AiAgentDto agent,
 		AiProviderDto provider,
+		IEnumerable<AiProviderDto> providers,
 		AIFunction[] tools,
 		String systemInstructions,
 		String? agentRole = null,
 		CancellationToken token = default)
 	{
-		IEnumerable<AIContextProvider>? contextProviders = await this.CreateContextProviders(agent, provider);
+		AiProviderDto embeddingProvider = agent.GetEmbeddingProvider(providers);
+		IEnumerable<AIContextProvider>? contextProviders = await this.CreateContextProviders(agent, embeddingProvider);
 		return await this.CreateAgent(provider, tools, systemInstructions, agentRole, contextProviders, token);
 	}
 
@@ -185,20 +189,38 @@ internal class AgentFactory
 			})
 			.Build();
 
-	private async Task<AIContextProvider[]?> CreateContextProviders(AiAgentDto agent, AiProviderDto provider)
+	private async Task<AIContextProvider[]?> CreateContextProviders(AiAgentDto agent, AiProviderDto embeddingProvider)
 	{
 		List<AIContextProvider> providers = new List<AIContextProvider>();
 
 		if(agent.RagDirectory != null
-			&& provider is NetworkProviderDto networkProvider
-			&& networkProvider.EmbeddingModelDimention != null)
+			&& embeddingProvider is NetworkProviderDto networkProvider
+			&& networkProvider.EmbeddingModelDimention != null
+			&& !String.IsNullOrWhiteSpace(networkProvider.EmbeddingModelId))
 		{
 			TextSearchStore.AssertDocumentsInFolder(agent.RagDirectory);
 
 			var documents = TextSearchStore.GetDocumentsFromFolder(agent.RagDirectory);
-			var vectorStore = new InMemoryVectorStore(new() { EmbeddingGenerator = AgentFactory.CreateEmbeddingGenerator(provider) });
-			this._textSearchStore = new TextSearchStore(vectorStore, "rag-kb", networkProvider.EmbeddingModelDimention.Value);
-			await this._textSearchStore.UpsertDocumentsAsync(documents);
+			IEmbeddingGenerator<String, Embedding<Single>> embeddingGenerator = AgentFactory.CreateEmbeddingGenerator(embeddingProvider);
+			String sqlitePath = TextSearchStore.GetSqliteDatabasePath(agent.RagDirectory, agent.Id);
+			if(File.Exists(sqlitePath))
+			{
+				String connectionString = new SqliteConnectionStringBuilder { DataSource = sqlitePath }.ToString();
+				SqliteVectorStore sqliteStore = new SqliteVectorStore(connectionString, new SqliteVectorStoreOptions
+				{
+					EmbeddingGenerator = embeddingGenerator,
+				});
+				this._textSearchStore = new TextSearchStore(sqliteStore, TextSearchStore.DefaultCollectionName, networkProvider.EmbeddingModelDimention.Value);
+				await this._textSearchStore.EnsureCollectionExistsAsync();
+			}
+
+			if(this._textSearchStore == null)
+			{
+				var vectorStore = new InMemoryVectorStore(new() { EmbeddingGenerator = embeddingGenerator });
+				this._textSearchStore = new TextSearchStore(vectorStore, TextSearchStore.DefaultCollectionName, networkProvider.EmbeddingModelDimention.Value);
+				await this._textSearchStore.UpsertDocumentsAsync(documents);
+			}
+
 			providers.Add(new TextSearchProvider(this.SearchAsync, new TextSearchProviderOptions
 			{
 				SearchTime = TextSearchProviderOptions.TextSearchBehavior.BeforeAIInvoke,
@@ -214,7 +236,7 @@ internal class AgentFactory
 	}
 
 	/// <summary>Creates an <see cref="IEmbeddingGenerator{TInput,TEmbedding}"/> for the given provider using <see cref="NetworkProviderDto.EmbeddingModelId"/>.</summary>
-	private static IEmbeddingGenerator<String, Embedding<Single>> CreateEmbeddingGenerator(AiProviderDto providerSettings)
+	public static IEmbeddingGenerator<String, Embedding<Single>> CreateEmbeddingGenerator(AiProviderDto providerSettings)
 	{
 		switch(providerSettings.ProviderType)
 		{
