@@ -15,11 +15,11 @@ public class EmbeddingProviderIdConverter : GuidConverter
 	public override StandardValuesCollection? GetStandardValues(ITypeDescriptorContext? context)
 	{
 		List<Guid?> values = new List<Guid?>() { null };
-		BindingList<AiProviderDto>? providers = Plugin.StaticInstance? .Settings.AiProviders;
+		BindingList<AiProviderDto>? providers = Plugin.StaticInstance?.Settings.AiProviders;
 
 		if(providers != null)
 			values.AddRange(providers
-				.OfType<NetworkProviderDto>()
+				.Where(x => x.SupportsCapability(ProviderCapabilities.Embeddings))
 				.Select(x => (Guid?)x.Id));
 
 		return new StandardValuesCollection(values);
@@ -33,7 +33,7 @@ public class EmbeddingProviderIdConverter : GuidConverter
 				return NoneDisplay;
 
 			AiProviderDto? provider = Plugin.StaticInstance?.Settings.AiProviders?
-				.OfType<NetworkProviderDto>()
+				.Where(x => x.SupportsCapability(ProviderCapabilities.Embeddings))
 				.FirstOrDefault(x => x.Id == (Guid)value);
 			if(provider != null)
 				return provider.ToString();
@@ -50,7 +50,7 @@ public class EmbeddingProviderIdConverter : GuidConverter
 				return null;
 
 			AiProviderDto? provider = Plugin.StaticInstance?.Settings.AiProviders?
-				.OfType<NetworkProviderDto>()
+				.Where(x => x.SupportsCapability(ProviderCapabilities.Embeddings))
 				.FirstOrDefault(x => x.ToString() == s);
 			if(provider != null)
 				return provider.Id;

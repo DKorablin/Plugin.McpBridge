@@ -16,7 +16,9 @@ public class AiProviderIdConverter : GuidConverter
 		var values = new List<Guid?>() { null }; // Start with null for default "(None)" option
 
 		if(Plugin.StaticInstance.Settings.AiProviders != null)
-			values.AddRange(Plugin.StaticInstance.Settings.AiProviders.Select(p => (Guid?)p.Id));
+			values.AddRange(Plugin.StaticInstance.Settings.AiProviders
+				.Where(p => p.SupportsCapability(Data.ProviderCapabilities.Chat))
+				.Select(p => (Guid?)p.Id));
 		return new StandardValuesCollection(values);
 	}
 
@@ -27,7 +29,9 @@ public class AiProviderIdConverter : GuidConverter
 			if(value == null)
 				return NoneDisplay;
 
-			var provider = Plugin.StaticInstance.Settings.AiProviders?.FirstOrDefault(p => p.Id == (Guid)value);
+			var provider = Plugin.StaticInstance.Settings.AiProviders?
+				.Where(p => p.SupportsCapability(Data.ProviderCapabilities.Chat))
+				.FirstOrDefault(p => p.Id == (Guid)value);
 			if(provider != null)
 				return provider.ToString();
 		}
@@ -43,7 +47,9 @@ public class AiProviderIdConverter : GuidConverter
 				return null;
 
 			// If the user selected from the dropdown, find the matching ID by name
-			var match = Plugin.StaticInstance.Settings.AiProviders?.FirstOrDefault(p => p.ToString() == s);
+			var match = Plugin.StaticInstance.Settings.AiProviders?
+				.Where(p => p.SupportsCapability(Data.ProviderCapabilities.Chat))
+				.FirstOrDefault(p => p.ToString() == s);
 			if(match != null)
 				return match.Id;
 		}

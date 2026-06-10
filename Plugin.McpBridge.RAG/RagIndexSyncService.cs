@@ -45,9 +45,9 @@ internal sealed class RagIndexSyncService
 		}
 
 		AiProviderDto provider = agent.GetEmbeddingProvider(this._settings.AiProviders);
-		if(provider is not NetworkProviderDto networkProvider
-			|| networkProvider.EmbeddingModelDimention == null
-			|| String.IsNullOrWhiteSpace(networkProvider.EmbeddingModelId))
+		if(!provider.SupportsCapability(ProviderCapabilities.Embeddings)
+			|| provider.Embeddings.Dimension == null
+			|| String.IsNullOrWhiteSpace(provider.Embeddings.ModelId))
 			return;
 
 		String sqlitePath = TextSearchStore.GetSqliteDatabasePath(agent.RagDirectory, agent.Id);
@@ -61,7 +61,7 @@ internal sealed class RagIndexSyncService
 			EmbeddingGenerator = AgentFactory.CreateEmbeddingGenerator(provider),
 		});
 
-		TextSearchStore searchStore = new TextSearchStore(vectorStore, TextSearchStore.DefaultCollectionName, networkProvider.EmbeddingModelDimention.Value);
+		TextSearchStore searchStore = new TextSearchStore(vectorStore, TextSearchStore.DefaultCollectionName, provider.Embeddings.Dimension.Value);
 		await searchStore.EnsureCollectionExistsAsync(cancellationToken);
 
 		Dictionary<String, SyncMetadataEntry> existingMetadata = await metadataStore.LoadAsync(cancellationToken);

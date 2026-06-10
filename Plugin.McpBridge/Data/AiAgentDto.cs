@@ -15,6 +15,8 @@ Return clear user-facing responses, or a command payload only when automation is
 Before using relative dates (today, yesterday, last hour), obtain the current system time from the SystemInformation tool.";
 	}
 
+	private String? _description = null;
+
 	private String[]? _toolsPermission = null;
 	private String[]? _pluginsPermission = null;
 
@@ -33,6 +35,17 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 	/// <summary>Gets the unique identifier for this instance.</summary>
 	[ReadOnly(true)]
 	public Guid Id { get; init; } = Guid.NewGuid();
+
+	public String? Description
+	{
+		get => this._description;
+		set
+		{
+			if(String.IsNullOrWhiteSpace(value))
+				value = null;
+			this.SetField(ref this._description, value, nameof(this.Description));
+		}
+	}
 
 	[Category("Provider")]
 	[DisplayName("Chat Provider")]
@@ -60,7 +73,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 	[Category("Instruments")]
 	[DefaultValue(Defaults.AssistantSystemPrompt)]
 	[Description("The system prompt that defines the assistant's behavior and persona.")]
-	[Editor(typeof(System.ComponentModel.Design.MultilineStringEditor), typeof(System.Drawing.Design.UITypeEditor))]
+	[Editor(typeof(System.ComponentModel.Design.MultilineStringEditor), typeof(UITypeEditor))]
 	public String? AssistantSystemPrompt
 	{
 		get => this._assistantSystemPrompt ?? Defaults.AssistantSystemPrompt;
@@ -75,7 +88,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 
 	[Category("Instruments")]
 	[Description("An optional directory path where the assistant can read/write files when using skills. If not set, skills will not be available.")]
-	[Editor(typeof(System.Windows.Forms.Design.FolderNameEditor), typeof(System.Drawing.Design.UITypeEditor))]
+	[Editor(typeof(System.Windows.Forms.Design.FolderNameEditor), typeof(UITypeEditor))]
 	public String? SkillsDirectory
 	{
 		get => this._skillsDirectory;
@@ -134,7 +147,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 	[Category("RAG")]
 	[DisplayName("RAG Knowledge Base Directory")]
 	[Description("An optional directory path where RAG knowledge base files are stored (Supported extensions: *.txt, *.md).")]
-	[Editor(typeof(System.Windows.Forms.Design.FolderNameEditor), typeof(System.Drawing.Design.UITypeEditor))]
+	[Editor(typeof(System.Windows.Forms.Design.FolderNameEditor), typeof(UITypeEditor))]
 	public String? RagDirectory
 	{
 		get => this._ragDirectory;
@@ -188,19 +201,19 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 
 	private static AiProviderDto GetProvider(IEnumerable<AiProviderDto> providers, Guid? providerId, Boolean useFirstIfNull)
 	{
-		List<AiProviderDto> providerList = providers.ToList();
-		if(providerList.Count == 0)
-			throw new InvalidOperationException("No AI providers available.");
-
 		if(providerId != null)
 		{
-			AiProviderDto? provider = providerList.FirstOrDefault(x => x.Id == providerId.Value);
+			var provider = providers.FirstOrDefault(x => x.Id == providerId.Value);
 			if(provider != null)
 				return provider;
 		}
 
 		if(useFirstIfNull)
-			return providerList[0];
+		{
+			var provider = providers.FirstOrDefault();
+			if(provider != null)
+				return provider;
+		}
 
 		throw new InvalidOperationException("No AI providers available.");
 	}

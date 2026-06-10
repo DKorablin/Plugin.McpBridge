@@ -14,13 +14,13 @@ public class AiAgentDtoTests
 		NetworkProviderDto selectedProvider = new NetworkProviderDto()
 		{
 			ProviderType = AiProviderType.OpenAI,
-			ModelId = "gpt-4o-mini",
-			EmbeddingModelId = "text-embedding-3-small",
+			Chat = new ChatSettings() { ModelId = "gpt-4o-mini", },
+			Embeddings = new EmbeddingSettings() { ModelId = "text-embedding-3-small", },
 		};
 		AiProviderDto[] providers = new AiProviderDto[]
 		{
 			selectedProvider,
-			new StubProviderDto() { ProviderType = AiProviderType.Stub, ModelId = "stub", },
+			new StubProviderDto() { ProviderType = AiProviderType.Stub, Chat = new ChatSettings() { ModelId = "stub", }, },
 		};
 		AiAgentDto sut = new AiAgentDto()
 		{
@@ -38,14 +38,14 @@ public class AiAgentDtoTests
 		NetworkProviderDto chatProvider = new NetworkProviderDto()
 		{
 			ProviderType = AiProviderType.OpenAI,
-			ModelId = "gpt-4o-mini",
-			EmbeddingModelId = "text-embedding-3-small",
+			Chat = new ChatSettings() { ModelId = "gpt-4o-mini", },
+			Embeddings = new EmbeddingSettings() { ModelId = "text-embedding-3-small", },
 		};
 		NetworkProviderDto embeddingProvider = new NetworkProviderDto()
 		{
 			ProviderType = AiProviderType.OpenAI,
-			ModelId = "local-chat-model",
-			EmbeddingModelId = "nomic-embed-text",
+			Chat = new ChatSettings() { ModelId = "local-chat-model", },
+			Embeddings = new EmbeddingSettings() { ModelId = "nomic-embed-text", },
 		};
 		AiProviderDto[] providers = new AiProviderDto[] { chatProvider, embeddingProvider };
 		AiAgentDto sut = new AiAgentDto()
@@ -66,8 +66,8 @@ public class AiAgentDtoTests
 		NetworkProviderDto firstProvider = new NetworkProviderDto()
 		{
 			ProviderType = AiProviderType.OpenAI,
-			ModelId = "gpt-4o-mini",
-			EmbeddingModelId = "text-embedding-3-small",
+			Chat = new ChatSettings() { ModelId = "gpt-4o-mini", },
+			Embeddings = new EmbeddingSettings() { ModelId = "text-embedding-3-small", },
 		};
 		AiProviderDto[] providers = new AiProviderDto[]
 		{
@@ -75,8 +75,8 @@ public class AiAgentDtoTests
 			new NetworkProviderDto()
 			{
 				ProviderType = AiProviderType.OpenAI,
-				ModelId = "another-model",
-				EmbeddingModelId = "another-embedding-model",
+				Chat = new ChatSettings() { ModelId = "another-model", },
+				Embeddings = new EmbeddingSettings() { ModelId = "another-embedding-model", },
 			},
 		};
 		AiAgentDto sut = new AiAgentDto();
@@ -93,8 +93,8 @@ public class AiAgentDtoTests
 		NetworkProviderDto selectedProvider = new NetworkProviderDto()
 		{
 			ProviderType = AiProviderType.OpenAI,
-			ModelId = "gpt-4o-mini",
-			EmbeddingModelId = "text-embedding-3-small",
+			Chat = new ChatSettings() { ModelId = "gpt-4o-mini", },
+			Embeddings = new EmbeddingSettings() { ModelId = "text-embedding-3-small", },
 		};
 		AiProviderDto[] providers = new AiProviderDto[]
 		{
@@ -102,8 +102,8 @@ public class AiAgentDtoTests
 			new NetworkProviderDto()
 			{
 				ProviderType = AiProviderType.OpenAI,
-				ModelId = "other-model",
-				EmbeddingModelId = "other-embedding-model",
+				Chat = new ChatSettings() { ModelId = "other-model", },
+				Embeddings = new EmbeddingSettings() { ModelId = "other-embedding-model", },
 			},
 		};
 		AiAgentDto sut = new AiAgentDto()

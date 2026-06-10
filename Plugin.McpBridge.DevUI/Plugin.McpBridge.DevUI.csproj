@@ -22,5 +22,6 @@
 		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
 		<!--RAG-->
 		<PackageReference Include="Microsoft.SemanticKernel.Connectors.InMemory" />
+		<PackageReference Include="Microsoft.SemanticKernel.Connectors.SqliteVec" />
 	</ItemGroup>
 </Project>

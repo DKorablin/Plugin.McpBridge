@@ -14,6 +14,7 @@ internal static class Program
 			SettingsDto settings = SettingsDto.CreateSettingsFromArgs(ref args, lifetimeCts);
 
 			HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
+			builder.Services.Configure<ConsoleLifetimeOptions>(options => options.SuppressStatusMessages = true);
 			builder.Logging.ClearProviders();
 			builder.Logging.AddSimpleConsole(options =>
 			{

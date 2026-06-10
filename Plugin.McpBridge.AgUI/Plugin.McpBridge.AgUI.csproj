@@ -27,6 +27,7 @@
 		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
 		<!--RAG-->
 		<PackageReference Include="Microsoft.SemanticKernel.Connectors.InMemory" />
+		<PackageReference Include="Microsoft.SemanticKernel.Connectors.SqliteVec" />
 	</ItemGroup>
 
 	<Target Name="NpmInstall" BeforeTargets="NpmBuild" Inputs="ClientApp\package.json" Outputs="ClientApp\node_modules\.package-lock.json">

@@ -48,11 +48,11 @@ internal class AgentFactory
 		switch(provider.ProviderType)
 		{
 		case AiProviderType.CoPilot:
-			CoPilotProviderDto copilotSettings = (CoPilotProviderDto)provider;
+			CoPilotConnectionSettings copilotConnection = GetCoPilotConnection(provider);
 			CopilotClientOptions options = new CopilotClientOptions()
 			{
-				CliPath = copilotSettings.CoPilotPath,
-				GitHubToken = copilotSettings.GitHubToken,
+				CliPath = copilotConnection.CoPilotPath,
+				GitHubToken = copilotConnection.GitHubToken,
 				//UseLoggedInUser = true,
 			};
 			CopilotClient copilotClient = new CopilotClient(options);
@@ -133,6 +133,8 @@ internal class AgentFactory
 	/// <summary>Creates a raw <see cref="IChatClient"/> for the given provider using the supplied <see cref="HttpClient"/>.</summary>
 	private static IChatClient CreateChatClient(AiProviderDto providerSettings)
 	{
+		ValidateChatProvider(providerSettings);
+
 		IChatClient chatClient;
 
 		switch(providerSettings.ProviderType)
@@ -141,34 +143,61 @@ internal class AgentFactory
 			chatClient = new Agents.StubChatClient();
 			break;
 		case AiProviderType.Azure:
-			var azureSettings = (AzureProviderDto)providerSettings;
+			NetworkConnectionSettings azureConnection = GetNetworkConnection(providerSettings);
 
-			var httpClient1 = new HttpClient { Timeout = azureSettings.ConnectionTimeout };
+			var httpClient1 = new HttpClient { Timeout = azureConnection.Timeout };
 			HttpClientPipelineTransport transport1 = new HttpClientPipelineTransport(httpClient1);
 
 			chatClient = new AzureOpenAIClient(
-				new Uri(providerSettings.ModelEndpointUrl!),
-				new ApiKeyCredential(azureSettings.ApiKey!),
+				new Uri(azureConnection.EndpointUrl!),
+				new ApiKeyCredential(azureConnection.ApiKey!),
 				new AzureOpenAIClientOptions { Transport = transport1, })
-				.GetChatClient(azureSettings.DeploymentName)
+				.GetChatClient(providerSettings.Chat.ModelId!)
 				.AsIChatClient();
 			break;
 		default:
-			var networkSettings = (NetworkProviderDto)providerSettings;
+			NetworkConnectionSettings networkConnection = GetNetworkConnection(providerSettings);
 
-			var httpClient2 = new HttpClient { Timeout = networkSettings.ConnectionTimeout };
+			var httpClient2 = new HttpClient { Timeout = networkConnection.Timeout };
 			HttpClientPipelineTransport transport2 = new HttpClientPipelineTransport(httpClient2);
 
 			OpenAIClientOptions clientOptions = new OpenAIClientOptions { Transport = transport2 };
-			if(networkSettings.ModelEndpointUrl != null)
-				clientOptions.Endpoint = new Uri(networkSettings.ModelEndpointUrl);
+			if(networkConnection.EndpointUrl != null)
+				clientOptions.Endpoint = new Uri(networkConnection.EndpointUrl);
 
-			chatClient = new OpenAIClient(new ApiKeyCredential(networkSettings.ApiKey ?? "local-no-key"), clientOptions)
-				.GetChatClient(networkSettings.ModelId)
+			chatClient = new OpenAIClient(new ApiKeyCredential(networkConnection.ApiKey ?? "local-no-key"), clientOptions)
+				.GetChatClient(providerSettings.Chat.ModelId!)
 				.AsIChatClient();
 			break;
 		}
 		return ConfigureOptions(chatClient, providerSettings);
+	}
+
+	private static void ValidateChatProvider(AiProviderDto providerSettings)
+	{
+		if(!providerSettings.SupportsCapability(ProviderCapabilities.Chat))
+			throw new InvalidOperationException($"Provider '{providerSettings}' is configured without chat capability.");
+
+		switch(providerSettings.ProviderType)
+		{
+		case AiProviderType.Azure:
+			NetworkConnectionSettings azureConnection = GetNetworkConnection(providerSettings);
+			if(String.IsNullOrWhiteSpace(azureConnection.EndpointUrl))
+				throw new InvalidOperationException($"Provider '{providerSettings}' requires Connection.EndpointUrl for Azure chat.");
+			if(String.IsNullOrWhiteSpace(azureConnection.ApiKey))
+				throw new InvalidOperationException($"Provider '{providerSettings}' requires ApiKey for Azure chat.");
+			if(String.IsNullOrWhiteSpace(providerSettings.Chat.ModelId))
+				throw new InvalidOperationException($"Provider '{providerSettings}' requires Chat.ModelId (deployment name) for Azure chat.");
+			break;
+		case AiProviderType.Stub:
+		case AiProviderType.CoPilot:
+			break;
+		default:
+			_ = GetNetworkConnection(providerSettings);
+			if(String.IsNullOrWhiteSpace(providerSettings.Chat.ModelId))
+				throw new InvalidOperationException($"Provider '{providerSettings}' requires Chat.ModelId for chat.");
+			break;
+		}
 	}
 
 	/// <summary>Wraps a <see cref="IChatClient"/> with token, temperature, and reasoning options from <paramref name="settings"/> and <paramref name="provider"/>.</summary>
@@ -180,11 +209,11 @@ internal class AgentFactory
 					options.MaxOutputTokens = provider.MaxTokens.Value;
 				if(provider.Temperature.HasValue)
 					options.Temperature = (Single)provider.Temperature.Value;
-				if(provider.ReasoningOutput.HasValue || provider.ReasoningEffort.HasValue)
+				if(provider.Chat.ReasoningOutput.HasValue || provider.Chat.ReasoningEffort.HasValue)
 					options.Reasoning = new ReasoningOptions
 					{
-						Output = provider.ReasoningOutput ?? ReasoningOutput.None,
-						Effort = provider.ReasoningEffort ?? ReasoningEffort.Medium
+						Output = provider.Chat.ReasoningOutput ?? ReasoningOutput.None,
+						Effort = provider.Chat.ReasoningEffort ?? ReasoningEffort.Medium
 					};
 			})
 			.Build();
@@ -194,9 +223,9 @@ internal class AgentFactory
 		List<AIContextProvider> providers = new List<AIContextProvider>();
 
 		if(agent.RagDirectory != null
-			&& embeddingProvider is NetworkProviderDto networkProvider
-			&& networkProvider.EmbeddingModelDimention != null
-			&& !String.IsNullOrWhiteSpace(networkProvider.EmbeddingModelId))
+			&& embeddingProvider.SupportsCapability(ProviderCapabilities.Embeddings)
+			&& embeddingProvider.Embeddings.Dimension != null
+			&& !String.IsNullOrWhiteSpace(embeddingProvider.Embeddings.ModelId))
 		{
 			TextSearchStore.AssertDocumentsInFolder(agent.RagDirectory);
 
@@ -210,14 +239,14 @@ internal class AgentFactory
 				{
 					EmbeddingGenerator = embeddingGenerator,
 				});
-				this._textSearchStore = new TextSearchStore(sqliteStore, TextSearchStore.DefaultCollectionName, networkProvider.EmbeddingModelDimention.Value);
+				this._textSearchStore = new TextSearchStore(sqliteStore, TextSearchStore.DefaultCollectionName, embeddingProvider.Embeddings.Dimension.Value);
 				await this._textSearchStore.EnsureCollectionExistsAsync();
 			}
 
 			if(this._textSearchStore == null)
 			{
 				var vectorStore = new InMemoryVectorStore(new() { EmbeddingGenerator = embeddingGenerator });
-				this._textSearchStore = new TextSearchStore(vectorStore, TextSearchStore.DefaultCollectionName, networkProvider.EmbeddingModelDimention.Value);
+				this._textSearchStore = new TextSearchStore(vectorStore, TextSearchStore.DefaultCollectionName, embeddingProvider.Embeddings.Dimension.Value);
 				await this._textSearchStore.UpsertDocumentsAsync(documents);
 			}
 
@@ -235,38 +264,67 @@ internal class AgentFactory
 		return providers.Count == 0 ? null : providers.ToArray();
 	}
 
-	/// <summary>Creates an <see cref="IEmbeddingGenerator{TInput,TEmbedding}"/> for the given provider using <see cref="NetworkProviderDto.EmbeddingModelId"/>.</summary>
+	/// <summary>Creates an <see cref="IEmbeddingGenerator{TInput,TEmbedding}"/> for the given provider using <see cref="EmbeddingSettings.ModelId"/>.</summary>
 	public static IEmbeddingGenerator<String, Embedding<Single>> CreateEmbeddingGenerator(AiProviderDto providerSettings)
 	{
+		ValidateEmbeddingProvider(providerSettings);
+
 		switch(providerSettings.ProviderType)
 		{
 		case AiProviderType.Azure:
-			var azureSettings = (AzureProviderDto)providerSettings;
+			NetworkConnectionSettings azureConnection = GetNetworkConnection(providerSettings);
 
-			var httpClient1 = new HttpClient { Timeout = azureSettings.ConnectionTimeout };
+			var httpClient1 = new HttpClient { Timeout = azureConnection.Timeout };
 			HttpClientPipelineTransport transport1 = new HttpClientPipelineTransport(httpClient1);
 
 			return new AzureOpenAIClient(
-				new Uri(providerSettings.ModelEndpointUrl!),
-				new ApiKeyCredential(azureSettings.ApiKey!),
+				new Uri(azureConnection.EndpointUrl!),
+				new ApiKeyCredential(azureConnection.ApiKey!),
 				new AzureOpenAIClientOptions { Transport = transport1 })
-				.GetEmbeddingClient(azureSettings.EmbeddingModelId!)
+				.GetEmbeddingClient(providerSettings.Embeddings.ModelId!)
 				.AsIEmbeddingGenerator();
 		default:
-			var networkSettings = (NetworkProviderDto)providerSettings;
+			NetworkConnectionSettings networkConnection = GetNetworkConnection(providerSettings);
 
-			var httpClient2 = new HttpClient { Timeout = networkSettings.ConnectionTimeout };
+			var httpClient2 = new HttpClient { Timeout = networkConnection.Timeout };
 			HttpClientPipelineTransport transport2 = new HttpClientPipelineTransport(httpClient2);
 
 			OpenAIClientOptions clientOptions = new OpenAIClientOptions { Transport = transport2 };
-			if(networkSettings.ModelEndpointUrl != null)
-				clientOptions.Endpoint = new Uri(networkSettings.ModelEndpointUrl);
+			if(networkConnection.EndpointUrl != null)
+				clientOptions.Endpoint = new Uri(networkConnection.EndpointUrl);
 
-			return new OpenAIClient(new ApiKeyCredential(networkSettings.ApiKey ?? "local-no-key"), clientOptions)
-				.GetEmbeddingClient(networkSettings.EmbeddingModelId!)
+			return new OpenAIClient(new ApiKeyCredential(networkConnection.ApiKey ?? "local-no-key"), clientOptions)
+				.GetEmbeddingClient(providerSettings.Embeddings.ModelId!)
 				.AsIEmbeddingGenerator();
 		}
 	}
+
+	private static void ValidateEmbeddingProvider(AiProviderDto providerSettings)
+	{
+		if(!providerSettings.SupportsCapability(ProviderCapabilities.Embeddings))
+			throw new InvalidOperationException($"Provider '{providerSettings}' is configured without embeddings capability.");
+
+		NetworkConnectionSettings connection = GetNetworkConnection(providerSettings);
+
+		if(String.IsNullOrWhiteSpace(providerSettings.Embeddings.ModelId))
+			throw new InvalidOperationException($"Provider '{providerSettings}' requires Embeddings.ModelId for embeddings.");
+
+		if(providerSettings.ProviderType == AiProviderType.Azure)
+		{
+			if(String.IsNullOrWhiteSpace(connection.EndpointUrl))
+				throw new InvalidOperationException($"Provider '{providerSettings}' requires Connection.EndpointUrl for Azure embeddings.");
+			if(String.IsNullOrWhiteSpace(connection.ApiKey))
+				throw new InvalidOperationException($"Provider '{providerSettings}' requires ApiKey for Azure embeddings.");
+		}
+	}
+
+	private static NetworkConnectionSettings GetNetworkConnection(AiProviderDto providerSettings)
+		=> providerSettings.Connection as NetworkConnectionSettings
+			?? throw new InvalidOperationException($"Provider '{providerSettings}' requires network connection settings.");
+
+	private static CoPilotConnectionSettings GetCoPilotConnection(AiProviderDto providerSettings)
+		=> providerSettings.Connection as CoPilotConnectionSettings
+			?? throw new InvalidOperationException($"Provider '{providerSettings}' requires Copilot connection settings.");
 
 	private async Task<IEnumerable<TextSearchProvider.TextSearchResult>> SearchAsync(String text, CancellationToken ct)
 	{
