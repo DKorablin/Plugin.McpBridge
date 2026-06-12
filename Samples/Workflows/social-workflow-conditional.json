@@ -1,5 +1,6 @@
 {
 	"name": "SocialWorkflowConditionalGraph",
+	"description": "A self-sufficient workflow for testing interactions between agents",
 	"pattern": "ConditionalGraph",
 	"entrypoint": "Parent1",
 	"maxRounds": 10,
