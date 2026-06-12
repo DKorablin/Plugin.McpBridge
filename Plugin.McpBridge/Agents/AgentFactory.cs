@@ -175,29 +175,9 @@ internal class AgentFactory
 
 	private static void ValidateChatProvider(AiProviderDto providerSettings)
 	{
-		if(!providerSettings.SupportsCapability(ProviderCapabilities.Chat))
-			throw new InvalidOperationException($"Provider '{providerSettings}' is configured without chat capability.");
-
-		switch(providerSettings.ProviderType)
-		{
-		case AiProviderType.Azure:
-			NetworkConnectionSettings azureConnection = GetNetworkConnection(providerSettings);
-			if(String.IsNullOrWhiteSpace(azureConnection.EndpointUrl))
-				throw new InvalidOperationException($"Provider '{providerSettings}' requires Connection.EndpointUrl for Azure chat.");
-			if(String.IsNullOrWhiteSpace(azureConnection.ApiKey))
-				throw new InvalidOperationException($"Provider '{providerSettings}' requires ApiKey for Azure chat.");
-			if(String.IsNullOrWhiteSpace(providerSettings.Chat.ModelId))
-				throw new InvalidOperationException($"Provider '{providerSettings}' requires Chat.ModelId (deployment name) for Azure chat.");
-			break;
-		case AiProviderType.Stub:
-		case AiProviderType.CoPilot:
-			break;
-		default:
-			_ = GetNetworkConnection(providerSettings);
-			if(String.IsNullOrWhiteSpace(providerSettings.Chat.ModelId))
-				throw new InvalidOperationException($"Provider '{providerSettings}' requires Chat.ModelId for chat.");
-			break;
-		}
+		String? validationError = providerSettings.GetValidationError(ProviderCapabilities.Chat);
+		if(validationError != null)
+			throw new InvalidOperationException($"Provider '{providerSettings}' is invalid for chat: {validationError}");
 	}
 
 	/// <summary>Wraps a <see cref="IChatClient"/> with token, temperature, and reasoning options from <paramref name="settings"/> and <paramref name="provider"/>.</summary>
@@ -301,21 +281,9 @@ internal class AgentFactory
 
 	private static void ValidateEmbeddingProvider(AiProviderDto providerSettings)
 	{
-		if(!providerSettings.SupportsCapability(ProviderCapabilities.Embeddings))
-			throw new InvalidOperationException($"Provider '{providerSettings}' is configured without embeddings capability.");
-
-		NetworkConnectionSettings connection = GetNetworkConnection(providerSettings);
-
-		if(String.IsNullOrWhiteSpace(providerSettings.Embeddings.ModelId))
-			throw new InvalidOperationException($"Provider '{providerSettings}' requires Embeddings.ModelId for embeddings.");
-
-		if(providerSettings.ProviderType == AiProviderType.Azure)
-		{
-			if(String.IsNullOrWhiteSpace(connection.EndpointUrl))
-				throw new InvalidOperationException($"Provider '{providerSettings}' requires Connection.EndpointUrl for Azure embeddings.");
-			if(String.IsNullOrWhiteSpace(connection.ApiKey))
-				throw new InvalidOperationException($"Provider '{providerSettings}' requires ApiKey for Azure embeddings.");
-		}
+		String? validationError = providerSettings.GetValidationError(ProviderCapabilities.Embeddings);
+		if(validationError != null)
+			throw new InvalidOperationException($"Provider '{providerSettings}' is invalid for embeddings: {validationError}");
 	}
 
 	private static NetworkConnectionSettings GetNetworkConnection(AiProviderDto providerSettings)

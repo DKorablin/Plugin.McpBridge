@@ -24,7 +24,7 @@ public class AgentFactoryValidationTests
 		Func<Task> act = async () => await sut.CreateAgent(provider, Array.Empty<AIFunction>(), "system");
 
 		await act.Should().ThrowAsync<InvalidOperationException>()
-			.WithMessage("*without chat capability*");
+			.WithMessage("*Chat capability is disabled.*");
 	}
 
 	[Fact]
@@ -41,7 +41,7 @@ public class AgentFactoryValidationTests
 		Func<Task> act = async () => await sut.CreateAgent(provider, Array.Empty<AIFunction>(), "system");
 
 		await act.Should().ThrowAsync<InvalidOperationException>()
-			.WithMessage("*requires Chat.ModelId for chat*");
+			.WithMessage("*Chat model is required.*");
 	}
 
 	[Fact]
@@ -57,6 +57,6 @@ public class AgentFactoryValidationTests
 		Action act = () => _ = AgentFactory.CreateEmbeddingGenerator(provider);
 
 		act.Should().Throw<InvalidOperationException>()
-			.WithMessage("*without embeddings capability*");
+			.WithMessage("*Embeddings capability is disabled.*");
 	}
 }

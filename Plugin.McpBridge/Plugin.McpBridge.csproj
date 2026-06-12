@@ -41,6 +41,8 @@
 		<PackageReference Include="Microsoft.Agents.AI" />
 		<PackageReference Include="Microsoft.Agents.AI.GitHub.Copilot" />
 		<PackageReference Include="Microsoft.Agents.AI.Workflows" />
+		<!--CoPilot-->
+		<PackageReference Include="Microsoft.Agents.AI.GitHub.Copilot" />
 		<!--RAG-->
 		<PackageReference Include="Microsoft.SemanticKernel.Connectors.InMemory" />
 		<PackageReference Include="Microsoft.SemanticKernel.Connectors.SqliteVec" />

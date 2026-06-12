@@ -86,7 +86,7 @@ internal sealed class ProcessHost : IDisposable
 		}
 
 		return throwException
-			? throw new FileNotFoundException($"{0} executable not found. Expected alongside the plugin assembly.", exeName)
+			? throw new FileNotFoundException($"{type} executable not found. Expected alongside the plugin assembly.", exeName)
 			: null;
 	}
 

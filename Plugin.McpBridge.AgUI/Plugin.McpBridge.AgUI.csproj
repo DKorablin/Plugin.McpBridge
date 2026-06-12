@@ -23,8 +23,9 @@
 		<PackageReference Include="Azure.AI.OpenAI" />
 		<PackageReference Include="Microsoft.Agents.AI.Hosting" />
 		<PackageReference Include="Microsoft.Agents.AI.Hosting.AGUI.AspNetCore" />
-		<PackageReference Include="Microsoft.Agents.AI.GitHub.Copilot" />
 		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
+		<!--CoPilot-->
+		<PackageReference Include="Microsoft.Agents.AI.GitHub.Copilot" />
 		<!--RAG-->
 		<PackageReference Include="Microsoft.SemanticKernel.Connectors.InMemory" />
 		<PackageReference Include="Microsoft.SemanticKernel.Connectors.SqliteVec" />

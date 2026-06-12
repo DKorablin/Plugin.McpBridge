@@ -69,6 +69,4 @@ public sealed record StubProviderDto : AiProviderDto, ICustomTypeDescriptor
 		public override Boolean ShouldSerializeValue(Object component) => false;
 	}
 
-	public override String ToString()
-		=> base.ToString();
 }

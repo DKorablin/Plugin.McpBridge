@@ -47,7 +47,10 @@ public record AiProviderDto : INotifyPropertyChanged
 		{
 			if(String.IsNullOrWhiteSpace(value))
 				value = null;
-			this.SetField(ref this._description, value, nameof(this.Description));
+			if(!this.SetField(ref this._description, value, nameof(this.Description)))
+				return;
+
+			this.RaiseValidationStateChanged();
 		}
 	}
 
@@ -76,6 +79,8 @@ public record AiProviderDto : INotifyPropertyChanged
 				this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.Chat)));
 				this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.Embeddings)));
 			}
+
+			this.RaiseValidationStateChanged();
 		}
 	}
 
@@ -94,6 +99,7 @@ public record AiProviderDto : INotifyPropertyChanged
 
 			this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.Chat)));
 			this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.Embeddings)));
+			this.RaiseValidationStateChanged();
 		}
 	}
 
@@ -114,6 +120,7 @@ public record AiProviderDto : INotifyPropertyChanged
 			this._connection = normalized;
 			AiProviderDto.SubscribeToNestedSettings(this._connection, this.Connection_PropertyChanged);
 			this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.Connection)));
+			this.RaiseValidationStateChanged();
 		}
 	}
 
@@ -134,6 +141,7 @@ public record AiProviderDto : INotifyPropertyChanged
 			this._chat = normalized;
 			AiProviderDto.SubscribeToNestedSettings(this._chat, this.Chat_PropertyChanged);
 			this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.Chat)));
+			this.RaiseValidationStateChanged();
 		}
 	}
 
@@ -155,6 +163,7 @@ public record AiProviderDto : INotifyPropertyChanged
 			this._embeddings = normalized;
 			AiProviderDto.SubscribeToNestedSettings(this._embeddings, this.Embeddings_PropertyChanged);
 			this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.Embeddings)));
+			this.RaiseValidationStateChanged();
 		}
 	}
 
@@ -183,14 +192,22 @@ public record AiProviderDto : INotifyPropertyChanged
 		}
 	}
 
-	public override String ToString()
-	{
-		if(this.Description != null)
-			return this.Description;
-		if(this.Chat?.ModelId != null)
-			return $"{this.ProviderType} ({this.Chat.ModelId})";
+	[Browsable(false)]
+	public String? ValidationError
+		=> this.GetValidationError(this.Capabilities);
 
-		return this.ProviderType.ToString();
+	[Browsable(false)]
+	public Boolean IsValid
+		=> this.ValidationError == null;
+
+	public sealed override String ToString()
+	{
+		String label = this.BuildFriendlyLabel();
+		String? validationError = this.ValidationError;
+		if(validationError != null)
+			return $"[INVALID] {label} - {validationError}";
+
+		return label;
 	}
 
 	/// <summary>Returns a new instance of the appropriate derived type for <paramref name="source"/>.ProviderType, with base properties copied.</summary>
@@ -225,6 +242,57 @@ public record AiProviderDto : INotifyPropertyChanged
 
 	public Boolean SupportsCapability(ProviderCapabilities capability)
 		=> (this.Capabilities & capability) == capability;
+
+	internal String? GetValidationError(ProviderCapabilities requiredCapabilities)
+	{
+		if(requiredCapabilities == ProviderCapabilities.None)
+			return null;
+
+		if((requiredCapabilities & ProviderCapabilities.Chat) != 0 && !this.SupportsCapability(ProviderCapabilities.Chat))
+			return "Chat capability is disabled.";
+
+		if((requiredCapabilities & ProviderCapabilities.Embeddings) != 0 && !this.SupportsCapability(ProviderCapabilities.Embeddings))
+			return "Embeddings capability is disabled.";
+
+		switch(this.ProviderType)
+		{
+		case AiProviderType.CoPilot:
+			if(this.Connection is not CoPilotConnectionSettings)
+				return "Copilot provider requires Copilot connection settings.";
+			if((requiredCapabilities & ProviderCapabilities.Embeddings) != 0)
+				return "Copilot provider does not support embeddings.";
+			return null;
+		case AiProviderType.Stub:
+			if(this.Connection is not NetworkConnectionSettings)
+				return "Stub provider requires network connection settings.";
+			if((requiredCapabilities & ProviderCapabilities.Embeddings) != 0)
+				return "Stub provider does not support embeddings.";
+			return null;
+		case AiProviderType.Azure:
+			if(this.Connection is not NetworkConnectionSettings azureConnection)
+				return "Azure provider requires network connection settings.";
+			if(String.IsNullOrWhiteSpace(azureConnection.EndpointUrl))
+				return "Connection endpoint URL is required.";
+			if(String.IsNullOrWhiteSpace(azureConnection.ApiKey))
+				return "API key is required.";
+			break;
+		default:
+			if(this.Connection is not NetworkConnectionSettings)
+				return "Provider requires network connection settings.";
+			break;
+		}
+
+		if((requiredCapabilities & ProviderCapabilities.Chat) != 0
+			&& this.ProviderType is not AiProviderType.Stub and not AiProviderType.CoPilot
+			&& String.IsNullOrWhiteSpace(this.Chat?.ModelId))
+			return "Chat model is required.";
+
+		if((requiredCapabilities & ProviderCapabilities.Embeddings) != 0
+			&& String.IsNullOrWhiteSpace(this.Embeddings?.ModelId))
+			return "Embedding model is required.";
+
+		return null;
+	}
 
 	private static ConnectionSettings CreateDefaultConnectionSettings(AiProviderType providerType)
 		=> providerType == AiProviderType.CoPilot
@@ -264,6 +332,29 @@ public record AiProviderDto : INotifyPropertyChanged
 		this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(parentPropertyName));
 		if(!String.IsNullOrWhiteSpace(childPropertyName))
 			this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs($"{parentPropertyName}.{childPropertyName}"));
+		this.RaiseValidationStateChanged();
+	}
+
+	private String BuildFriendlyLabel()
+	{
+		String providerLabel = this.ProviderType.ToString();
+
+		List<String> details = new List<String>();
+		if(this.SupportsCapability(ProviderCapabilities.Chat) && !String.IsNullOrWhiteSpace(this.Chat?.ModelId))
+			details.Add($"chat: {this.Chat.ModelId}");
+		if(this.SupportsCapability(ProviderCapabilities.Embeddings) && !String.IsNullOrWhiteSpace(this.Embeddings?.ModelId))
+			details.Add($"emb: {this.Embeddings.ModelId}");
+
+		String suffix = details.Count == 0 ? String.Empty : $" ({String.Join(", ", details)})";
+		return String.IsNullOrWhiteSpace(this.Description)
+			? $"{providerLabel}{suffix}"
+			: $"{this.Description} - {providerLabel}{suffix}";
+	}
+
+	private void RaiseValidationStateChanged()
+	{
+		this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.ValidationError)));
+		this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.IsValid)));
 	}
 
 	private static void SubscribeToNestedSettings(INotifyPropertyChanged? target, PropertyChangedEventHandler handler, Boolean subscribe = true)
