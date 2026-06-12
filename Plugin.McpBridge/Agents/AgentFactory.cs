@@ -2,7 +2,6 @@
 using System.ClientModel.Primitives;
 using System.Text;
 using Azure.AI.OpenAI;
-using GitHub.Copilot.SDK;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Data.Sqlite;
@@ -13,6 +12,7 @@ using Plugin.McpBridge.Data;
 using Plugin.McpBridge.RAG;
 using Plugin.McpBridge.Tools;
 using SAL.Flatbed;
+using GitHub.Copilot;
 
 namespace Plugin.McpBridge.Agents;
 
@@ -51,7 +51,7 @@ internal class AgentFactory
 			CoPilotConnectionSettings copilotConnection = GetCoPilotConnection(provider);
 			CopilotClientOptions options = new CopilotClientOptions()
 			{
-				CliPath = copilotConnection.CoPilotPath,
+				Connection = RuntimeConnection.ForStdio(copilotConnection.CoPilotPath),
 				GitHubToken = copilotConnection.GitHubToken,
 				//UseLoggedInUser = true,
 			};
