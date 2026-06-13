@@ -6,15 +6,12 @@ namespace Plugin.McpBridge.AgUI.Agents;
 
 public class FileSystemAgentSessionStore : AgentSessionStore
 {
-	private static readonly String DefaultStoragePath = Path.Combine(AppContext.BaseDirectory, ".SessionStore");
 	private static readonly Char[] InvalidFileNameChars = Path.GetInvalidFileNameChars();
 
 	private readonly String _storageDirectory;
 
-	public FileSystemAgentSessionStore(String? storageDirectory = null)
-	{
-		this._storageDirectory = storageDirectory ?? FileSystemAgentSessionStore.DefaultStoragePath;
-	}
+	public FileSystemAgentSessionStore(String storageDirectory)
+		=> this._storageDirectory = storageDirectory ?? throw new ArgumentNullException(nameof(storageDirectory));
 
 	public override async ValueTask<AgentSession> GetSessionAsync(AIAgent agent, String conversationId, CancellationToken cancellationToken = default)
 	{

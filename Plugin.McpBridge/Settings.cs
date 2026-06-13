@@ -33,7 +33,7 @@ namespace Plugin.McpBridge
 		private String? _devUIServerUrl = null;
 		private Boolean _agUIEnabled = false;
 		private String? _agUIServerUrl = null;
-		private String? _agUISessionStorageDirectory = null;
+		private String? _sessionStorageDirectory = null;
 		private Boolean _ragProcessEnabled = false;
 		private Boolean _mcpServerEnabled = false;
 		private String? _mcpServerUrl = null;
@@ -209,18 +209,18 @@ namespace Plugin.McpBridge
 		}
 
 		[Category("Network")]
-		[DisplayName("AG-UI Session Directory")]
-		[Description("An optional directory path where the AG-UI can read/write session data. If not set, AG-UI sessions will not be stored.")]
+		[DisplayName("Session Storage Directory")]
+		[Description("An optional directory path where the agents can read/write session data. If not set, sessions will not be stored.")]
 		[Editor(typeof(System.Windows.Forms.Design.FolderNameEditor), typeof(System.Drawing.Design.UITypeEditor))]
-		public String? AgUISessionStorageDirectory
+		public String? SessionStorageDirectory
 		{
-			get => this._agUISessionStorageDirectory;
+			get => this._sessionStorageDirectory;
 			set
 			{
 				if(String.IsNullOrWhiteSpace(value))
 					value = null;
 
-				this.SetField(ref this._agUISessionStorageDirectory, value, nameof(this.AgUISessionStorageDirectory));
+				this.SetField(ref this._sessionStorageDirectory, value, nameof(this.SessionStorageDirectory));
 			}
 		}
 

@@ -1,6 +1,5 @@
 ﻿using Microsoft.Agents.AI.DevUI;
 using Microsoft.Agents.AI.Hosting;
-using Microsoft.Agents.ObjectModel;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Tests;
 using Plugin.McpBridge.Workflows;
@@ -16,9 +15,11 @@ internal static class Program
 		using(CancellationTokenSource lifetimeCts = new CancellationTokenSource())
 		{
 			SettingsDto settings = SettingsDto.CreateSettingsFromArgs(ref args, lifetimeCts);
+			using ILoggerFactory loggerFactory = LoggerFactory.Create(Program.ConfigureLogging);
+			ILogger logger = loggerFactory.CreateLogger(typeof(Program));
 
 			var bridgeTools = await settings.FetchBridgeToolsAsync();
-			Console.WriteLine($"Bridge connected: {bridgeTools.Length:N0} tools loaded from {settings.McpServerUrl}");
+			logger.LogInformation("Bridge connected: {Count:N0} tools loaded from {McpServerUrl}", bridgeTools.Length, settings.McpServerUrl);
 
 			var agentDto = settings.SelectedAgent;
 			AgentHandle agent = await _agentFactory.CreateAgent(
@@ -34,7 +35,7 @@ internal static class Program
 			{
 				foreach(String workflowFile in Directory.EnumerateFiles(settings.WorkflowsDirectory, "*.json"))
 				{
-					Console.WriteLine($"Loading workflow from {workflowFile}");
+					logger.LogInformation("Loading workflow from {WorkflowFile}", workflowFile);
 					WorkflowLoader2 loader = new WorkflowLoader2(settings, workflowFile);
 					WorkflowHandle workflowHandle = await loader.BuildAsync(settings.AiProviders, bridgeTools);
 					workflows.Add(workflowHandle);
@@ -42,7 +43,7 @@ internal static class Program
 			}
 
 			WebApplication app = await BuildWebApp(args, settings, agent, workflows);
-			Console.WriteLine($"DevUI running at {settings.UiServerUrl}/devui");
+			logger.LogInformation("DevUI running at {DevUiUrl}", $"{settings.UiServerUrl}/devui");
 			await app.RunAsync(lifetimeCts.Token);
 		}
 		return 0;
@@ -52,10 +53,8 @@ internal static class Program
 	{
 		WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 		((IWebHostBuilder)builder.WebHost).UseUrls(config.UiServerUrl);
-
-		// Force the console logger to capture detailed framework traces
-		builder.Logging.AddConsole();
-		builder.Logging.SetMinimumLevel(LogLevel.Debug); // Shows model binding/deserialization errors
+		builder.Services.Configure<ConsoleLifetimeOptions>(options => options.SuppressStatusMessages = true);
+		Program.ConfigureLogging(builder.Logging);
 
 		builder.AddAIAgent(agent.Agent.Name!, (sp, name) => agent.Agent);
 
@@ -78,5 +77,15 @@ internal static class Program
 		app.MapOpenAIConversations();
 		app.MapDevUI();
 		return app;
+	}
+
+	private static void ConfigureLogging(ILoggingBuilder logging)
+	{
+		logging.ClearProviders();
+		logging.AddSimpleConsole(options =>
+		{
+			options.SingleLine = true;
+			options.TimestampFormat = "HH:mm:ss ";
+		});
 	}
 }
