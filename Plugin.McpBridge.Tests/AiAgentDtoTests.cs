@@ -9,6 +9,47 @@ namespace Plugin.McpBridge.Tests;
 public class AiAgentDtoTests
 {
 	[Fact]
+	public void RagSupportedExtensions_Should_DefaultToTxtAndMd_WhenUnset()
+	{
+		AiAgentDto sut = new AiAgentDto();
+
+		sut.RagSupportedExtensions.Should().Equal(".txt", ".md");
+	}
+
+	[Fact]
+	public void RagSupportedExtensions_Should_RemoveDuplicates_And_NormalizeCase()
+	{
+		AiAgentDto sut = new AiAgentDto()
+		{
+			RagSupportedExtensions = new[] { ".TXT", ".md", ".txt", ".Json" },
+		};
+
+		sut.RagSupportedExtensions.Should().Equal(".txt", ".md", ".json");
+	}
+
+	[Fact]
+	public void RagSupportedExtensions_Should_FallBackToDefault_WhenSetToEmpty()
+	{
+		AiAgentDto sut = new AiAgentDto()
+		{
+			RagSupportedExtensions = Array.Empty<String>(),
+		};
+
+		sut.RagSupportedExtensions.Should().Equal(".txt", ".md");
+	}
+
+	[Fact]
+	public void RagSupportedExtensions_Should_Throw_WhenExtensionIsInvalid()
+	{
+		AiAgentDto sut = new AiAgentDto();
+
+		Action act = () => sut.RagSupportedExtensions = new[] { "txt" };
+
+		act.Should().Throw<ArgumentException>()
+			.WithMessage("*must start with '.'*");
+	}
+
+	[Fact]
 	public void GetEmbeddingProvider_Should_FallBackToSelectedProvider()
 	{
 		NetworkProviderDto selectedProvider = new NetworkProviderDto()

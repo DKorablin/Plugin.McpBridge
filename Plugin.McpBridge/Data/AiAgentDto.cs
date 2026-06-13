@@ -13,6 +13,7 @@ public record AiAgentDto : INotifyPropertyChanged
 Use available MCP tools when useful.
 Return clear user-facing responses, or a command payload only when automation is required.
 Before using relative dates (today, yesterday, last hour), obtain the current system time from the SystemInformation tool.";
+		public static readonly String[] RagSupportedExtensions = new String[] { ".txt", ".md" };
 	}
 
 	private String? _description = null;
@@ -31,6 +32,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 	private String? _ragToolDescription = null;
 	private String? _ragDirectory = null;
 	private String? _ragCitationsPrompt = null;
+	private String[] _ragSupportedExtensions = (String[])Defaults.RagSupportedExtensions.Clone();
 
 	/// <summary>Gets the unique identifier for this instance.</summary>
 	[ReadOnly(true)]
@@ -145,8 +147,23 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 	}
 
 	[Category("RAG")]
+	[DisplayName("RAG Supported Extensions")]
+	[Description("Optional list of supported RAG file extensions. When empty, defaults to .txt and .md.")]
+	[DefaultValue(null)]
+	[Editor(typeof(System.ComponentModel.Design.CollectionEditor), typeof(UITypeEditor))]
+	public String[] RagSupportedExtensions
+	{
+		get => this._ragSupportedExtensions;
+		set
+		{
+			String[] normalized = NormalizeRagSupportedExtensions(value);
+			this.SetField(ref this._ragSupportedExtensions, normalized, nameof(this.RagSupportedExtensions));
+		}
+	}
+
+	[Category("RAG")]
 	[DisplayName("RAG Knowledge Base Directory")]
-	[Description("An optional directory path where RAG knowledge base files are stored (Supported extensions: *.txt, *.md).")]
+	[Description("An optional directory path where RAG knowledge base files are stored. Supported extensions are configured by RAG Supported Extensions.")]
 	[Editor(typeof(System.Windows.Forms.Design.FolderNameEditor), typeof(UITypeEditor))]
 	public String? RagDirectory
 	{
@@ -216,6 +233,41 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		}
 
 		throw new InvalidOperationException("No AI providers available.");
+	}
+
+	internal static String[] NormalizeRagSupportedExtensions(IEnumerable<String>? extensions)
+	{
+		if(extensions == null)
+			return (String[])Defaults.RagSupportedExtensions.Clone();
+
+		HashSet<String> unique = new HashSet<String>(StringComparer.OrdinalIgnoreCase);
+		List<String> normalized = new List<String>();
+		foreach(String extension in extensions)
+		{
+			if(String.IsNullOrWhiteSpace(extension))
+				throw new ArgumentException("RAG supported extensions cannot contain empty values.", nameof(extensions));
+
+			String normalizedExtension = extension.Trim().ToLowerInvariant();
+			ValidateRagSupportedExtension(normalizedExtension);
+			if(unique.Add(normalizedExtension))
+				normalized.Add(normalizedExtension);
+		}
+
+		return normalized.Count == 0
+			? (String[])Defaults.RagSupportedExtensions.Clone()
+			: normalized.ToArray();
+	}
+
+	private static void ValidateRagSupportedExtension(String extension)
+	{
+		if(extension.Length < 2 || extension[0] != '.')
+			throw new ArgumentException($"Invalid RAG supported extension '{extension}'. Extensions must start with '.'.", nameof(extension));
+		if(extension[^1] == '.')
+			throw new ArgumentException($"Invalid RAG supported extension '{extension}'. Extensions must end with an alphanumeric suffix.", nameof(extension));
+		if(extension.Any(Char.IsWhiteSpace))
+			throw new ArgumentException($"Invalid RAG supported extension '{extension}'. Extensions cannot contain whitespace.", nameof(extension));
+		if(!extension.Skip(1).All(c => Char.IsLetterOrDigit(c) || c == '.' || c == '_' || c == '-'))
+			throw new ArgumentException($"Invalid RAG supported extension '{extension}'. Allowed characters are letters, digits, '.', '_' and '-'.", nameof(extension));
 	}
 
 	#region INotifyPropertyChanged

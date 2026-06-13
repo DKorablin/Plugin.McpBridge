@@ -51,6 +51,7 @@ User -> PanelChat -> AssistantAgent (Microsoft.Agents.AI)
 - Embedded MCP server over HTTP/SSE JSON-RPC 2.0 for external MCP clients.
 - Optional DevUI diagnostics host launched as a child process.
 - Optional AG-UI host launched as a child process with optional session persistence.
+- Optional RAG sidecar host that keeps per-agent SQLite vector indexes synchronized with RAG folders.
 - Workflow loading from a configured directory of JSON files, using Microsoft.Agents.AI.Workflows.
 - GitHub Copilot CLI provider support through `gh copilot`.
 - Stub provider for offline UI testing.
@@ -60,9 +61,11 @@ User -> PanelChat -> AssistantAgent (Microsoft.Agents.AI)
 | `ProviderType` value | Provider class | Notes |
 |---|---|---|
 | `OpenAI` | `NetworkProviderDto` | OpenAI public API or any OpenAI-compatible endpoint. |
-| `AzureOpenAI` | `AzureProviderDto` | Azure OpenAI Service. |
+| `Azure` | `AzureProviderDto` | Azure OpenAI Service. |
 | `CoPilot` | `CoPilotProviderDto` | GitHub Copilot CLI (`gh copilot`). |
 | `Local` | `NetworkProviderDto` | Local OpenAI-compatible server; no API key required. |
+| `Grok` | `NetworkProviderDto` | xAI Grok-compatible endpoint via OpenAI-compatible API surface. |
+| `Gemini` | `NetworkProviderDto` | Gemini-compatible endpoint via OpenAI-compatible API surface. |
 | `Stub` | `StubProviderDto` | Scripted local responses for UI testing. |
 
 ## Configuration
@@ -75,12 +78,14 @@ Each entry in `AiAgents` is an `AiAgentDto` record. The chat panel can switch be
 
 | Setting | Default | Description |
 |---|---|---|
-| `SelectedAgentId` | *(first agent)* | Active agent profile. |
+| `SelectedProviderId` | *(first provider)* | Chat provider profile for this agent. |
+| `EmbeddingProviderId` | *(same as `SelectedProviderId`)* | Optional embeddings provider profile for this agent's RAG indexing/querying. |
 | `AssistantSystemPrompt` | *(see below)* | System prompt injected into the agent session. |
 | `SkillsDirectory` | *(none)* | Optional directory of skills files that the agent can read and write. |
 | `RagToolName` | *(none)* | Name of the generated RAG search tool. |
 | `RagToolDescription` | *(none)* | Description for the RAG search tool. |
-| `RagDirectory` | *(none)* | Optional knowledge base directory. Supports `.txt` and `.md` files. |
+| `RagSupportedExtensions` | `.txt`, `.md` | Configurable list of supported RAG file extensions. Duplicate entries are removed automatically; invalid entries throw validation errors in the settings model. |
+| `RagDirectory` | *(none)* | Optional knowledge base directory. Files are indexed only when their extension matches `RagSupportedExtensions`. |
 | `RagCitationsPrompt` | *(none)* | Optional citation guidance appended to RAG responses. |
 | `ToolsPermission` | *(all allowed)* | Allowlist of tool method names the agent may use. |
 | `PluginsPermission` | *(all allowed)* | Allowlist of plugin IDs the agent may use. |
@@ -91,6 +96,7 @@ Each entry in `AiAgents` is an `AiAgentDto` record. The chat panel can switch be
 |---|---|---|
 | `AiProviders` | *(empty list)* | Provider profiles available to all agents. |
 | `AiAgents` | *(one default agent)* | Collection of agent profiles. |
+| `SelectedAgentId` | *(first agent)* | Active agent profile used by the WinForms panel and child hosts. |
 | `WorkflowsDirectory` | *(none)* | Optional directory of workflow JSON definitions loaded at runtime. |
 | `McpServerEnabled` | `false` | Starts the embedded MCP server. Automatically enabled when DevUI or AG-UI is enabled. |
 | `McpServerUrl` | `http://localhost:5050` | URL used by the MCP server. |
@@ -99,6 +105,7 @@ Each entry in `AiAgents` is an `AiAgentDto` record. The chat panel can switch be
 | `AgUIEnabled` | `false` | Starts the AG-UI child process for web-hosted interaction. Requires the AG-UI executable beside the plugin assembly. |
 | `AgUIServerUrl` | `http://localhost:5052` | URL used by AG-UI. |
 | `AgUISessionStorageDirectory` | *(none)* | Optional directory for persistent AG-UI session storage. |
+| `RagProcessEnabled` | `false` | Starts the RAG sidecar child process that performs full and incremental sync of configured RAG folders into local SQLite vector indexes. |
 
 ### Provider Settings
 
@@ -108,36 +115,46 @@ Each provider entry can expose different fields depending on its concrete type.
 
 | Setting | Default | Description |
 |---|---|---|
+| `Description` | *(none)* | Optional label shown in provider pickers. |
 | `ProviderType` | `OpenAI` | Provider family used to instantiate the client. |
-| `ModelId` | *(none)* | Chat model or deployment name. |
-| `ModelEndpointUrl` | *(none)* | Optional absolute endpoint URL. Required for Azure OpenAI and many compatible providers. |
+| `Capabilities` | `Chat, Embeddings` | Enabled capability flags for this provider profile. Provider selection is filtered by capability (chat vs embeddings). |
+| `Connection.Timeout` | `100s` | Request timeout for network/process connections. |
+| `Chat.ModelId` | *(none)* | Chat model or deployment name. Required when chat capability is enabled (except `Stub`/`CoPilot`). |
+| `Connection.EndpointUrl` | *(none)* | Optional absolute endpoint URL for compatible providers; required for Azure and most self-hosted endpoints. |
 | `Temperature` | *(provider default)* | Sampling temperature. |
 | `MaxTokens` | *(provider default)* | Maximum completion tokens per request. |
-| `ReasoningOutput` | *(none)* | Optional reasoning trace output. |
-| `ReasoningEffort` | *(none)* | Optional reasoning effort level. |
+| `Chat.ReasoningOutput` | *(none)* | Optional reasoning trace output. |
+| `Chat.ReasoningEffort` | *(none)* | Optional reasoning effort level. |
+| `Embeddings.ModelId` | *(none)* | Embedding model/deployment name. Required when embeddings capability is enabled. |
+| `Embeddings.Dimension` | *(inferred when possible)* | Embedding vector size used by the RAG store. |
+| `Embeddings.TopResults` | `3` | Number of top embedding matches returned by the RAG text search provider. |
 
 #### Network provider fields (`NetworkProviderDto`)
 
 | Setting | Default | Description |
 |---|---|---|
-| `ApiKey` | *(none)* | API key for network-based providers. Not required for `Local`. |
-| `ConnectionTimeout` | `100s` | Request timeout for the provider connection. |
-| `EmbeddingModelId` | *(none)* | Embedding model used for RAG. |
-| `EmbeddingModelDimention` | *(inferred when possible)* | Embedding vector size used by the RAG store. |
+| `Connection.ApiKey` | *(none)* | API key for network-based providers. Not required for `Local`. |
 
 #### Azure provider fields (`AzureProviderDto`)
 
 | Setting | Default | Description |
 |---|---|---|
-| `ApiKey` | *(none)* | Azure OpenAI API key. |
-| `DeploymentName` | *(none)* | Azure OpenAI deployment name. |
+| `Connection.EndpointUrl` | *(required)* | Azure OpenAI endpoint URL. |
+| `Connection.ApiKey` | *(required)* | Azure OpenAI API key. |
+| `Chat.ModelId` | *(required)* | Azure deployment/model name used for chat. |
 
 #### GitHub Copilot CLI fields (`CoPilotProviderDto`)
 
 | Setting | Default | Description |
 |---|---|---|
-| `CoPilotPath` | *(auto-detect)* | Absolute path to the `gh copilot` CLI executable. |
-| `GitHubToken` | *(auto-detect)* | GitHub token used by the Copilot CLI. |
+| `Connection.CoPilotPath` | *(auto-detect)* | Absolute path to the `gh copilot` CLI executable. |
+| `Connection.GitHubToken` | *(auto-detect)* | GitHub token used by the Copilot CLI. |
+
+#### Provider validation behavior
+
+- Provider objects are validated before agent creation and before embedding generator creation.
+- Validation errors include actionable messages such as `Chat capability is disabled`, `Chat model is required`, or `Embedding model is required`.
+- `CoPilot` and `Stub` are chat-only providers and cannot be selected for embeddings.
 
 **Default system prompt:**
 
@@ -199,8 +216,18 @@ Tool descriptions for plugin methods are enriched from XML documentation comment
 
 | Class | Responsibility |
 |---|---|
-| `ProcessHost` | Launches DevUI or AG-UI as a child process and stops it when the host exits. |
+| `ProcessHost` | Launches DevUI, AG-UI, or RAG sidecar as a child process and stops it when the host exits. |
 | `SettingsDto` | Serializable config passed to the child process at startup. |
+
+### RAG sidecar project (`Plugin.McpBridge.RAG`)
+
+When `RagProcessEnabled` is true, a separate RAG sidecar process is launched and keeps per-agent vector indexes in sync.
+
+- Performs a full sync at startup for each configured agent RAG folder.
+- Watches RAG folders recursively for the extensions configured in each agent's `RagSupportedExtensions` list.
+- Debounces file events and applies incremental add/update/remove operations.
+- Uses file metadata plus SHA-256 hashes to skip unchanged content and avoid unnecessary embedding calls.
+- Writes per-agent SQLite vector databases under the plugin's `.RagStore` directory.
 
 ### UI components
 
@@ -231,6 +258,9 @@ Tool descriptions for plugin methods are enriched from XML documentation comment
 
 The AG-UI project is an ASP.NET Core host launched as a child process. It connects to the embedded MCP server, builds an agent from the selected agent profile, loads any workflows from `WorkflowsDirectory`, and serves the web UI at `/agui`.
 
+When `AgUISessionStorageDirectory` is set, AG-UI persists serialized sessions to disk and enables `GET /history/{threadId}` for restoring conversation history in the web client.
+The session store is configured with shared-session mode (`withIsolation: false`), so connected clients see real-time updates to the same conversation.
+
 ### DevUI project (`Plugin.McpBridge.DevUI`)
 
 The DevUI project is a separate ASP.NET Core host for diagnostics. It is launched as a child process and uses the same bridge settings and MCP-backed tool set.
@@ -239,7 +269,7 @@ The DevUI project is a separate ASP.NET Core host for diagnostics. It is launche
 
 1. Build the solution for `net8.0-windows` or use a release package.
 2. Copy `Plugin.McpBridge.dll` into the host application's plugin directory.
-3. Copy `Plugin.McpBridge.DevUI.exe` and `Plugin.McpBridge.AgUI.exe` beside the plugin assembly if you want DevUI or AG-UI to launch.
+3. Copy `Plugin.McpBridge.DevUI.exe`, `Plugin.McpBridge.AgUI.exe`, and `Plugin.McpBridge.RAG.exe` beside the plugin assembly if you want DevUI, AG-UI, or the RAG sidecar to launch.
 4. Choose one of the following host applications to run this plugin:
   - [Flatbed.Dialog (Lite)](https://dkorablin.github.io/Flatbed-Dialog-Lite)
   - [Flatbed.MDI](https://dkorablin.github.io/Flatbed-MDI)
@@ -252,4 +282,6 @@ The DevUI project is a separate ASP.NET Core host for diagnostics. It is launche
 
 - `McpServerEnabled` is automatically treated as enabled when DevUI or AG-UI is enabled.
 - The default MCP/DevUI/AG-UI URLs are `http://localhost:5050`, `http://localhost:5051`, and `http://localhost:5052`.
-- RAG knowledge bases currently support `.txt` and `.md` files.
+- AG-UI session persistence and the `/history/{threadId}` endpoint are available only when `AgUISessionStorageDirectory` is configured.
+- RAG sync sidecar requires `RagProcessEnabled = true` and `Plugin.McpBridge.RAG.exe` beside the plugin assembly.
+- RAG knowledge bases default to `.txt` and `.md`, but each agent can override the supported extension list with `RagSupportedExtensions`.

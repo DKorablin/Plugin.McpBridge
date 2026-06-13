@@ -70,7 +70,7 @@ internal sealed class RagFileSyncCoordinator : IDisposable
 
 	private void QueueSync(AiAgentDto agent, String changedPath, CancellationToken cancellationToken)
 	{
-		if(!TextSearchStore.IsSupportedDocumentPath(changedPath))
+		if(!TextSearchStore.IsSupportedDocumentPath(changedPath, agent.RagSupportedExtensions))
 			return;
 
 		lock(this._pendingSync)

@@ -40,7 +40,7 @@ public class AiProviderDtoTests
 		String text = sut.ToString();
 
 		text.Should().NotContain("[INVALID]");
-		text.Should().Contain("Fast Profile - OpenAI-compatible");
+		text.Should().Contain("Fast Profile - OpenAI");
 		text.Should().Contain("chat: gpt-4o-mini");
 		text.Should().Contain("emb: text-embedding-3-small");
 		sut.IsValid.Should().BeTrue();

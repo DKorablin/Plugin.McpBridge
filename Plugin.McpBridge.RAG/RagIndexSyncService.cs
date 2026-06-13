@@ -51,6 +51,8 @@ internal sealed class RagIndexSyncService
 			|| String.IsNullOrWhiteSpace(provider.Embeddings.ModelId))
 			return;
 
+		String[] supportedExtensions = agent.RagSupportedExtensions;
+
 		String sqlitePath = TextSearchStore.GetSqliteDatabasePath(agent.RagDirectory, agent.Id);
 		Directory.CreateDirectory(Path.GetDirectoryName(sqlitePath)!);
 
@@ -62,11 +64,11 @@ internal sealed class RagIndexSyncService
 			EmbeddingGenerator = AgentFactory.CreateEmbeddingGenerator(provider),
 		});
 
-		TextSearchStore searchStore = new TextSearchStore(vectorStore, TextSearchStore.DefaultCollectionName, provider.Embeddings.Dimension.Value);
+		TextSearchStore searchStore = new TextSearchStore(vectorStore, TextSearchStore.DefaultCollectionName, provider.Embeddings.Dimension.Value, supportedExtensions: supportedExtensions);
 		await searchStore.EnsureCollectionExistsAsync(cancellationToken);
 
 		Dictionary<String, SyncMetadataEntry> existingMetadata = await metadataStore.LoadAsync(cancellationToken);
-		Dictionary<String, SyncMetadataEntry> currentSnapshot = this._fingerprintService.BuildSnapshot(agent.RagDirectory);
+		Dictionary<String, SyncMetadataEntry> currentSnapshot = this._fingerprintService.BuildSnapshot(agent.RagDirectory, supportedExtensions);
 
 		List<TextSearchDocument> upserts = new List<TextSearchDocument>();
 		List<SyncMetadataEntry> metadataUpserts = new List<SyncMetadataEntry>();

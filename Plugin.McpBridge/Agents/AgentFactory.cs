@@ -30,7 +30,8 @@ internal class AgentFactory
 		String? agentRole = null,
 		CancellationToken token = default)
 	{
-		AiProviderDto embeddingProvider = agent.GetEmbeddingProvider(providers);
+		IEnumerable<AiProviderDto> providerCandidates = providers.Append(provider);
+		AiProviderDto embeddingProvider = agent.GetEmbeddingProvider(providerCandidates);
 		IEnumerable<AIContextProvider>? contextProviders = await this.CreateContextProviders(agent, embeddingProvider);
 		return await this.CreateAgent(provider, tools, systemInstructions, agentRole, contextProviders, token);
 	}
@@ -207,7 +208,8 @@ internal class AgentFactory
 			&& embeddingProvider.Embeddings.Dimension != null
 			&& !String.IsNullOrWhiteSpace(embeddingProvider.Embeddings.ModelId))
 		{
-			TextSearchStore.AssertDocumentsInFolder(agent.RagDirectory);
+			String[] supportedExtensions = agent.RagSupportedExtensions;
+			TextSearchStore.AssertDocumentsInFolder(agent.RagDirectory, supportedExtensions);
 
 			IEmbeddingGenerator<String, Embedding<Single>> embeddingGenerator = AgentFactory.CreateEmbeddingGenerator(embeddingProvider);
 			String sqlitePath = TextSearchStore.GetSqliteDatabasePath(agent.RagDirectory, agent.Id);
@@ -218,15 +220,15 @@ internal class AgentFactory
 				{
 					EmbeddingGenerator = embeddingGenerator,
 				});
-				this._textSearchStore = new TextSearchStore(sqliteStore, TextSearchStore.DefaultCollectionName, embeddingProvider.Embeddings.Dimension.Value, embeddingProvider.Embeddings.TopResults);
+				this._textSearchStore = new TextSearchStore(sqliteStore, TextSearchStore.DefaultCollectionName, embeddingProvider.Embeddings.Dimension.Value, embeddingProvider.Embeddings.TopResults, supportedExtensions);
 				await this._textSearchStore.EnsureCollectionExistsAsync();
 			}
 
 			if(this._textSearchStore == null)
 			{
 				var vectorStore = new InMemoryVectorStore(new() { EmbeddingGenerator = embeddingGenerator });
-				this._textSearchStore = new TextSearchStore(vectorStore, TextSearchStore.DefaultCollectionName, embeddingProvider.Embeddings.Dimension.Value, embeddingProvider.Embeddings.TopResults);
-				var documents = TextSearchStore.GetDocumentsFromFolder(agent.RagDirectory);
+				this._textSearchStore = new TextSearchStore(vectorStore, TextSearchStore.DefaultCollectionName, embeddingProvider.Embeddings.Dimension.Value, embeddingProvider.Embeddings.TopResults, supportedExtensions);
+				var documents = TextSearchStore.GetDocumentsFromFolder(agent.RagDirectory, supportedExtensions);
 				await this._textSearchStore.UpsertDocumentsAsync(documents);
 			}
 

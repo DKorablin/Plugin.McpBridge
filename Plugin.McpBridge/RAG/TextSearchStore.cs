@@ -3,29 +3,30 @@ using Microsoft.Extensions.VectorData;
 using Microsoft.Extensions.AI;
 using Microsoft.SemanticKernel.Connectors.InMemory;
 using Microsoft.SemanticKernel.Connectors.SqliteVec;
+using Plugin.McpBridge.Data;
 
 namespace Plugin.McpBridge.RAG;
 
 public class TextSearchStore
 {
 	private static readonly String DefaultStoragePath = Path.Combine(AppContext.BaseDirectory, ".RagStore");
-	private static readonly String[] SupportedExtensions = new String[] { ".txt", ".md" };
 	public const String DefaultCollectionName = "rag-kb";
 
 	private readonly VectorStoreCollection<String, TextSearchRecord> _collection;
 	private readonly UInt16 _topK;
+	private readonly String[] _supportedExtensions;
 
-	public TextSearchStore(InMemoryVectorStore vectorStore, String collectionName, Int32 dimensions, UInt16 topK = 3)
-		: this((name, definition) => vectorStore.GetCollection<String, TextSearchRecord>(name, definition), collectionName, dimensions, topK)
+	public TextSearchStore(InMemoryVectorStore vectorStore, String collectionName, Int32 dimensions, UInt16 topK = 3, IEnumerable<String>? supportedExtensions = null)
+		: this((name, definition) => vectorStore.GetCollection<String, TextSearchRecord>(name, definition), collectionName, dimensions, topK, supportedExtensions)
 	{
 	}
 
-	public TextSearchStore(SqliteVectorStore vectorStore, String collectionName, Int32 dimensions, UInt16 topK = 3)
-		: this((name, definition) => vectorStore.GetCollection<String, TextSearchRecord>(name, definition), collectionName, dimensions, topK)
+	public TextSearchStore(SqliteVectorStore vectorStore, String collectionName, Int32 dimensions, UInt16 topK = 3, IEnumerable<String>? supportedExtensions = null)
+		: this((name, definition) => vectorStore.GetCollection<String, TextSearchRecord>(name, definition), collectionName, dimensions, topK, supportedExtensions)
 	{
 	}
 
-	private TextSearchStore(Func<String, VectorStoreCollectionDefinition, VectorStoreCollection<String, TextSearchRecord>> collectionFactory, String collectionName, Int32 dimensions, UInt16 topK = 3)
+	private TextSearchStore(Func<String, VectorStoreCollectionDefinition, VectorStoreCollection<String, TextSearchRecord>> collectionFactory, String collectionName, Int32 dimensions, UInt16 topK = 3, IEnumerable<String>? supportedExtensions = null)
 	{
 		var definition = new VectorStoreCollectionDefinition
 		{
@@ -40,6 +41,7 @@ public class TextSearchStore
 		};
 
 		this._topK = topK;
+		this._supportedExtensions = AiAgentDto.NormalizeRagSupportedExtensions(supportedExtensions);
 		this._collection = collectionFactory(collectionName, definition);
 	}
 
@@ -105,10 +107,11 @@ public class TextSearchStore
 	public static String GetSqliteDatabasePath(String ragDirectory, Guid agentId)
 		=> Path.Combine(DefaultStoragePath, $"rag-{agentId:N}.sqlite");
 
-	public static Boolean IsSupportedDocumentPath(String filePath)
+	public static Boolean IsSupportedDocumentPath(String filePath, IEnumerable<String>? supportedExtensions = null)
 	{
 		String extenstion = Path.GetExtension(filePath).ToLowerInvariant();
-		return Array.Exists(SupportedExtensions, ext => ext == extenstion);
+		String[] normalizedExtensions = AiAgentDto.NormalizeRagSupportedExtensions(supportedExtensions);
+		return Array.Exists(normalizedExtensions, ext => ext == extenstion);
 	}
 
 	public static String GetSourceId(String ragDirectory, String filePath)
@@ -126,22 +129,33 @@ public class TextSearchStore
 			Text = File.ReadAllText(filePath),
 		};
 
-	public static IEnumerable<String> GetDocumentFilesFromFolder(String folderPath)
-		=> Directory.EnumerateFiles(folderPath, "*.*", SearchOption.AllDirectories)
-			.Where(TextSearchStore.IsSupportedDocumentPath);
+	public static IEnumerable<String> GetDocumentFilesFromFolder(String folderPath, IEnumerable<String>? supportedExtensions = null)
+	{
+		HashSet<String> normalizedExtensions = new HashSet<String>(AiAgentDto.NormalizeRagSupportedExtensions(supportedExtensions), StringComparer.OrdinalIgnoreCase);
+		return Directory.EnumerateFiles(folderPath, "*.*", SearchOption.AllDirectories)
+			.Where(filePath => normalizedExtensions.Contains(Path.GetExtension(filePath).ToLowerInvariant()));
+	}
 
-	public static void AssertDocumentsInFolder(String folderPath)
+	public IEnumerable<String> GetDocumentFilesFromFolder(String folderPath)
+		=> Directory.EnumerateFiles(folderPath, "*.*", SearchOption.AllDirectories)
+			.Where(filePath => TextSearchStore.IsSupportedDocumentPath(filePath, this._supportedExtensions));
+
+	public static void AssertDocumentsInFolder(String folderPath, IEnumerable<String>? supportedExtensions = null)
 	{
 		if(!Directory.Exists(folderPath))
 			throw new DirectoryNotFoundException($"The specified RAG directory does not exist: {folderPath}");
 
-		if(!GetDocumentFilesFromFolder(folderPath).Any())
-			throw new DirectoryNotFoundException($"The specified folder '{folderPath}' does not contain any supported document files (*.txt, *.md).");
+		String[] normalizedExtensions = AiAgentDto.NormalizeRagSupportedExtensions(supportedExtensions);
+		if(!GetDocumentFilesFromFolder(folderPath, normalizedExtensions).Any())
+			throw new DirectoryNotFoundException($"The specified folder '{folderPath}' does not contain any supported document files ({String.Join(", ", normalizedExtensions)}).");
 	}
 
-	public static IEnumerable<TextSearchDocument> GetDocumentsFromFolder(String folderPath)
+	public static IEnumerable<TextSearchDocument> GetDocumentsFromFolder(String folderPath, IEnumerable<String>? supportedExtensions = null)
 	{
-		foreach(String filePath in GetDocumentFilesFromFolder(folderPath))
+		foreach(String filePath in GetDocumentFilesFromFolder(folderPath, supportedExtensions))
 			yield return CreateDocument(folderPath, filePath);
 	}
+
+	public IEnumerable<TextSearchDocument> GetDocumentsFromFolder(String folderPath)
+		=> TextSearchStore.GetDocumentsFromFolder(folderPath, this._supportedExtensions);
 }
