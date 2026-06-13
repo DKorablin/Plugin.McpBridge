@@ -19,14 +19,17 @@ internal static class Program
 		using(CancellationTokenSource lifetimeCts = new CancellationTokenSource())
 		{
 			SettingsDto settings = SettingsDto.CreateSettingsFromArgs(ref args, lifetimeCts);
+			using ILoggerFactory loggerFactory = LoggerFactory.Create(Program.ConfigureLogging);
+			ILogger logger = loggerFactory.CreateLogger(typeof(Program));
 
 			var bridgeTools = await settings.FetchBridgeToolsAsync();
-			Console.WriteLine($"Bridge connected: {bridgeTools.Length:N0} tools loaded from {settings.McpServerUrl}");
+			logger.LogInformation("Bridge connected: {Count:N0} tools loaded from {McpServerUrl}", bridgeTools.Length, settings.McpServerUrl);
 
 			var agentDto = settings.SelectedAgent;
 			AgentHandle agent = await _agentFactory.CreateAgent(
 				agentDto,
 				agentDto.GetSelectedProvider(settings.AiProviders),
+				settings.AiProviders,
 				bridgeTools,
 				settings.Instructions ?? String.Empty,
 				token: lifetimeCts.Token);
@@ -36,7 +39,7 @@ internal static class Program
 			{
 				foreach(String workflowFile in Directory.EnumerateFiles(settings.WorkflowsDirectory, "*.json"))
 				{
-					Console.WriteLine($"Loading workflow from {workflowFile}");
+					logger.LogInformation("Loading workflow from {WorkflowFile}", workflowFile);
 					WorkflowLoader2 loader = new WorkflowLoader2(settings, workflowFile);
 					WorkflowHandle workflowHandle = await loader.BuildAsync(settings.AiProviders, bridgeTools);
 					workflows.Add(workflowHandle);
@@ -44,7 +47,7 @@ internal static class Program
 			}
 
 			WebApplication app = BuildWebApp(args, settings, agent, workflows);
-			Console.WriteLine($"AG-UI running at {settings.UiServerUrl}/agui");
+			logger.LogInformation("AG-UI running at {AgUiUrl}", $"{settings.UiServerUrl}/agui");
 			await app.RunAsync(lifetimeCts.Token);
 		}
 		return 0;
@@ -54,10 +57,8 @@ internal static class Program
 	{
 		var builder = WebApplication.CreateBuilder(args);
 		((IWebHostBuilder)builder.WebHost).UseUrls(config.UiServerUrl);
-
-		// Force the console logger to capture detailed framework traces
-		builder.Logging.AddConsole();
-		builder.Logging.SetMinimumLevel(LogLevel.Debug); // Shows model binding/deserialization errors
+		builder.Services.Configure<ConsoleLifetimeOptions>(options => options.SuppressStatusMessages = true);
+		Program.ConfigureLogging(builder.Logging);
 
 		var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 
@@ -65,10 +66,11 @@ internal static class Program
 			.AddAIAgent(agent.Agent.Name!, (sp, name) => agent.Agent.AsBuilder().UseApproval(jsonOptions).Build(sp));
 
 		FileSystemAgentSessionStore? sessionStore = null;
-		if(config.AgUISessionStorageDirectory != null)
+		if(config.SessionStorageDirectory != null)
 		{// Persist sessions to disk so they survive server restarts
-			sessionStore = new FileSystemAgentSessionStore(config.AgUISessionStorageDirectory);
-			agentBuilder.WithSessionStore(sessionStore);
+			sessionStore = new FileSystemAgentSessionStore(config.SessionStorageDirectory);
+			// withIsolation - if true, each client gets a separate session copy that is only written back on changes. If false, all clients share the same session instance and see real-time updates, but risk interfering with each other.
+			agentBuilder.WithSessionStore(sessionStore, withIsolation: false);
 		}
 
 		foreach(var workflow in workflows)
@@ -87,6 +89,16 @@ internal static class Program
 			Program.MapHistoryEndpoints(app, sessionStore, agent.Agent.Name);
 		app.MapAGUI(agentBuilder, "/agui");
 		return app;
+	}
+
+	private static void ConfigureLogging(ILoggingBuilder logging)
+	{
+		logging.ClearProviders();
+		logging.AddSimpleConsole(options =>
+		{
+			options.SingleLine = true;
+			options.TimestampFormat = "HH:mm:ss ";
+		});
 	}
 
 	static void MapEmbeddedResource(WebApplication app, String pattern, String resourceName, String contentType)

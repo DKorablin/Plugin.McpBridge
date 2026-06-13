@@ -145,12 +145,12 @@ internal class MarkdownTextBox : RichTextBox
 		this.AppendText(text);
 	}
 
-	protected override void OnMouseUp(MouseEventArgs e)
+	protected override void OnMouseUp(MouseEventArgs mevent)
 	{
-		base.OnMouseUp(e);
-		if(e.Button != MouseButtons.Left || this.SelectionLength > 0)
+		base.OnMouseUp(mevent);
+		if(mevent.Button != MouseButtons.Left || this.SelectionLength > 0)
 			return;
-		Int32 charIndex = this.GetCharIndexFromPosition(e.Location);
+		Int32 charIndex = this.GetCharIndexFromPosition(mevent.Location);
 		foreach((Int32 Start, Int32 Length, String Url) link in _links)
 		{
 			if(charIndex >= link.Start && charIndex < link.Start + link.Length)

@@ -21,6 +21,7 @@ internal sealed class ProcessHost : IDisposable
 	{
 		DevUI,
 		AgUI,
+		RAG,
 	}
 
 	public ProcessHost(IHost host, ExeType type)
@@ -36,7 +37,7 @@ internal sealed class ProcessHost : IDisposable
 		if(this._process != null)
 			this.Stop();
 
-		String exePath = GetExePath();
+		String exePath = this.GetExePath();
 		String configPath = Path.Combine(Path.GetTempPath(), this.ConfigName);
 
 		SettingsDto config = this.BuildConfig(settings);
@@ -85,7 +86,7 @@ internal sealed class ProcessHost : IDisposable
 		}
 
 		return throwException
-			? throw new FileNotFoundException($"{0} executable not found. Expected alongside the plugin assembly.", exeName)
+			? throw new FileNotFoundException($"{type} executable not found. Expected alongside the plugin assembly.", exeName)
 			: null;
 	}
 
@@ -127,6 +128,7 @@ internal sealed class ProcessHost : IDisposable
 		{
 			ExeType.DevUI => settings.DevUIServerUrl,
 			ExeType.AgUI => settings.AgUIServerUrl,
+			ExeType.RAG => String.Empty,
 			_ => throw new InvalidOperationException($"Unsupported executable: {this._exeType}"),
 		};
 

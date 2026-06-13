@@ -8831,14 +8831,38 @@ function Xs(e) {
 		r.onload = () => t(r.result), r.onerror = (e) => n(e), r.readAsDataURL(e);
 	});
 }
-function Zs(e, t) {
-	let n = document.createElement("div");
-	return n.className = `msg ${e}`, e === "assistant" && t === "…" ? n.innerHTML = "<div class=\"loading-wave\"><span class=\"dot\">.</span><span class=\"dot\">.</span><span class=\"dot\">.</span></div>" : n.textContent = t, Q.appendChild(n), Q.scrollTop = Q.scrollHeight, n;
+async function Zs(e) {
+	let t = await Xs(e), n = t.indexOf(",");
+	if (n < 0) throw Error(`Failed to encode file '${e.name}' as base64.`);
+	return t.slice(n + 1);
 }
-function Qs() {
-	for (let e of qs) e.role === "user" && typeof e.content == "string" ? Zs("user", e.content) : e.role === "assistant" && typeof e.content == "string" && e.content.length > 0 && Zs("assistant", e.content);
+function Qs(e, t, n) {
+	let r = document.createElement("div");
+	if (r.className = `msg ${e}`, e === "assistant" && t === "…") r.innerHTML = "<div class=\"loading-wave\"><span class=\"dot\">.</span><span class=\"dot\">.</span><span class=\"dot\">.</span></div>";
+	else {
+		if (t) {
+			let e = document.createElement("div");
+			e.className = "message-text", e.textContent = t, r.appendChild(e);
+		}
+		if (n && n.length > 0) {
+			let e = document.createElement("div");
+			e.className = "message-files";
+			for (let t of n) if (t.type.startsWith("image/")) {
+				let n = document.createElement("img");
+				n.src = URL.createObjectURL(t), n.className = "message-file-image", n.alt = t.name, n.title = t.name, e.appendChild(n);
+			} else {
+				let n = document.createElement("div");
+				n.className = "message-file-badge", n.innerHTML = `<span>&#128196;</span><span>${t.name}</span>`, e.appendChild(n);
+			}
+			r.appendChild(e);
+		}
+	}
+	return Q.appendChild(r), Q.scrollTop = Q.scrollHeight, r;
 }
-async function $s() {
+function $s() {
+	for (let e of qs) e.role === "user" && typeof e.content == "string" ? Qs("user", e.content) : e.role === "assistant" && typeof e.content == "string" && e.content.length > 0 && Qs("assistant", e.content);
+}
+async function ec() {
 	let e = await fetch(`/history/${encodeURIComponent(Ks)}`);
 	if (!e.ok) return;
 	let t = await e.json(), n = /* @__PURE__ */ new Set();
@@ -8857,10 +8881,10 @@ async function $s() {
 			content: r
 		}));
 	}
-	qs.length > 0 && Qs();
+	qs.length > 0 && $s();
 }
-var ec = /* @__PURE__ */ new Map();
-function tc(e) {
+var tc = /* @__PURE__ */ new Map();
+function nc(e) {
 	let t = document.createElement("div");
 	t.className = "msg approval-request", t.dataset.toolCallId = e.toolCallId, t.innerHTML = `
 		<div class="approval-header"><span>&#9888;</span> Approval Required</div>
@@ -8869,12 +8893,12 @@ function tc(e) {
 			<button class="approve-btn">Approve</button>
 			<button class="deny-btn">Deny</button>
 		</div>`, t.querySelector(".approve-btn").addEventListener("click", () => {
-		t.remove(), ec.delete(e.toolCallId), e.resolve(!0);
+		t.remove(), tc.delete(e.toolCallId), e.resolve(!0);
 	}), t.querySelector(".deny-btn").addEventListener("click", () => {
-		t.remove(), ec.delete(e.toolCallId), e.resolve(!1);
+		t.remove(), tc.delete(e.toolCallId), e.resolve(!1);
 	}), Q.appendChild(t), Q.scrollTop = Q.scrollHeight;
 }
-async function nc(e, t) {
+async function rc(e, t) {
 	let n = new Vs({ url: "/agui" }), r = t.querySelector(".loading-wave") ? "" : t.textContent ?? "", i = /* @__PURE__ */ new Map(), a = /* @__PURE__ */ new Map(), o = [];
 	await new Promise((s, c) => {
 		n.run(e).subscribe({
@@ -8939,7 +8963,7 @@ async function nc(e, t) {
 										approved: n
 									})
 								};
-								await nc({
+								await rc({
 									...e,
 									runId: crypto.randomUUID(),
 									messages: [
@@ -8950,7 +8974,7 @@ async function nc(e, t) {
 								}, t);
 							}
 						};
-						ec.set(r, f), tc(f);
+						tc.set(r, f), nc(f);
 						break;
 					}
 				}
@@ -8964,10 +8988,10 @@ async function nc(e, t) {
 		});
 	});
 }
-async function rc() {
+async function ic() {
 	let e = $.value.trim();
 	if (!e && Js.length === 0) return;
-	$.value = "", ic(), Hs.disabled = !0, Us.disabled = !0;
+	$.value = "", ac(), Hs.disabled = !0, Us.disabled = !0;
 	let t = [];
 	e && t.push({
 		type: "text",
@@ -8976,51 +9000,49 @@ async function rc() {
 	let n = [];
 	for (let e of Js) {
 		n.push(e.name);
-		let r = await Xs(e), i = e.type || "application/octet-stream", a = {
-			type: "url",
-			value: r,
-			mimeType: i
-		};
-		i.startsWith("image/") ? t.push({
-			type: "image",
-			source: a
-		}) : t.push({
-			type: "document",
-			source: a
+		let r = await Zs(e), i = e.type || "application/octet-stream";
+		t.push({
+			type: "binary",
+			mimeType: i,
+			filename: e.name,
+			data: r
 		});
 	}
-	e + (n.length > 0 ? `\n\n[Attached: ${n.join(", ")}]` : "");
-	let r = Js.length > 0 ? `${e} [File Attached]` : e;
+	let r = [...Js], i = e;
 	Js = [], Gs.innerHTML = "";
-	let i = {
+	let a = (t.length, e), o = {
 		id: crypto.randomUUID(),
 		role: "user",
-		content: e
-	};
-	qs.push(i), Zs("user", r);
-	let a = Zs("assistant", "…"), o = {
+		content: a
+	}, s = i || (r.length > 0 ? "" : "[Attached file]");
+	qs.push({
+		id: o.id,
+		role: "user",
+		content: s || "[Attached file]"
+	}), Qs("user", s, r);
+	let c = Qs("assistant", "…"), l = {
 		threadId: Ks,
 		runId: crypto.randomUUID(),
-		messages: [i],
+		messages: [o],
 		tools: [],
 		context: []
 	};
 	try {
-		await nc(o, a), a.textContent && a.textContent !== "…" && qs.push({
+		await rc(l, c), c.textContent && c.textContent !== "…" && qs.push({
 			id: crypto.randomUUID(),
 			role: "assistant",
-			content: a.textContent
+			content: c.textContent
 		});
 	} finally {
 		Hs.disabled = !1, Us.disabled = !1, $.focus();
 	}
 }
-function ic() {
+function ac() {
 	$.style.height = "0";
 	let e = $.scrollHeight, t = parseFloat(getComputedStyle($).maxHeight);
 	e >= t ? ($.style.height = `${t}px`, $.style.overflowY = "auto") : ($.style.height = `${e}px`, $.style.overflowY = "hidden");
 }
-Hs.addEventListener("click", rc), $.addEventListener("keydown", (e) => {
-	e.key === "Enter" && (e.shiftKey ? setTimeout(ic, 0) : (e.preventDefault(), rc()));
-}), $.addEventListener("input", ic), $s(), $.focus();
+Hs.addEventListener("click", ic), $.addEventListener("keydown", (e) => {
+	e.key === "Enter" && (e.shiftKey ? setTimeout(ac, 0) : (e.preventDefault(), ic()));
+}), $.addEventListener("input", ac), ec(), $.focus();
 //#endregion

@@ -19,6 +19,7 @@ namespace Plugin.McpBridge
 
 		private ProcessHost? _devUIHost;
 		private ProcessHost? _agUIHost;
+		private ProcessHost? _ragHost;
 		private McpServer? _mcpServer;
 
 		private IMenuItem? _menuChat;
@@ -49,6 +50,8 @@ namespace Plugin.McpBridge
 			this._devUIHost = null;
 			this._agUIHost?.StopAsync().GetAwaiter().GetResult();
 			this._agUIHost = null;
+			this._ragHost?.StopAsync().GetAwaiter().GetResult();
+			this._ragHost = null;
 			this._mcpServer?.Dispose();
 			this._mcpServer = null;
 
@@ -158,6 +161,11 @@ namespace Plugin.McpBridge
 				this._agUIHost = new ProcessHost(this.Host, ProcessHost.ExeType.AgUI);
 				Task.Run(() => this._agUIHost.StartAsync(this.Settings));
 			}
+			if(this.Settings.RagProcessEnabled)
+			{
+				this._ragHost = new ProcessHost(this.Host, ProcessHost.ExeType.RAG);
+				Task.Run(() => this._ragHost.StartAsync(this.Settings));
+			}
 		}
 
 		Boolean IPlugin.OnDisconnection(DisconnectMode mode)
@@ -166,6 +174,7 @@ namespace Plugin.McpBridge
 				this.HostWindows.MainMenu.Items.Remove(this._menuChat);
 			this._devUIHost?.Dispose();
 			this._agUIHost?.Dispose();
+			this._ragHost?.Dispose();
 			this._mcpServer?.Dispose();
 			return true;
 		}

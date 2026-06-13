@@ -42,7 +42,7 @@ function renderPreviews(): void {
 	});
 }
 
-// Utility helper to encode local browser files to base64 Data URLs
+// Utility helper to encode local browser files to base64 payloads.
 function fileToDataUrl(file: File): Promise<string> {
 	return new Promise((resolve, reject) => {
 		const reader = new FileReader();
@@ -52,23 +52,60 @@ function fileToDataUrl(file: File): Promise<string> {
 	});
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+async function fileToBase64(file: File): Promise<string> {
+	const dataUrl = await fileToDataUrl(file);
+	const commaIndex = dataUrl.indexOf(",");
+	if (commaIndex < 0)
+		throw new Error(`Failed to encode file '${file.name}' as base64.`);
+	return dataUrl.slice(commaIndex + 1);
+}
 
-function appendMessage(role: "user" | "assistant", text: string): HTMLElement {
+function appendMessage(role: "user" | "assistant", text: string, files?: File[]): HTMLElement {
 	const el = document.createElement("div");
 	el.className = `msg ${role}`;
 
-	if (role === "assistant" && text === "…")
+	if (role === "assistant" && text === "…") {
 		el.innerHTML = `<div class="loading-wave"><span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></div>`;
-	else
-		el.textContent = text;
+	} else {
+		// Add text content if provided
+		if (text) {
+			const textEl = document.createElement("div");
+			textEl.className = "message-text";
+			textEl.textContent = text;
+			el.appendChild(textEl);
+		}
+
+		// Add file attachments (images or file blocks)
+		if (files && files.length > 0) {
+			const filesContainer = document.createElement("div");
+			filesContainer.className = "message-files";
+
+			for (const file of files) {
+				if (file.type.startsWith("image/")) {
+					// Render as inline image
+					const img = document.createElement("img");
+					img.src = URL.createObjectURL(file);
+					img.className = "message-file-image";
+					img.alt = file.name;
+					img.title = file.name;
+					filesContainer.appendChild(img);
+				} else {
+					// Render as file block
+					const badge = document.createElement("div");
+					badge.className = "message-file-badge";
+					badge.innerHTML = `<span>&#128196;</span><span>${file.name}</span>`;
+					filesContainer.appendChild(badge);
+				}
+			}
+
+			el.appendChild(filesContainer);
+		}
+	}
 
 	messagesEl.appendChild(el);
 	messagesEl.scrollTop = messagesEl.scrollHeight;
 	return el;
 }
-
-// ── History persistence ───────────────────────────────────────────────────────
 
 function renderHistory(): void {
 	for (const msg of history) {
@@ -142,8 +179,6 @@ function showApprovalCard(approval: PendingApproval): void {
 	messagesEl.appendChild(card);
 	messagesEl.scrollTop = messagesEl.scrollHeight;
 }
-
-// ── Run loop ──────────────────────────────────────────────────────────────────
 
 async function runAgent(input: RunAgentInput, assistantEl: HTMLElement): Promise<void> {
 	const agent = new HttpAgent({ url: "/agui" });
@@ -262,8 +297,6 @@ async function runAgent(input: RunAgentInput, assistantEl: HTMLElement): Promise
 	});
 }
 
-// ── Send ──────────────────────────────────────────────────────────────────────
-
 async function send(): Promise<void> {
 	const text = inputEl.value.trim();
 	if (!text && selectedFiles.length === 0) return;
@@ -273,7 +306,16 @@ async function send(): Promise<void> {
 	sendBtn.disabled = true;
 	attachBtn.disabled = true;
 
-	const contentArray: any[] = [];
+	type UserTextContent = { type: "text"; text: string };
+	type UserBinaryContent = {
+		type: "binary";
+		mimeType: string;
+		filename: string;
+		data: string;
+	};
+	type UserContent = string | Array<UserTextContent | UserBinaryContent>;
+
+	const contentArray: Array<UserTextContent | UserBinaryContent> = [];
 
 	if (text)
 		contentArray.push({ type: "text", text: text });
@@ -283,50 +325,46 @@ async function send(): Promise<void> {
 	// Warning: Sending files using AG-UI is not working in all contexts. The server is rejecting all attempts to send files.
 	for (const file of selectedFiles) {
 		displayNames.push(file.name);
-		const dataUrl = await fileToDataUrl(file);
+		const base64Data = await fileToBase64(file);
 		const mimeType = file.type || "application/octet-stream";
 
-		const fileSource = {
-			type: "url",
-			value: dataUrl,
-			mimeType: mimeType
-		};
-
-		if (mimeType.startsWith("image/")) {
-			contentArray.push({
-				type: "image",
-				source: fileSource
-			});
-		} else {
-			contentArray.push({
-				type: "document",
-				source: fileSource
-			});
-		}
+		contentArray.push({
+			type: "binary",
+			mimeType,
+			filename: file.name,
+			data: base64Data,
+		});
 	}
 
-	const visualText = text + (displayNames.length > 0 ? `\n\n[Attached: ${displayNames.join(", ")}]` : "");
-	const uiRenderText = selectedFiles.length > 0 ? `${text} [File Attached]` : text;
+	// Keep a reference to files before clearing (for display)
+	const filesToDisplay = [...selectedFiles];
+
+	const uiRenderText = text;
 
 	selectedFiles = [];
 	previewContainer.innerHTML = "";
 
 	//BUG: https://github.com/microsoft/agent-framework/issues/3729
-	const userMessage: Message = {
+	const userContent: UserContent = contentArray.length > 0
+		? text//contentArray
+		: text;
+
+	const userMessage = {
 		id: crypto.randomUUID(),
-		role: "user",
-		content: text,
+		role: "user" as const,
+		content: userContent,
 	};
 
-	history.push(userMessage);
-	appendMessage("user", uiRenderText);
+	const displayText = uiRenderText || (filesToDisplay.length > 0 ? "" : "[Attached file]");
+	history.push({ id: userMessage.id, role: "user", content: displayText || "[Attached file]" });
+	appendMessage("user", displayText, filesToDisplay);
 
 	const assistantEl = appendMessage("assistant", "…");
 
 	const input: RunAgentInput = {
 		threadId: currentThreadId,
 		runId: crypto.randomUUID(),
-		messages: [userMessage],
+		messages: [userMessage as Message],
 		tools: [],
 		context: [],
 	};

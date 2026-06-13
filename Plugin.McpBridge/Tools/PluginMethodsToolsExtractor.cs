@@ -38,7 +38,8 @@ internal class PluginMethodsToolsExtractor : ToolsDiscoveryBase
 					var docs = this._xmlReader.FindDocumentation(pluginDescription, member);
 
 					// Allowed tool name: ^[a-zA-Z0-9_]+$
-					var toolName = $"{pluginDescription.Name.Replace("-", String.Empty)}.{method.Name}";
+					// Allowed tool name for CoPilot: ^[a-zA-Z0-9_-]{1,128}$
+					var toolName = $"{pluginDescription.Name.Replace("-", String.Empty).Replace(".", String.Empty)}_{method.Name}";
 					var description = docs?.Summary ?? String.Empty;
 
 					PluginMethodAIFunction function = new PluginMethodAIFunction(

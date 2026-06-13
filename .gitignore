@@ -10,6 +10,10 @@
 *.userosscache
 *.sln.docstates
 
+# Ignore dot-prefixed files/folders inside Samples folder, which are used for code snippets in documentation and should not be included in the repository
+/Samples/.*
+/Samples/**/.*
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 

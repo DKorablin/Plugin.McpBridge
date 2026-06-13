@@ -13,15 +13,16 @@ public record AiAgentDto : INotifyPropertyChanged
 Use available MCP tools when useful.
 Return clear user-facing responses, or a command payload only when automation is required.
 Before using relative dates (today, yesterday, last hour), obtain the current system time from the SystemInformation tool.";
-//		public const String RagToolName = "SearchKnowledgeBase";
-//		public const String RagToolDescription = "Search the knowledge base for relevant information to assist in answering the user's question. Use this tool when the user is asking for specific information, or if you want to provide a more comprehensive answer. The input to this tool is a string representing the search query, and the output is a list of relevant search results.";
-//		public const String RagCitationsPrompt = "Always cite sources at the end of your response using the format: **Source:** [SourceName](SourceLink)";
+		public static readonly String[] RagSupportedExtensions = new String[] { ".txt", ".md" };
 	}
+
+	private String? _description = null;
 
 	private String[]? _toolsPermission = null;
 	private String[]? _pluginsPermission = null;
 
 	private Guid? _selectedProviderId;
+	private Guid? _embeddingProviderId;
 
 	private String? _assistantSystemPrompt = Defaults.AssistantSystemPrompt;
 
@@ -31,14 +32,26 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 	private String? _ragToolDescription = null;
 	private String? _ragDirectory = null;
 	private String? _ragCitationsPrompt = null;
+	private String[] _ragSupportedExtensions = (String[])Defaults.RagSupportedExtensions.Clone();
 
 	/// <summary>Gets the unique identifier for this instance.</summary>
 	[ReadOnly(true)]
 	public Guid Id { get; init; } = Guid.NewGuid();
 
+	public String? Description
+	{
+		get => this._description;
+		set
+		{
+			if(String.IsNullOrWhiteSpace(value))
+				value = null;
+			this.SetField(ref this._description, value, nameof(this.Description));
+		}
+	}
+
 	[Category("Provider")]
-	[DisplayName("Selected Provider")]
-	[Description("The active AI provider profile to use.")]
+	[DisplayName("Chat Provider")]
+	[Description("The active AI provider profile to use for chat completions.")]
 	[TypeConverter(typeof(AiProviderIdConverter))]
 	[DefaultValue(null)]
 	public Guid? SelectedProviderId
@@ -47,11 +60,22 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		set => this.SetField(ref this._selectedProviderId, value, nameof(this.SelectedProviderId));
 	}
 
+	[Category("Provider")]
+	[DisplayName("Embedding Provider")]
+	[Description("Optional AI provider profile used for embeddings and RAG indexing. If empty, the selected chat provider will also be used for embeddings.")]
+	[TypeConverter(typeof(EmbeddingProviderIdConverter))]
+	[DefaultValue(null)]
+	public Guid? EmbeddingProviderId
+	{
+		get => this._embeddingProviderId;
+		set => this.SetField(ref this._embeddingProviderId, value, nameof(this.EmbeddingProviderId));
+	}
+
 	/// <summary>The system prompt that defines the assistant's behavior and persona.</summary>
 	[Category("Instruments")]
 	[DefaultValue(Defaults.AssistantSystemPrompt)]
 	[Description("The system prompt that defines the assistant's behavior and persona.")]
-	[Editor(typeof(System.ComponentModel.Design.MultilineStringEditor), typeof(System.Drawing.Design.UITypeEditor))]
+	[Editor(typeof(System.ComponentModel.Design.MultilineStringEditor), typeof(UITypeEditor))]
 	public String? AssistantSystemPrompt
 	{
 		get => this._assistantSystemPrompt ?? Defaults.AssistantSystemPrompt;
@@ -66,7 +90,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 
 	[Category("Instruments")]
 	[Description("An optional directory path where the assistant can read/write files when using skills. If not set, skills will not be available.")]
-	[Editor(typeof(System.Windows.Forms.Design.FolderNameEditor), typeof(System.Drawing.Design.UITypeEditor))]
+	[Editor(typeof(System.Windows.Forms.Design.FolderNameEditor), typeof(UITypeEditor))]
 	public String? SkillsDirectory
 	{
 		get => this._skillsDirectory;
@@ -123,9 +147,24 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 	}
 
 	[Category("RAG")]
+	[DisplayName("RAG Supported Extensions")]
+	[Description("Optional list of supported RAG file extensions. When empty, defaults to .txt and .md.")]
+	[DefaultValue(null)]
+	[Editor(typeof(System.ComponentModel.Design.CollectionEditor), typeof(UITypeEditor))]
+	public String[] RagSupportedExtensions
+	{
+		get => this._ragSupportedExtensions;
+		set
+		{
+			String[] normalized = NormalizeRagSupportedExtensions(value);
+			this.SetField(ref this._ragSupportedExtensions, normalized, nameof(this.RagSupportedExtensions));
+		}
+	}
+
+	[Category("RAG")]
 	[DisplayName("RAG Knowledge Base Directory")]
-	[Description("An optional directory path where RAG knowledge base files are stored (Supported extensions: *.txt, *.md).")]
-	[Editor(typeof(System.Windows.Forms.Design.FolderNameEditor), typeof(System.Drawing.Design.UITypeEditor))]
+	[Description("An optional directory path where RAG knowledge base files are stored. Supported extensions are configured by RAG Supported Extensions.")]
+	[Editor(typeof(System.Windows.Forms.Design.FolderNameEditor), typeof(UITypeEditor))]
 	public String? RagDirectory
 	{
 		get => this._ragDirectory;
@@ -133,8 +172,6 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		{
 			if(String.IsNullOrWhiteSpace(value))
 				value = null;
-			else
-				RAG.TextSearchStore.AssertDocumentsInFolder(value);
 
 			this.SetField(ref this._ragDirectory, value, nameof(this.RagDirectory));
 		}
@@ -162,14 +199,75 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 		set => this.SetField(ref this._pluginsPermission, value, nameof(this.PluginsPermission));
 	}
 
-	internal AiProviderDto GetSelectedProvider(IEnumerable<AiProviderDto> providers)
+	public AiProviderDto GetSelectedProvider(IEnumerable<AiProviderDto> providers)
 	{
 		if(providers == null)
 			throw new InvalidOperationException("No AI providers available.");
 
-		return this.SelectedProviderId == null
-			? providers.First()
-			: providers.First(x => x.Id == this.SelectedProviderId);
+		return GetProvider(providers, this.SelectedProviderId, true);
+	}
+
+	public AiProviderDto GetEmbeddingProvider(IEnumerable<AiProviderDto> providers)
+	{
+		if(providers == null)
+			throw new InvalidOperationException("No AI providers available.");
+
+		Guid? providerId = this.EmbeddingProviderId ?? this.SelectedProviderId;
+		return GetProvider(providers, providerId, true);
+	}
+
+	private static AiProviderDto GetProvider(IEnumerable<AiProviderDto> providers, Guid? providerId, Boolean useFirstIfNull)
+	{
+		if(providerId != null)
+		{
+			var provider = providers.FirstOrDefault(x => x.Id == providerId.Value);
+			if(provider != null)
+				return provider;
+		}
+
+		if(useFirstIfNull)
+		{
+			var provider = providers.FirstOrDefault();
+			if(provider != null)
+				return provider;
+		}
+
+		throw new InvalidOperationException("No AI providers available.");
+	}
+
+	internal static String[] NormalizeRagSupportedExtensions(IEnumerable<String>? extensions)
+	{
+		if(extensions == null)
+			return (String[])Defaults.RagSupportedExtensions.Clone();
+
+		HashSet<String> unique = new HashSet<String>(StringComparer.OrdinalIgnoreCase);
+		List<String> normalized = new List<String>();
+		foreach(String extension in extensions)
+		{
+			if(String.IsNullOrWhiteSpace(extension))
+				throw new ArgumentException("RAG supported extensions cannot contain empty values.", nameof(extensions));
+
+			String normalizedExtension = extension.Trim().ToLowerInvariant();
+			ValidateRagSupportedExtension(normalizedExtension);
+			if(unique.Add(normalizedExtension))
+				normalized.Add(normalizedExtension);
+		}
+
+		return normalized.Count == 0
+			? (String[])Defaults.RagSupportedExtensions.Clone()
+			: normalized.ToArray();
+	}
+
+	private static void ValidateRagSupportedExtension(String extension)
+	{
+		if(extension.Length < 2 || extension[0] != '.')
+			throw new ArgumentException($"Invalid RAG supported extension '{extension}'. Extensions must start with '.'.", nameof(extension));
+		if(extension[^1] == '.')
+			throw new ArgumentException($"Invalid RAG supported extension '{extension}'. Extensions must end with an alphanumeric suffix.", nameof(extension));
+		if(extension.Any(Char.IsWhiteSpace))
+			throw new ArgumentException($"Invalid RAG supported extension '{extension}'. Extensions cannot contain whitespace.", nameof(extension));
+		if(!extension.Skip(1).All(c => Char.IsLetterOrDigit(c) || c == '.' || c == '_' || c == '-'))
+			throw new ArgumentException($"Invalid RAG supported extension '{extension}'. Allowed characters are letters, digits, '.', '_' and '-'.", nameof(extension));
 	}
 
 	#region INotifyPropertyChanged

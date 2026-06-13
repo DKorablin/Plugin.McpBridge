@@ -18,9 +18,12 @@
 		<PackageReference Include="Microsoft.Agents.AI.Workflows" />
 		<PackageReference Include="Microsoft.Agents.AI.Workflows.Declarative" />
 		<PackageReference Include="Microsoft.Agents.AI.Hosting.OpenAI" />
-		<PackageReference Include="Microsoft.Agents.AI.GitHub.Copilot" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Console" />
 		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
+		<!--CoPilot-->
+		<PackageReference Include="Microsoft.Agents.AI.GitHub.Copilot" />
 		<!--RAG-->
 		<PackageReference Include="Microsoft.SemanticKernel.Connectors.InMemory" />
+		<PackageReference Include="Microsoft.SemanticKernel.Connectors.SqliteVec" />
 	</ItemGroup>
 </Project>

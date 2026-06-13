@@ -1,0 +1,69 @@
+# Windows Communication Foundation (WCF) and Web Service (WS) Test Client Plugin
+[![Auto build](https://github.com/DKorablin/Plugin.WcfClient/actions/workflows/release.yml/badge.svg)](https://github.com/DKorablin/Plugin.WcfClient/releases/latest)
+
+A plugin for the SAL host application that provides an interactive test client for both **WCF** (Windows Communication Foundation) and classic **ASMX** Web Services. Services can be added by URL or from a local WSDL file; method parameters are edited visually, invoked on demand, and the full test project is persisted for later reuse.
+
+Inspired by the original Microsoft WCF Test Client (`wcftestclient.exe`), this plugin extends its concepts by adding full ASMX support and deeper project-level persistence, making it a single tool for testing any service-oriented architecture.
+
+## Architecture
+
+The plugin is implemented as a .NET Framework 4.8 class library that integrates with the SAL host via `IPlugin` / `IPluginSettings<T>` interfaces. Each loaded service runs in its own isolated `AppDomain` to prevent assembly conflicts between concurrently loaded proxy libraries.
+
+| Component | Responsibility |
+|---|---|
+| `PanelSvcClient` | Dockable tree-view panel listing all added services and their endpoints |
+| `DocumentSvcTestMethod` | Document tab for invoking a specific service method and inspecting the response |
+| `ServiceAnalyzer` | Abstract base that drives proxy generation and compilation for a given service type |
+| `ServiceWcfAnalyzer` | WCF-specific analyzer — delegates to `svcutil.exe` to generate the C# proxy |
+| `ServiceWsAnalyzer` | ASMX-specific analyzer — delegates to `wsdl.exe` to generate the C# proxy |
+| `ServiceExecutor` | `MarshalByRefObject` that invokes service methods across the `AppDomain` boundary |
+| `DataContractAnalyzer` | Reflects over the compiled proxy to build the parameter tree shown in the UI |
+| `ServiceProject` | Holds a loaded service's `AppDomain`, endpoints, and watches the config file for external changes |
+| `ConfigFileMappingManager` | Persists per-endpoint `app.config` overrides so custom bindings survive a proxy regeneration |
+| `ToolingEnvironment` | Locates SDK tools (`svcutil.exe`, `wsdl.exe`, `disco.exe`, `SvcConfigEditor.exe`) from the Windows Registry |
+
+## Key Features
+
+### Service Management
+- Add services by **URL** (live endpoint) or from a **local WSDL / disco file** on disk.
+- Supports multiple named **endpoints** per service (all binding configurations from the generated `app.config` are shown).
+- Organize services into **folders** inside the tree view.
+- Per-service settings: service type (WCF / WS), address, authentication credentials, and proxy credentials.
+
+### Proxy Generation & Compilation
+- WCF proxies are generated with `svcutil.exe /targetClientVersion:Version35` and compiled in-process via `CSharpCodeProvider`.
+- ASMX proxies are generated with `wsdl.exe` and compiled the same way.
+- **Manual regeneration** at any time — useful for regression-testing after a service update.
+- Optional **config rewrite** on regeneration (configurable globally and per service); previously customized configs are preserved in a cached mapping.
+
+### Method Invocation
+- Visual parameter editor covers primitive types, enums, arrays, and nested data-contract types.
+- Invocation result and any fault/exception details are displayed inline.
+- **SOAP payload capture**: request and response XML can be intercepted for inspection.
+- For WCF, the raw XML of the outgoing request can be extracted without actually sending it.
+
+### Persistence
+- All service endpoints and their test data are stored in a single **`WcfSettings.xml`** file inside the host's settings directory.
+- Input parameter values can be **auto-saved** on each invocation so they are restored in the next session.
+- Generated assemblies and config files are stored under `%LOCALAPPDATA%\Temp\Plugin.WcfClient Test Projects`, one sub-folder per service.
+
+### Configuration
+- **Proxy support** — global HTTP proxy credentials applied to all service downloads.
+- **WCF Configuration Editor** integration — opens `SvcConfigEditor.exe` against the service's `app.config` directly from the UI.
+- **Restore default config** — reverts to the config generated during the last full proxy download.
+
+## Requirements
+
+- .NET Framework 4.8 (target) — compatible with hosts running .NET Framework 4.x in legacy mode and .NET 7+ winth Windows Forms support.
+- Windows SDK tools on `PATH` or registered in the Windows Registry: `svcutil.exe`, `wsdl.exe`, `disco.exe`.
+- SAL host application.
+
+## Installation
+
+1. Download the release archive (.zip or .nupkg).
+2. Place the plugin assembly into the host application plugin directory (SAL / host supporting Windows environment):
+	- [Flatbed.Dialog](https://dkorablin.github.io/Flatbed-Dialog/)
+	- [Flatbed.Dialog (Lite)](https://dkorablin.github.io/Flatbed-Dialog-Lite)
+	- [Flatbed.MDI](https://dkorablin.github.io/Flatbed-MDI)
+	- [Flatbed.MDI (WPF)](https://dkorablin.github.io/Flatbed-MDI-Avalon)
+3. Restart the host application; Plugin.WcfClient should appear in the plugin list (Tools -> Test -> Network -> Service Test Client).
