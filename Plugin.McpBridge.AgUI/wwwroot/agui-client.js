@@ -9010,7 +9010,7 @@ async function ic() {
 	}
 	let r = [...Js], i = e;
 	Js = [], Gs.innerHTML = "";
-	let a = t.length > 0 ? t : e, o = {
+	let a = (t.length, e), o = {
 		id: crypto.randomUUID(),
 		role: "user",
 		content: a

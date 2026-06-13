@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using Plugin.McpBridge.RAG;
 
 namespace Plugin.McpBridge.RAGHost;
@@ -21,13 +20,5 @@ internal sealed class RagFileFingerprintService
 			};
 		}
 		return snapshot;
-	}
-
-	public String ComputeFileHash(String filePath)
-	{
-		using SHA256 sha256 = SHA256.Create();
-		using FileStream stream = File.OpenRead(filePath);
-		Byte[] hashBytes = sha256.ComputeHash(stream);
-		return Convert.ToHexString(hashBytes);
 	}
 }

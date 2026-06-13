@@ -209,7 +209,6 @@ internal class AgentFactory
 		{
 			TextSearchStore.AssertDocumentsInFolder(agent.RagDirectory);
 
-			var documents = TextSearchStore.GetDocumentsFromFolder(agent.RagDirectory);
 			IEmbeddingGenerator<String, Embedding<Single>> embeddingGenerator = AgentFactory.CreateEmbeddingGenerator(embeddingProvider);
 			String sqlitePath = TextSearchStore.GetSqliteDatabasePath(agent.RagDirectory, agent.Id);
 			if(File.Exists(sqlitePath))
@@ -219,20 +218,21 @@ internal class AgentFactory
 				{
 					EmbeddingGenerator = embeddingGenerator,
 				});
-				this._textSearchStore = new TextSearchStore(sqliteStore, TextSearchStore.DefaultCollectionName, embeddingProvider.Embeddings.Dimension.Value);
+				this._textSearchStore = new TextSearchStore(sqliteStore, TextSearchStore.DefaultCollectionName, embeddingProvider.Embeddings.Dimension.Value, embeddingProvider.Embeddings.TopResults);
 				await this._textSearchStore.EnsureCollectionExistsAsync();
 			}
 
 			if(this._textSearchStore == null)
 			{
 				var vectorStore = new InMemoryVectorStore(new() { EmbeddingGenerator = embeddingGenerator });
-				this._textSearchStore = new TextSearchStore(vectorStore, TextSearchStore.DefaultCollectionName, embeddingProvider.Embeddings.Dimension.Value);
+				this._textSearchStore = new TextSearchStore(vectorStore, TextSearchStore.DefaultCollectionName, embeddingProvider.Embeddings.Dimension.Value, embeddingProvider.Embeddings.TopResults);
+				var documents = TextSearchStore.GetDocumentsFromFolder(agent.RagDirectory);
 				await this._textSearchStore.UpsertDocumentsAsync(documents);
 			}
 
-			providers.Add(new TextSearchProvider(this.SearchAsync, new TextSearchProviderOptions
+			providers.Add(new TextSearchProvider((text, ct) => this._textSearchStore!.SearchTextAsync(text, ct), new TextSearchProviderOptions
 			{
-				SearchTime = TextSearchProviderOptions.TextSearchBehavior.BeforeAIInvoke,
+				SearchTime = TextSearchProviderOptions.TextSearchBehavior.OnDemandFunctionCalling,
 				FunctionToolName = agent.RagToolName,
 				FunctionToolDescription = agent.RagToolDescription,
 				CitationsPrompt = agent.RagCitationsPrompt,
@@ -294,15 +294,4 @@ internal class AgentFactory
 		=> providerSettings.Connection as CoPilotConnectionSettings
 			?? throw new InvalidOperationException($"Provider '{providerSettings}' requires Copilot connection settings.");
 
-	private async Task<IEnumerable<TextSearchProvider.TextSearchResult>> SearchAsync(String text, CancellationToken ct)
-	{
-		var results = await this._textSearchStore!.SearchAsync(text, 3, ct);
-		return results.Select(r => new TextSearchProvider.TextSearchResult
-		{
-			SourceName = r.SourceName,
-			SourceLink = r.SourceLink,
-			Text = r.Text,
-			RawRepresentation = r,
-		});
-	}
 }

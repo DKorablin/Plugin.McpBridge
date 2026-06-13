@@ -37,7 +37,7 @@ internal sealed class ProcessHost : IDisposable
 		if(this._process != null)
 			this.Stop();
 
-		String exePath = GetExePath();
+		String exePath = this.GetExePath();
 		String configPath = Path.Combine(Path.GetTempPath(), this.ConfigName);
 
 		SettingsDto config = this.BuildConfig(settings);

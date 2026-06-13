@@ -346,7 +346,7 @@ async function send(): Promise<void> {
 
 	//BUG: https://github.com/microsoft/agent-framework/issues/3729
 	const userContent: UserContent = contentArray.length > 0
-		? contentArray
+		? text//contentArray
 		: text;
 
 	const userMessage = {

@@ -143,7 +143,6 @@ namespace Plugin.McpBridge
 		private void Plugins_PluginsLoaded(Object? sender, EventArgs e)
 		{
 			ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings, this.Settings.SelectedAgent);
-			Boolean hasRagDirectories = this.Settings.AiAgents.Any(x => !String.IsNullOrWhiteSpace(x.RagDirectory));
 
 			if(this.Settings.McpServerEnabled)
 			{
@@ -162,8 +161,7 @@ namespace Plugin.McpBridge
 				this._agUIHost = new ProcessHost(this.Host, ProcessHost.ExeType.AgUI);
 				Task.Run(() => this._agUIHost.StartAsync(this.Settings));
 			}
-			if((this.Settings.RagProcessEnabled || hasRagDirectories)
-				&& ProcessHost.GetExePath(ProcessHost.ExeType.RAG, false) != null)
+			if(this.Settings.RagProcessEnabled)
 			{
 				this._ragHost = new ProcessHost(this.Host, ProcessHost.ExeType.RAG);
 				Task.Run(() => this._ragHost.StartAsync(this.Settings));

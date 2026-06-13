@@ -69,7 +69,8 @@ internal static class Program
 		if(config.AgUISessionStorageDirectory != null)
 		{// Persist sessions to disk so they survive server restarts
 			sessionStore = new FileSystemAgentSessionStore(config.AgUISessionStorageDirectory);
-			agentBuilder.WithSessionStore(sessionStore);
+			// withIsolation - if true, each client gets a separate session copy that is only written back on changes. If false, all clients share the same session instance and see real-time updates, but risk interfering with each other.
+			agentBuilder.WithSessionStore(sessionStore, withIsolation: false);
 		}
 
 		foreach(var workflow in workflows)

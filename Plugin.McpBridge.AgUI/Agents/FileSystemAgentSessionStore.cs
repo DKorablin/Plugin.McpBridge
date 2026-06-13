@@ -6,7 +6,7 @@ namespace Plugin.McpBridge.AgUI.Agents;
 
 public class FileSystemAgentSessionStore : AgentSessionStore
 {
-	private static readonly String DefaultStoragePath = Path.Combine(AppContext.BaseDirectory, "SessionStore");
+	private static readonly String DefaultStoragePath = Path.Combine(AppContext.BaseDirectory, ".SessionStore");
 	private static readonly Char[] InvalidFileNameChars = Path.GetInvalidFileNameChars();
 
 	private readonly String _storageDirectory;

@@ -1,5 +1,6 @@
-using System.ClientModel;
+﻿using System.ClientModel;
 using System.ClientModel.Primitives;
+using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
@@ -73,7 +74,7 @@ internal sealed class RagIndexSyncService
 		{
 			if(!existingMetadata.TryGetValue(current.Key, out SyncMetadataEntry? existing))
 			{
-				current.Value.SourceHash = this._fingerprintService.ComputeFileHash(current.Value.SourceLink);
+				current.Value.SourceHash = ComputeFileHash(current.Value.SourceLink);
 				TextSearchDocument document = TextSearchStore.CreateDocument(agent.RagDirectory, current.Value.SourceLink);
 				upserts.Add(document);
 				metadataUpserts.Add(current.Value);
@@ -89,7 +90,7 @@ internal sealed class RagIndexSyncService
 				continue;
 			}
 
-			String currentHash = this._fingerprintService.ComputeFileHash(current.Value.SourceLink);
+			String currentHash = ComputeFileHash(current.Value.SourceLink);
 			current.Value.SourceHash = currentHash;
 
 			if(String.IsNullOrWhiteSpace(existing.SourceHash) || String.Equals(existing.SourceHash, currentHash, StringComparison.OrdinalIgnoreCase))
@@ -122,5 +123,13 @@ internal sealed class RagIndexSyncService
 			await metadataStore.DeleteAsync(deletes, cancellationToken);
 
 		this._logger.LogInformation("RAG index synchronized for '{RagDirectory}' -> '{SqlitePath}'. Added/updated: {AddedUpdatedCount}, removed: {RemovedCount}", agent.RagDirectory, sqlitePath, upserts.Count, deletes.Count);
+	}
+
+	private static String ComputeFileHash(String filePath)
+	{
+		using SHA256 sha256 = SHA256.Create();
+		using FileStream stream = File.OpenRead(filePath);
+		Byte[] hashBytes = sha256.ComputeHash(stream);
+		return Convert.ToHexString(hashBytes);
 	}
 }

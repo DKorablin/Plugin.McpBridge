@@ -199,15 +199,19 @@ public sealed record ChatSettings : INotifyPropertyChanged
 [TypeConverter(typeof(ExpandableObjectConverter))]
 public sealed record EmbeddingSettings : INotifyPropertyChanged
 {
+	private static class Defaults
+	{
+		public const UInt16 TopResults = 3;
+	}
 	private String? _modelId;
 	private Int32? _dimension;
+	private UInt16? _topResults;
 
 	[DataMember]
 	[Category("Embeddings")]
 	[DisplayName("Model")]
 	[Editor(typeof(EmbeddingModelEditor), typeof(UITypeEditor))]
 	[Description("The embedding model identifier or deployment name.")]
-	[DefaultValue(null)]
 	public String? ModelId
 	{
 		get => this._modelId;
@@ -233,6 +237,20 @@ public sealed record EmbeddingSettings : INotifyPropertyChanged
 		{
 			Int32? normalized = value <= 0 ? null : value;
 			this.SetField(ref this._dimension, normalized, nameof(this.Dimension));
+		}
+	}
+
+	[DataMember]
+	[Category("Embeddings")]
+	[Description("The number of top similar results to return for embedding similarity queries. If not set, default value is used.")]
+	[DefaultValue(Defaults.TopResults)]
+	public UInt16 TopResults
+	{
+		get => this._topResults ?? Defaults.TopResults;
+		set
+		{
+			UInt16? normalized = value <= 0 ? null : value;
+			this.SetField(ref this._topResults, normalized, nameof(this.TopResults));
 		}
 	}
 
