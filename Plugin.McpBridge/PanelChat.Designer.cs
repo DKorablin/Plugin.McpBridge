@@ -41,6 +41,8 @@ partial class PanelChat
 		this.txtRequest = new TextBox();
 		this.tsTop = new ToolStrip();
 		this.bnNewConversation = new ToolStripButton();
+		this.cbSessions = new ToolStripComboBox();
+		this.bnRemoveSession = new ToolStripButton();
 		this.splitMain = new SplitContainer();
 		this.pnlConfirmation = new ConfirmationPanel();
 		this.pnlInput = new Panel();
@@ -115,7 +117,7 @@ partial class PanelChat
 		// tsTop
 		// 
 		this.tsTop.GripStyle = ToolStripGripStyle.Hidden;
-		this.tsTop.Items.AddRange(new ToolStripItem[] { this.bnNewConversation });
+		this.tsTop.Items.AddRange(new ToolStripItem[] { this.bnNewConversation, this.cbSessions, this.bnRemoveSession });
 		this.tsTop.Location = new Point(0, 0);
 		this.tsTop.Name = "tsTop";
 		this.tsTop.Size = new Size(175, 25);
@@ -123,12 +125,34 @@ partial class PanelChat
 		// 
 		// bnNewConversation
 		// 
-		this.bnNewConversation.DisplayStyle = ToolStripItemDisplayStyle.Text;
+		this.bnNewConversation.DisplayStyle = ToolStripItemDisplayStyle.Image;
+		this.bnNewConversation.Image = global::Plugin.McpBridge.Properties.Resources.iconNew;
+		this.bnNewConversation.ImageTransparentColor = System.Drawing.Color.Magenta;
 		this.bnNewConversation.Name = "bnNewConversation";
 		this.bnNewConversation.Size = new Size(35, 22);
 		this.bnNewConversation.Text = "New";
 		this.bnNewConversation.ToolTipText = "Start a new conversation";
 		this.bnNewConversation.Click += this.bnNewConversation_Click;
+		// 
+		// bnRemoveSession
+		// 
+		this.bnRemoveSession.DisplayStyle = ToolStripItemDisplayStyle.Image;
+		this.bnRemoveSession.Image = global::Plugin.McpBridge.Properties.Resources.iconDelete;
+		this.bnRemoveSession.ImageTransparentColor = System.Drawing.Color.Magenta;
+		this.bnRemoveSession.Name = "bnRemoveSession";
+		this.bnRemoveSession.Size = new Size(56, 22);
+		this.bnRemoveSession.Text = "Remove";
+		this.bnRemoveSession.ToolTipText = "Remove selected session";
+		this.bnRemoveSession.Click += this.bnRemoveSession_Click;
+		// 
+		// cbSessions
+		// 
+		this.cbSessions.AutoSize = false;
+		this.cbSessions.DropDownStyle = ComboBoxStyle.DropDownList;
+		this.cbSessions.Name = "cbSessions";
+		this.cbSessions.Size = new Size(100, 23);
+		this.cbSessions.ToolTipText = "Select a stored session";
+		this.cbSessions.SelectedIndexChanged += this.cbSessions_SelectedIndexChanged;
 		// 
 		// pnlConfirmation
 		// 
@@ -185,6 +209,8 @@ partial class PanelChat
 	private SplitContainer splitMain;
 	private ToolStrip tsTop;
 	private ToolStripButton bnNewConversation;
+	private ToolStripComboBox cbSessions;
+	private ToolStripButton bnRemoveSession;
 	private TextBox txtRequest;
 	private MarkdownTextBox mdResponse;
 	private ToolStrip tsBottom;

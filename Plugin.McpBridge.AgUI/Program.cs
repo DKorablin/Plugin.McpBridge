@@ -69,8 +69,7 @@ internal static class Program
 		if(config.SessionStorageDirectory != null)
 		{// Persist sessions to disk so they survive server restarts
 			sessionStore = new FileSystemAgentSessionStore(config.SessionStorageDirectory);
-			// withIsolation - if true, each client gets a separate session copy that is only written back on changes. If false, all clients share the same session instance and see real-time updates, but risk interfering with each other.
-			agentBuilder.WithSessionStore(sessionStore, withIsolation: false);
+			agentBuilder.WithSessionStore(sessionStore);
 		}
 
 		foreach(var workflow in workflows)
@@ -126,7 +125,7 @@ internal static class Program
 			if(!Guid.TryParse(threadId, out _))
 				return Results.BadRequest();
 
-			JsonElement? root = await sessionStore.ReadChatHistory(agentName, threadId);
+			JsonElement? root = await sessionStore.ReadSessionAsync(agentName, threadId);
 			if(root == null)
 				return Results.NotFound();
 

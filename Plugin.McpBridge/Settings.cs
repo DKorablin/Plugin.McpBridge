@@ -26,6 +26,7 @@ namespace Plugin.McpBridge
 		private BindingList<AiAgentDto>? _aiAgents = null;
 
 		private Guid? _selectedAgentId;
+		private String? _lastConversationId;
 
 		private String? _workflowsDirectory = null;
 
@@ -129,6 +130,13 @@ namespace Plugin.McpBridge
 				? this.AiAgents.FirstOrDefault(a => a.Id == this._selectedAgentId) ?? this.AiAgents[0]
 				: this.AiAgents[0];
 
+		[Browsable(false)]
+		public String? LastConversationId
+		{
+			get => this._lastConversationId ?? (this._lastConversationId = Guid.NewGuid().ToString());
+			set => this.SetField(ref this._lastConversationId, value, nameof(this.LastConversationId));
+		}
+
 		[Category("Agent")]
 		[Description("An optional directory path where workfows definitions are stored.")]
 		[Editor(typeof(System.Windows.Forms.Design.FolderNameEditor), typeof(System.Drawing.Design.UITypeEditor))]
@@ -140,6 +148,22 @@ namespace Plugin.McpBridge
 				if(String.IsNullOrWhiteSpace(value) || !Directory.Exists(value))
 					value = null;
 				this.SetField(ref this._workflowsDirectory, value, nameof(this.WorkflowsDirectory));
+			}
+		}
+
+		[Category("Agent")]
+		[DisplayName("Session Storage Directory")]
+		[Description("An optional directory path where the agents can read/write session data. If not set, sessions will not be stored.")]
+		[Editor(typeof(System.Windows.Forms.Design.FolderNameEditor), typeof(System.Drawing.Design.UITypeEditor))]
+		public String? SessionStorageDirectory
+		{
+			get => this._sessionStorageDirectory;
+			set
+			{
+				if(String.IsNullOrWhiteSpace(value))
+					value = null;
+
+				this.SetField(ref this._sessionStorageDirectory, value, nameof(this.SessionStorageDirectory));
 			}
 		}
 
@@ -205,22 +229,6 @@ namespace Plugin.McpBridge
 					value = null!;
 
 				this.SetField(ref this._agUIServerUrl, value, nameof(this.AgUIServerUrl));
-			}
-		}
-
-		[Category("Network")]
-		[DisplayName("Session Storage Directory")]
-		[Description("An optional directory path where the agents can read/write session data. If not set, sessions will not be stored.")]
-		[Editor(typeof(System.Windows.Forms.Design.FolderNameEditor), typeof(System.Drawing.Design.UITypeEditor))]
-		public String? SessionStorageDirectory
-		{
-			get => this._sessionStorageDirectory;
-			set
-			{
-				if(String.IsNullOrWhiteSpace(value))
-					value = null;
-
-				this.SetField(ref this._sessionStorageDirectory, value, nameof(this.SessionStorageDirectory));
 			}
 		}
 

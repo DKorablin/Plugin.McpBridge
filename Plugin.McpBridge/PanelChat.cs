@@ -11,14 +11,29 @@ namespace Plugin.McpBridge;
 
 public partial class PanelChat : UserControl
 {
-	private static class Defaults
-	{
-		public const String AgentStateFileName = "PanelChat_agentState.json";
-	}
-
 	private AssistantAgent? _agent;
 	private Boolean _streamingActive;
 	private CancellationTokenSource? _cts;
+	private String _conversationId;
+	private Boolean _updatingSessionList;
+
+	private sealed class SessionListItem
+	{
+		public String ConversationId { get; }
+
+		public DateTime? LastWriteTimeUtc { get; }
+
+		public SessionListItem(String conversationId, DateTime? lastWriteTimeUtc)
+		{
+			this.ConversationId = conversationId;
+			this.LastWriteTimeUtc = lastWriteTimeUtc;
+		}
+
+		public override String ToString()
+			=> this.LastWriteTimeUtc.HasValue
+				? this.ConversationId + " (" + this.LastWriteTimeUtc.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm") + ")"
+				: this.ConversationId + " (new)";
+	}
 
 	private Plugin Plugin => (Plugin)this.Window.Plugin.Instance;
 
@@ -44,24 +59,90 @@ public partial class PanelChat : UserControl
 		this.Window.Closed += this.Window_Closed;
 		this.Plugin.Settings.PropertyChanged += this.Settings_PropertyChanged;
 		base.OnCreateControl();
+
+		this._conversationId = this.Plugin.Settings.LastConversationId;
+		this.RefreshSessionList();
+		this.LoadConversationHistory(this._conversationId);
 		this.UpdateUiState();
+	}
+
+	private void LoadConversationHistory(String conversationId)
+	{
+		String? sessionStorageDir = this.Plugin.Settings.SessionStorageDirectory;
+		if(sessionStorageDir == null)
+			return;
 
 		Task.Run(async () =>
 		{
-			String? sessionJson = this.LoadAgentSession();
-			if(sessionJson != null)
-				this.LoadSessionHistory(sessionJson);
+			var store = new FileSystemAgentSessionStore(sessionStorageDir);
+			JsonElement? json = await store.ReadSessionAsync(this._agent?.AgentName ?? FileSystemAgentSessionStore.DefaultAgentName, conversationId);
+			if(json != null && this._conversationId == conversationId)
+				this.LoadSessionHistory(json.Value);
 		});
 	}
 
-	private void LoadSessionHistory(String sessionJson)
+	private void RefreshSessionList()
 	{
-		JsonElement root = JsonSerializer.Deserialize<JsonElement>(sessionJson);
+		if(this.InvokeRequired)
+		{
+			this.Invoke(this.RefreshSessionList);
+			return;
+		}
+
+		this._updatingSessionList = true;
+		try
+		{
+			this.cbSessions.Items.Clear();
+
+			List<SessionListItem> sessions = new List<SessionListItem>();
+			String? sessionStorageDir = this.Plugin.Settings.SessionStorageDirectory;
+			if(sessionStorageDir != null && Directory.Exists(sessionStorageDir))
+			{
+				var store = new FileSystemAgentSessionStore(sessionStorageDir);
+				String agentName = this._agent?.AgentName ?? FileSystemAgentSessionStore.DefaultAgentName;
+				String agentDirectoryPath = Path.Combine(sessionStorageDir, agentName);
+				foreach(String sessionId in store.ListSessions(agentName))
+				{
+					String filePath = Path.Combine(agentDirectoryPath, sessionId + ".json");
+					DateTime? lastWriteTimeUtc = File.Exists(filePath) ? File.GetLastWriteTimeUtc(filePath) : null;
+					sessions.Add(new SessionListItem(sessionId, lastWriteTimeUtc));
+				}
+			}
+
+			if(!sessions.Any(s => s.ConversationId == this._conversationId))
+				sessions.Add(new SessionListItem(this._conversationId, null));
+
+			this.cbSessions.Items.AddRange(sessions.ToArray());
+
+			SessionListItem? selected = sessions.FirstOrDefault(s => s.ConversationId == this._conversationId);
+			if(selected != null)
+				this.cbSessions.SelectedItem = selected;
+
+			this.cbSessions.Enabled = this.cbSessions.Items.Count > 0;
+			this.bnRemoveSession.Enabled = this.cbSessions.Enabled && this.cbSessions.SelectedItem != null;
+		} finally
+		{
+			this._updatingSessionList = false;
+		}
+	}
+
+	private void SetConversation(String conversationId, Boolean loadHistory)
+	{
+		this._conversationId = conversationId;
+		this.Plugin.Settings.LastConversationId = conversationId;
+		this.ResetAgent();
+		if(loadHistory)
+			this.LoadConversationHistory(conversationId);
+		this.RefreshSessionList();
+	}
+
+	private void LoadSessionHistory(JsonElement root)
+	{
 		if(!root.TryGetProperty("stateBag", out JsonElement stateBag) ||
 			!stateBag.TryGetProperty("InMemoryChatHistoryProvider", out JsonElement historyState) ||
 			!historyState.TryGetProperty("messages", out JsonElement messagesElement))
 		{
-			this.Plugin.Trace.TraceEvent(System.Diagnostics.TraceEventType.Warning, 0, "Failed to load session history: Invalid format.");
+			this.Plugin.Trace.TraceEvent(System.Diagnostics.TraceEventType.Warning, 0, "Failed to load session history: invalid format.");
 			return;
 		}
 
@@ -118,12 +199,10 @@ public partial class PanelChat : UserControl
 			if(this.CurrentProvider == null)
 				throw new InvalidOperationException("No AI provider configured.");
 
-			String? sessionJson = this.LoadAgentSession();
-			this._agent = await this.Plugin.InitializeAgent(this.CurrentProvider, sessionJson);
+			this._agent = await this.Plugin.InitializeAgent(this.CurrentProvider, this._conversationId.ToString());
 			this._agent.AiResponseReceived += this.Agent_AiResponseReceived;
 			this._agent.ConfirmationRequired += this.Agent_ConfirmationRequired;
 			this.UpdateUiState();
-
 		}
 		return this._agent;
 	}
@@ -155,23 +234,6 @@ public partial class PanelChat : UserControl
 		}
 	}
 
-	private void SaveAgentSession(String? sessionJson)
-	{
-		if(String.IsNullOrWhiteSpace(sessionJson))
-			this.Plugin.Host.Plugins.Settings(this.Plugin).RemoveAssemblyBlob(Defaults.AgentStateFileName);
-		else
-			using(MemoryStream ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(sessionJson)))
-				this.Plugin.Host.Plugins.Settings(this.Plugin).SaveAssemblyBlob(Defaults.AgentStateFileName, ms);
-	}
-
-	private String? LoadAgentSession()
-	{
-		using(Stream stream = this.Plugin.Host.Plugins.Settings(this.Plugin).LoadAssemblyBlob(Defaults.AgentStateFileName))
-			return stream == null
-				? null
-				: new StreamReader(stream).ReadToEnd();
-	}
-
 	private void Agent_AiResponseReceived(Object? sender, AgentResponseEventArgs e)
 	{
 		this.Invoke(() =>
@@ -188,14 +250,6 @@ public partial class PanelChat : UserControl
 				this._cts?.Dispose();
 				this._cts = null;
 				this.UpdateUiState();
-				AssistantAgent? agent = this._agent;
-				if(agent != null)
-					_ = Task.Run(async () =>
-					{
-						String? json = await agent.GetSessionState();
-						if(json != null)
-							this.SaveAgentSession(json);
-					});
 			}
 		});
 	}
@@ -210,9 +264,55 @@ public partial class PanelChat : UserControl
 	}
 
 	private void bnNewConversation_Click(Object sender, EventArgs e)
+		=> this.SetConversation(Guid.NewGuid().ToString(), loadHistory: false);
+
+	private void cbSessions_SelectedIndexChanged(Object? sender, EventArgs e)
 	{
-		this.SaveAgentSession(null);
-		this.ResetAgent();
+		this.bnRemoveSession.Enabled = this.cbSessions.SelectedItem != null;
+
+		if(this._updatingSessionList)
+			return;
+
+		SessionListItem? selected = this.cbSessions.SelectedItem as SessionListItem;
+		if(selected == null || selected.ConversationId == this._conversationId)
+			return;
+
+		this.SetConversation(selected.ConversationId, loadHistory: true);
+	}
+
+	private void bnRemoveSession_Click(Object? sender, EventArgs e)
+	{
+		SessionListItem? selected = this.cbSessions.SelectedItem as SessionListItem;
+		if(selected == null)
+			return;
+
+		if(MessageBox.Show("Are you sure you want to delete this session?", this.Window.Caption, MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+			return;
+
+		SessionListItem[] currentItems = this.cbSessions.Items.Cast<SessionListItem>().ToArray();
+		Int32 selectedIndex = this.cbSessions.SelectedIndex;
+		SessionListItem? nextItem = selectedIndex switch
+		{
+			>= 0 when selectedIndex < currentItems.Length - 1 => currentItems[selectedIndex + 1],
+			> 0 => currentItems[selectedIndex - 1],
+			_ => null
+		};
+
+		String? sessionStorageDir = this.Plugin.Settings.SessionStorageDirectory;
+		if(sessionStorageDir != null)
+		{
+			var store = new FileSystemAgentSessionStore(sessionStorageDir);
+			String agentName = this._agent?.AgentName ?? FileSystemAgentSessionStore.DefaultAgentName;
+			store.DeleteSession(agentName, selected.ConversationId);
+		}
+
+		if(nextItem != null)
+		{
+			this.SetConversation(nextItem.ConversationId, loadHistory: true);
+			return;
+		}
+
+		this.SetConversation(Guid.NewGuid().ToString(), loadHistory: false);
 	}
 
 	private void tsbnSend_DropDownOpening(Object sender, EventArgs e)
@@ -350,5 +450,7 @@ public partial class PanelChat : UserControl
 		// Input Logic
 		if(!isProcessing && !needsConfirmation && hasProvider)
 			txtRequest.Focus();
+
+		this.bnRemoveSession.Enabled = this.cbSessions.SelectedItem != null && !isProcessing;
 	}
 }

@@ -36,7 +36,7 @@ namespace Plugin.McpBridge
 				{
 					this._settings = new Settings();
 					this.Host.Plugins.Settings(this).LoadAssemblyParameters(this._settings);
-					this._settings.PropertyChanged += _settings_PropertyChanged;
+					this._settings.PropertyChanged += this._settings_PropertyChanged;
 				}
 				return this._settings;
 			}
@@ -44,6 +44,12 @@ namespace Plugin.McpBridge
 
 		private void _settings_PropertyChanged(Object? sender, PropertyChangedEventArgs e)
 		{
+			switch(e.PropertyName)
+			{
+			case nameof(this.Settings.LastConversationId):
+				return;
+			}
+
 			this._agent = null;
 
 			this._devUIHost?.StopAsync().GetAwaiter().GetResult();
@@ -110,14 +116,18 @@ namespace Plugin.McpBridge
 			return this._agent;
 		}
 
-		internal async Task<AssistantAgent> InitializeAgent(AiProviderDto provider, String? sessionJson = null)
+		internal async Task<AssistantAgent> InitializeAgent(AiProviderDto provider, String? conversationId = null)
 		{
 			ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings, this.Settings.SelectedAgent);
 			AgentFactory agentFactory = new AgentFactory();
 
+			FileSystemAgentSessionStore? sessionStore = this.Settings.SessionStorageDirectory != null
+				? new FileSystemAgentSessionStore(this.Settings.SessionStorageDirectory)
+				: null;
+
 			var result = new AssistantAgent(this.Trace, this.Host, toolsFactory, agentFactory);
 			//var result = new RAG.IronMindRagAgent(this.Trace, this.Host, toolsFactory, agentFactory);
-			await result.Initialize(this.Settings, provider, sessionJson);
+			await result.Initialize(this.Settings, provider, sessionStore, conversationId);
 			return result;
 		}
 

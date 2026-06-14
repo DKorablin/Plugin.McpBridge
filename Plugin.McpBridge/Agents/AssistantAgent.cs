@@ -2,6 +2,7 @@
 using System.Text;
 using System.Text.Json;
 using Microsoft.Agents.AI;
+using Microsoft.Agents.AI.Hosting;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Events;
@@ -19,9 +20,13 @@ internal class AssistantAgent : IDisposable
 	private readonly AgentFactory _agentFactory;
 	private AgentHandle? _handle;
 	private AgentSession? _session;
+	private AgentSessionStore? _sessionStore;
+	private String? _conversationId;
 
 	public event EventHandler<AgentResponseEventArgs>? AiResponseReceived;
 	public event EventHandler<AgentConfirmationEventArgs>? ConfirmationRequired;
+
+	public String AgentName => this._handle?.Agent.Name ?? "assistant";
 
 	public AssistantAgent(
 		ITraceSource trace,
@@ -35,22 +40,22 @@ internal class AssistantAgent : IDisposable
 		this._agentFactory = agentFactory ?? throw new ArgumentNullException(nameof(agentFactory));
 	}
 
-	public virtual async Task Initialize(Settings settings, AiProviderDto provider, String? sessionJson = null)
+	public virtual async Task Initialize(Settings settings, AiProviderDto provider, AgentSessionStore? sessionStore = null, String? conversationId = null)
 	{
 		_ = settings ?? throw new ArgumentNullException(nameof(settings));
 		_ = provider ?? throw new ArgumentNullException(nameof(provider));
 
 		this._session = null;
+		this._sessionStore = sessionStore;
+		this._conversationId = conversationId;
 		this._handle?.Dispose();
 
 		var tools = this._toolsFactory.CreateTools(this._trace).ToArray();
 		var instructions = AgentFactory.BuildSystemInstructions(settings, settings.SelectedAgent, this._host);
 		this._handle = await this.CreateAgent(provider, tools, instructions, settings.SelectedAgent, settings.AiProviders);
 
-		if(sessionJson != null)
-			this._session = await this._handle.Agent.DeserializeSessionAsync(
-				JsonSerializer.Deserialize<JsonElement>(sessionJson),
-				cancellationToken: CancellationToken.None);
+		if(sessionStore != null && conversationId != null)
+			this._session = await sessionStore.GetSessionAsync(this._handle.Agent, conversationId, CancellationToken.None);
 
 		this._trace.TraceEvent(TraceEventType.Verbose, 0, $"Initialized AssistantAgent with instructions '{instructions}'.");
 	}
@@ -148,6 +153,9 @@ internal class AssistantAgent : IDisposable
 		String aiResponse = response.Text;
 		if(response.Usage != null)
 			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"Tokens: {String.Join(Environment.NewLine, Utils.ParseTokenUsageCount(response.Usage))}");
+
+		if(this._sessionStore != null && this._conversationId != null && this._session != null)
+			await this._sessionStore.SaveSessionAsync(agent, this._conversationId, this._session, token);
 
 		this.OnAiResponseReceived(new AgentResponseEventArgs(aiResponse, true));
 	}
