@@ -2,6 +2,7 @@ import "./index.scss";
 import { HttpAgent } from "@ag-ui/client";
 import type { AssistantMessage, Message, RunAgentInput, ToolMessage } from "@ag-ui/core";
 import { EventType } from "@ag-ui/core";
+import { ConversationController } from "./conversationController";
 
 const messagesEl = document.getElementById("messages")!;
 const inputEl = document.getElementById("input") as HTMLTextAreaElement;
@@ -13,104 +14,16 @@ const conversationSelect = document.getElementById("conversation-select") as HTM
 const newConversationBtn = document.getElementById("new-conversation-btn") as HTMLButtonElement;
 const deleteConversationBtn = document.getElementById("delete-conversation-btn") as HTMLButtonElement;
 
-// Thread ID is stable across runs within a conversation and persisted in localStorage.
-let currentThreadId = localStorage.getItem("ag-ui-thread-id") ?? crypto.randomUUID();
-localStorage.setItem("ag-ui-thread-id", currentThreadId);
 const history: Message[] = [];
-let conversationListLoaded = false;
-
-// ── Conversation toolbar ───────────────────────────────────────────────────────
-
-function setCurrentConversation(id: string): void {
-	currentThreadId = id;
-	localStorage.setItem("ag-ui-thread-id", id);
-	updateSelectValue(id);
-}
-
-function updateSelectValue(id: string): void {
-	// Ensure the option exists before selecting it
-	let opt = conversationSelect.querySelector<HTMLOptionElement>(`option[value="${CSS.escape(id)}"]`);
-	if (!opt) {
-		opt = document.createElement("option");
-		opt.value = id;
-		opt.textContent = id;
-		conversationSelect.appendChild(opt);
-	}
-	conversationSelect.value = id;
-}
-
-async function populateConversationList(): Promise<void> {
-	if (conversationListLoaded)
-		return;
-
-	let ids: string[] = [];
-	const resp = await fetch("/history");
-	if (resp.ok)
-		ids = (await resp.json()) as string[];
-
-	// Rebuild options, always ensuring current thread is present
-	const all = new Set([...ids, currentThreadId]);
-	conversationSelect.innerHTML = "";
-	for (const id of all) {
-		const opt = document.createElement("option");
-		opt.value = id;
-		opt.textContent = id;
-		conversationSelect.appendChild(opt);
-	}
-	conversationSelect.value = currentThreadId;
-	conversationListLoaded = true;
-}
-
-conversationSelect.addEventListener("mousedown", (e) => {
-	if (conversationListLoaded)
-		return;
-
-	e.preventDefault();
-	void (async () => {
-		await populateConversationList();
-		conversationSelect.showPicker();
-	})();
-});
-
-conversationSelect.addEventListener("change", async () => {
-	const selectedId = conversationSelect.value;
-	if (!selectedId || selectedId === currentThreadId) return;
-
-	setCurrentConversation(selectedId);
-	history.length = 0;
-	messagesEl.innerHTML = "";
-	await loadHistory();
-});
-
-newConversationBtn.addEventListener("click", () => {
-	const newId = crypto.randomUUID();
-	setCurrentConversation(newId);
-	history.length = 0;
-	messagesEl.innerHTML = "";
-	// Add the new option immediately so it shows as selected
-	const opt = document.createElement("option");
-	opt.value = newId;
-	opt.textContent = newId;
-	conversationSelect.appendChild(opt);
-	conversationSelect.value = newId;
-});
-
-deleteConversationBtn.addEventListener("click", async () => {
-	const idToDelete = currentThreadId;
-	if (!confirm(`Delete conversation\n${idToDelete}?\n\nThis cannot be undone.`)) return;
-
-	try {
-		await fetch(`/history/${encodeURIComponent(idToDelete)}`, { method: "DELETE" });
-	} catch { /* ignore network errors — file already gone is fine */ }
-
-	localStorage.removeItem("ag-ui-thread-id");
-
-	// Switch to a new conversation
-	const newId = crypto.randomUUID();
-	setCurrentConversation(newId);
-	history.length = 0;
-	messagesEl.innerHTML = "";
-	conversationSelect.querySelector<HTMLOptionElement>(`option[value="${CSS.escape(idToDelete)}"]`)?.remove();
+const conversationController = new ConversationController({
+	conversationSelect,
+	newConversationBtn,
+	deleteConversationBtn,
+	onConversationSwitched: loadHistory,
+	clearConversationState: () => {
+		history.length = 0;
+		messagesEl.innerHTML = "";
+	},
 });
 
 let selectedFiles: File[] = [];// Track files staged for sending
@@ -215,7 +128,7 @@ function renderHistory(): void {
 }
 
 async function loadHistory(): Promise<void> {
-	const resp = await fetch(`/history/${encodeURIComponent(currentThreadId)}`);
+	const resp = await fetch(`/history/${encodeURIComponent(conversationController.getCurrentThreadId())}`);
 	if (!resp.ok) return;
 
 	type SessionContent = { $type: string; text?: string };
@@ -460,7 +373,7 @@ async function send(): Promise<void> {
 	const assistantEl = appendMessage("assistant", "…");
 
 	const input: RunAgentInput = {
-		threadId: currentThreadId,
+		threadId: conversationController.getCurrentThreadId(),
 		runId: crypto.randomUUID(),
 		messages: [userMessage as Message],
 		tools: [],
@@ -504,6 +417,6 @@ inputEl.addEventListener("keydown", (e: KeyboardEvent) => {
 	}
 });
 inputEl.addEventListener("input", adjustInputHeight);
-updateSelectValue(currentThreadId);
+conversationController.initialize();
 void loadHistory();
 inputEl.focus();
