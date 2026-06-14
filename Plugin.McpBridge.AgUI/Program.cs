@@ -117,15 +117,21 @@ internal static class Program
 				contentType);
 		});
 
-	/// <summary>Maps GET /history/{threadId} to read from the agent session store.</summary>
+	/// <summary>Maps GET /history/{conversationId} to read from the agent session store.</summary>
 	private static void MapHistoryEndpoints(WebApplication app, FileSystemAgentSessionStore sessionStore, String agentName)
 	{
-		app.MapGet("/history/{threadId}", async (String threadId) =>
+		app.MapGet("/history", () =>
 		{
-			if(!Guid.TryParse(threadId, out _))
+			IEnumerable<String> sessions = sessionStore.ListSessions(agentName);
+			return Results.Json(sessions);
+		});
+
+		app.MapGet("/history/{conversationId}", async (String conversationId) =>
+		{
+			if(!Guid.TryParse(conversationId, out _))
 				return Results.BadRequest();
 
-			JsonElement? root = await sessionStore.ReadSessionAsync(agentName, threadId);
+			JsonElement? root = await sessionStore.ReadSessionAsync(agentName, conversationId);
 			if(root == null)
 				return Results.NotFound();
 
@@ -135,6 +141,16 @@ internal static class Program
 				return Results.BadRequest();
 
 			return Results.Json(messagesElement);
+		});
+
+		app.MapDelete("/history/{conversationId}", (String conversationId) =>
+		{
+			if(!Guid.TryParse(conversationId, out _))
+				return Results.BadRequest();
+
+			return sessionStore.DeleteSession(agentName, conversationId)
+				? Results.NoContent()
+				: Results.NotFound();
 		});
 	}
 }

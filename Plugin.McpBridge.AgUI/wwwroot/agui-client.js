@@ -5046,8 +5046,8 @@ function ga() {
 }
 //#endregion
 //#region node_modules/@bufbuild/protobuf/dist/esm/proto-int64.js
-var U = /* @__PURE__ */ _a();
-function _a() {
+var _a = /* @__PURE__ */ va();
+function va() {
 	let e = /* @__PURE__ */ new DataView(/* @__PURE__ */ new ArrayBuffer(8));
 	if (typeof BigInt == "function" && typeof e.getBigInt64 == "function" && typeof e.getBigUint64 == "function" && typeof e.setBigInt64 == "function" && typeof e.setBigUint64 == "function" && (globalThis.Deno || typeof process != "object" || typeof process.env != "object" || process.env.BUF_BIGINT_DISABLE !== "1")) {
 		let t = BigInt("-9223372036854775808"), n = BigInt("9223372036854775807"), r = BigInt("0"), i = BigInt("18446744073709551615");
@@ -5088,16 +5088,16 @@ function _a() {
 		zero: "0",
 		supported: !1,
 		parse(e) {
-			return typeof e != "string" && (e = e.toString()), va(e), e;
-		},
-		uParse(e) {
 			return typeof e != "string" && (e = e.toString()), ya(e), e;
 		},
+		uParse(e) {
+			return typeof e != "string" && (e = e.toString()), ba(e), e;
+		},
 		enc(e) {
-			return typeof e != "string" && (e = e.toString()), va(e), ca(e);
+			return typeof e != "string" && (e = e.toString()), ya(e), ca(e);
 		},
 		uEnc(e) {
-			return typeof e != "string" && (e = e.toString()), ya(e), ca(e);
+			return typeof e != "string" && (e = e.toString()), ba(e), ca(e);
 		},
 		dec(e, t) {
 			return la(e, t);
@@ -5107,19 +5107,19 @@ function _a() {
 		}
 	};
 }
-function va(e) {
+function ya(e) {
 	if (!/^-?[0-9]+$/.test(e)) throw Error("invalid int64: " + e);
 }
-function ya(e) {
+function ba(e) {
 	if (!/^[0-9]+$/.test(e)) throw Error("invalid uint64: " + e);
 }
 //#endregion
 //#region node_modules/@bufbuild/protobuf/dist/esm/wire/text-encoding.js
-var ba = Symbol.for("@bufbuild/protobuf/text-encoding");
-function xa() {
-	if (globalThis[ba] == null) {
+var xa = Symbol.for("@bufbuild/protobuf/text-encoding");
+function Sa() {
+	if (globalThis[xa] == null) {
 		let e = new globalThis.TextEncoder(), t = new globalThis.TextDecoder(), n;
-		globalThis[ba] = {
+		globalThis[xa] = {
 			encodeUtf8(t) {
 				return e.encode(t);
 			},
@@ -5135,16 +5135,16 @@ function xa() {
 			}
 		};
 	}
-	return globalThis[ba];
+	return globalThis[xa];
 }
 //#endregion
 //#region node_modules/@bufbuild/protobuf/dist/esm/wire/binary-encoding.js
-var Sa;
+var Ca;
 (function(e) {
 	e[e.Varint = 0] = "Varint", e[e.Bit64 = 1] = "Bit64", e[e.LengthDelimited = 2] = "LengthDelimited", e[e.StartGroup = 3] = "StartGroup", e[e.EndGroup = 4] = "EndGroup", e[e.Bit32 = 5] = "Bit32";
-})(Sa ||= {});
-var W = class {
-	constructor(e = xa().encodeUtf8) {
+})(Ca ||= {});
+var U = class {
+	constructor(e = Sa().encodeUtf8) {
 		this.encodeUtf8 = e, this.stack = [], this.chunks = [], this.buf = [];
 	}
 	finish() {
@@ -5173,11 +5173,11 @@ var W = class {
 		return this.buf.length && (this.chunks.push(new Uint8Array(this.buf)), this.buf = []), this.chunks.push(e), this;
 	}
 	uint32(e) {
-		for (wa(e); e > 127;) this.buf.push(e & 127 | 128), e >>>= 7;
+		for (Ta(e); e > 127;) this.buf.push(e & 127 | 128), e >>>= 7;
 		return this.buf.push(e), this;
 	}
 	int32(e) {
-		return Ca(e), ha(e, this.buf), this;
+		return wa(e), ha(e, this.buf), this;
 	}
 	bool(e) {
 		return this.buf.push(+!!e), this;
@@ -5190,7 +5190,7 @@ var W = class {
 		return this.uint32(t.byteLength), this.raw(t);
 	}
 	float(e) {
-		Ta(e);
+		Ea(e);
 		let t = new Uint8Array(4);
 		return new DataView(t.buffer).setFloat32(0, e, !0), this.raw(t);
 	}
@@ -5199,40 +5199,40 @@ var W = class {
 		return new DataView(t.buffer).setFloat64(0, e, !0), this.raw(t);
 	}
 	fixed32(e) {
-		wa(e);
+		Ta(e);
 		let t = new Uint8Array(4);
 		return new DataView(t.buffer).setUint32(0, e, !0), this.raw(t);
 	}
 	sfixed32(e) {
-		Ca(e);
+		wa(e);
 		let t = new Uint8Array(4);
 		return new DataView(t.buffer).setInt32(0, e, !0), this.raw(t);
 	}
 	sint32(e) {
-		return Ca(e), e = (e << 1 ^ e >> 31) >>> 0, ha(e, this.buf), this;
+		return wa(e), e = (e << 1 ^ e >> 31) >>> 0, ha(e, this.buf), this;
 	}
 	sfixed64(e) {
-		let t = new Uint8Array(8), n = new DataView(t.buffer), r = U.enc(e);
+		let t = new Uint8Array(8), n = new DataView(t.buffer), r = _a.enc(e);
 		return n.setInt32(0, r.lo, !0), n.setInt32(4, r.hi, !0), this.raw(t);
 	}
 	fixed64(e) {
-		let t = new Uint8Array(8), n = new DataView(t.buffer), r = U.uEnc(e);
+		let t = new Uint8Array(8), n = new DataView(t.buffer), r = _a.uEnc(e);
 		return n.setInt32(0, r.lo, !0), n.setInt32(4, r.hi, !0), this.raw(t);
 	}
 	int64(e) {
-		let t = U.enc(e);
+		let t = _a.enc(e);
 		return oa(t.lo, t.hi, this.buf), this;
 	}
 	sint64(e) {
-		let t = U.enc(e), n = t.hi >> 31;
+		let t = _a.enc(e), n = t.hi >> 31;
 		return oa(t.lo << 1 ^ n, (t.hi << 1 | t.lo >>> 31) ^ n, this.buf), this;
 	}
 	uint64(e) {
-		let t = U.uEnc(e);
+		let t = _a.uEnc(e);
 		return oa(t.lo, t.hi, this.buf), this;
 	}
-}, G = class {
-	constructor(e, t = xa().decodeUtf8) {
+}, W = class {
+	constructor(e, t = Sa().decodeUtf8) {
 		this.decodeUtf8 = t, this.varint64 = aa, this.uint32 = ga, this.buf = e, this.len = e.length, this.pos = 0, this.view = new DataView(e.buffer, e.byteOffset, e.byteLength);
 	}
 	tag() {
@@ -5245,21 +5245,21 @@ var W = class {
 	skip(e, t) {
 		let n = this.pos;
 		switch (e) {
-			case Sa.Varint:
+			case Ca.Varint:
 				for (; this.buf[this.pos++] & 128;);
 				break;
-			case Sa.Bit64: this.pos += 4;
-			case Sa.Bit32:
+			case Ca.Bit64: this.pos += 4;
+			case Ca.Bit32:
 				this.pos += 4;
 				break;
-			case Sa.LengthDelimited:
+			case Ca.LengthDelimited:
 				let n = this.uint32();
 				this.pos += n;
 				break;
-			case Sa.StartGroup:
+			case Ca.StartGroup:
 				for (;;) {
 					let [e, n] = this.tag();
-					if (n === Sa.EndGroup) {
+					if (n === Ca.EndGroup) {
 						if (t !== void 0 && e !== t) throw Error("invalid end group tag");
 						break;
 					}
@@ -5281,14 +5281,14 @@ var W = class {
 		return e >>> 1 ^ -(e & 1);
 	}
 	int64() {
-		return U.dec(...this.varint64());
+		return _a.dec(...this.varint64());
 	}
 	uint64() {
-		return U.uDec(...this.varint64());
+		return _a.uDec(...this.varint64());
 	}
 	sint64() {
 		let [e, t] = this.varint64(), n = -(e & 1);
-		return e = (e >>> 1 | (t & 1) << 31) ^ n, t = t >>> 1 ^ n, U.dec(e, t);
+		return e = (e >>> 1 | (t & 1) << 31) ^ n, t = t >>> 1 ^ n, _a.dec(e, t);
 	}
 	bool() {
 		let [e, t] = this.varint64();
@@ -5301,10 +5301,10 @@ var W = class {
 		return this.view.getInt32((this.pos += 4) - 4, !0);
 	}
 	fixed64() {
-		return U.uDec(this.sfixed32(), this.sfixed32());
+		return _a.uDec(this.sfixed32(), this.sfixed32());
 	}
 	sfixed64() {
-		return U.dec(this.sfixed32(), this.sfixed32());
+		return _a.dec(this.sfixed32(), this.sfixed32());
 	}
 	float() {
 		return this.view.getFloat32((this.pos += 4) - 4, !0);
@@ -5320,17 +5320,17 @@ var W = class {
 		return this.decodeUtf8(this.bytes(), e);
 	}
 };
-function Ca(e) {
+function wa(e) {
 	if (typeof e == "string") e = Number(e);
 	else if (typeof e != "number") throw Error("invalid int32: " + typeof e);
 	if (!Number.isInteger(e) || e > 2147483647 || e < -2147483648) throw Error("invalid int32: " + e);
 }
-function wa(e) {
+function Ta(e) {
 	if (typeof e == "string") e = Number(e);
 	else if (typeof e != "number") throw Error("invalid uint32: " + typeof e);
 	if (!Number.isInteger(e) || e > 4294967295 || e < 0) throw Error("invalid uint32: " + e);
 }
-function Ta(e) {
+function Ea(e) {
 	if (typeof e == "string") {
 		let t = e;
 		if (e = Number(e), Number.isNaN(e) && t !== "NaN") throw Error("invalid float32: " + t);
@@ -5339,29 +5339,29 @@ function Ta(e) {
 }
 //#endregion
 //#region node_modules/@ag-ui/proto/dist/index.mjs
-var Ea = /* @__PURE__ */ function(e) {
+var Da = /* @__PURE__ */ function(e) {
 	return e[e.NULL_VALUE = 0] = "NULL_VALUE", e[e.UNRECOGNIZED = -1] = "UNRECOGNIZED", e;
 }({});
-function Da() {
+function Oa() {
 	return { fields: {} };
 }
-var Oa = {
-	encode(e, t = new W()) {
+var ka = {
+	encode(e, t = new U()) {
 		return Object.entries(e.fields).forEach(([e, n]) => {
-			n !== void 0 && Aa.encode({
+			n !== void 0 && ja.encode({
 				key: e,
 				value: n
 			}, t.uint32(10).fork()).join();
 		}), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = Da();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = Oa();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1: {
 					if (e !== 10) break;
-					let t = Aa.decode(n, n.uint32());
+					let t = ja.decode(n, n.uint32());
 					t.value !== void 0 && (i.fields[t.key] = t.value);
 					continue;
 				}
@@ -5372,14 +5372,14 @@ var Oa = {
 		return i;
 	},
 	create(e) {
-		return Oa.fromPartial(e ?? {});
+		return ka.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = Da();
+		let t = Oa();
 		return t.fields = Object.entries(e.fields ?? {}).reduce((e, [t, n]) => (n !== void 0 && (e[t] = n), e), {}), t;
 	},
 	wrap(e) {
-		let t = Da();
+		let t = Oa();
 		if (e !== void 0) for (let n of Object.keys(e)) t.fields[n] = e[n];
 		return t;
 	},
@@ -5389,18 +5389,18 @@ var Oa = {
 		return t;
 	}
 };
-function ka() {
+function Aa() {
 	return {
 		key: "",
 		value: void 0
 	};
 }
-var Aa = {
-	encode(e, t = new W()) {
-		return e.key !== "" && t.uint32(10).string(e.key), e.value !== void 0 && K.encode(K.wrap(e.value), t.uint32(18).fork()).join(), t;
+var ja = {
+	encode(e, t = new U()) {
+		return e.key !== "" && t.uint32(10).string(e.key), e.value !== void 0 && G.encode(G.wrap(e.value), t.uint32(18).fork()).join(), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = ka();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = Aa();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
@@ -5410,7 +5410,7 @@ var Aa = {
 					continue;
 				case 2:
 					if (e !== 18) break;
-					i.value = K.unwrap(K.decode(n, n.uint32()));
+					i.value = G.unwrap(G.decode(n, n.uint32()));
 					continue;
 			}
 			if ((e & 7) == 4 || e === 0) break;
@@ -5419,14 +5419,14 @@ var Aa = {
 		return i;
 	},
 	create(e) {
-		return Aa.fromPartial(e ?? {});
+		return ja.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = ka();
+		let t = Aa();
 		return t.key = e.key ?? "", t.value = e.value ?? void 0, t;
 	}
 };
-function ja() {
+function Ma() {
 	return {
 		nullValue: void 0,
 		numberValue: void 0,
@@ -5436,12 +5436,12 @@ function ja() {
 		listValue: void 0
 	};
 }
-var K = {
-	encode(e, t = new W()) {
-		return e.nullValue !== void 0 && t.uint32(8).int32(e.nullValue), e.numberValue !== void 0 && t.uint32(17).double(e.numberValue), e.stringValue !== void 0 && t.uint32(26).string(e.stringValue), e.boolValue !== void 0 && t.uint32(32).bool(e.boolValue), e.structValue !== void 0 && Oa.encode(Oa.wrap(e.structValue), t.uint32(42).fork()).join(), e.listValue !== void 0 && Na.encode(Na.wrap(e.listValue), t.uint32(50).fork()).join(), t;
+var G = {
+	encode(e, t = new U()) {
+		return e.nullValue !== void 0 && t.uint32(8).int32(e.nullValue), e.numberValue !== void 0 && t.uint32(17).double(e.numberValue), e.stringValue !== void 0 && t.uint32(26).string(e.stringValue), e.boolValue !== void 0 && t.uint32(32).bool(e.boolValue), e.structValue !== void 0 && ka.encode(ka.wrap(e.structValue), t.uint32(42).fork()).join(), e.listValue !== void 0 && Pa.encode(Pa.wrap(e.listValue), t.uint32(50).fork()).join(), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = ja();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = Ma();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
@@ -5463,11 +5463,11 @@ var K = {
 					continue;
 				case 5:
 					if (e !== 42) break;
-					i.structValue = Oa.unwrap(Oa.decode(n, n.uint32()));
+					i.structValue = ka.unwrap(ka.decode(n, n.uint32()));
 					continue;
 				case 6:
 					if (e !== 50) break;
-					i.listValue = Na.unwrap(Na.decode(n, n.uint32()));
+					i.listValue = Pa.unwrap(Pa.decode(n, n.uint32()));
 					continue;
 			}
 			if ((e & 7) == 4 || e === 0) break;
@@ -5476,15 +5476,15 @@ var K = {
 		return i;
 	},
 	create(e) {
-		return K.fromPartial(e ?? {});
+		return G.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = ja();
+		let t = Ma();
 		return t.nullValue = e.nullValue ?? void 0, t.numberValue = e.numberValue ?? void 0, t.stringValue = e.stringValue ?? void 0, t.boolValue = e.boolValue ?? void 0, t.structValue = e.structValue ?? void 0, t.listValue = e.listValue ?? void 0, t;
 	},
 	wrap(e) {
-		let t = ja();
-		if (e === null) t.nullValue = Ea.NULL_VALUE;
+		let t = Ma();
+		if (e === null) t.nullValue = Da.NULL_VALUE;
 		else if (typeof e == "boolean") t.boolValue = e;
 		else if (typeof e == "number") t.numberValue = e;
 		else if (typeof e == "string") t.stringValue = e;
@@ -5502,22 +5502,22 @@ var K = {
 		if (e?.nullValue !== void 0) return null;
 	}
 };
-function Ma() {
+function Na() {
 	return { values: [] };
 }
-var Na = {
-	encode(e, t = new W()) {
-		for (let n of e.values) K.encode(K.wrap(n), t.uint32(10).fork()).join();
+var Pa = {
+	encode(e, t = new U()) {
+		for (let n of e.values) G.encode(G.wrap(n), t.uint32(10).fork()).join();
 		return t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = Ma();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = Na();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.values.push(K.unwrap(K.decode(n, n.uint32())));
+					i.values.push(G.unwrap(G.decode(n, n.uint32())));
 					continue;
 			}
 			if ((e & 7) == 4 || e === 0) break;
@@ -5526,23 +5526,23 @@ var Na = {
 		return i;
 	},
 	create(e) {
-		return Na.fromPartial(e ?? {});
+		return Pa.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = Ma();
+		let t = Na();
 		return t.values = e.values?.map((e) => e) || [], t;
 	},
 	wrap(e) {
-		let t = Ma();
+		let t = Na();
 		return t.values = e ?? [], t;
 	},
 	unwrap(e) {
 		return e?.hasOwnProperty("values") && globalThis.Array.isArray(e.values) ? e.values : e;
 	}
-}, Pa = /* @__PURE__ */ function(e) {
+}, Fa = /* @__PURE__ */ function(e) {
 	return e[e.ADD = 0] = "ADD", e[e.REMOVE = 1] = "REMOVE", e[e.REPLACE = 2] = "REPLACE", e[e.MOVE = 3] = "MOVE", e[e.COPY = 4] = "COPY", e[e.TEST = 5] = "TEST", e[e.UNRECOGNIZED = -1] = "UNRECOGNIZED", e;
 }({});
-function Fa() {
+function Ia() {
 	return {
 		op: 0,
 		path: "",
@@ -5550,12 +5550,12 @@ function Fa() {
 		value: void 0
 	};
 }
-var Ia = {
-	encode(e, t = new W()) {
-		return e.op !== 0 && t.uint32(8).int32(e.op), e.path !== "" && t.uint32(18).string(e.path), e.from !== void 0 && t.uint32(26).string(e.from), e.value !== void 0 && K.encode(K.wrap(e.value), t.uint32(34).fork()).join(), t;
+var La = {
+	encode(e, t = new U()) {
+		return e.op !== 0 && t.uint32(8).int32(e.op), e.path !== "" && t.uint32(18).string(e.path), e.from !== void 0 && t.uint32(26).string(e.from), e.value !== void 0 && G.encode(G.wrap(e.value), t.uint32(34).fork()).join(), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = Fa();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = Ia();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
@@ -5573,7 +5573,7 @@ var Ia = {
 					continue;
 				case 4:
 					if (e !== 34) break;
-					i.value = K.unwrap(K.decode(n, n.uint32()));
+					i.value = G.unwrap(G.decode(n, n.uint32()));
 					continue;
 			}
 			if ((e & 7) == 4 || e === 0) break;
@@ -5582,26 +5582,26 @@ var Ia = {
 		return i;
 	},
 	create(e) {
-		return Ia.fromPartial(e ?? {});
+		return La.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = Fa();
+		let t = Ia();
 		return t.op = e.op ?? 0, t.path = e.path ?? "", t.from = e.from ?? void 0, t.value = e.value ?? void 0, t;
 	}
 };
-function La() {
+function Ra() {
 	return {
 		id: "",
 		type: "",
 		function: void 0
 	};
 }
-var Ra = {
-	encode(e, t = new W()) {
-		return e.id !== "" && t.uint32(10).string(e.id), e.type !== "" && t.uint32(18).string(e.type), e.function !== void 0 && Ba.encode(e.function, t.uint32(26).fork()).join(), t;
+var za = {
+	encode(e, t = new U()) {
+		return e.id !== "" && t.uint32(10).string(e.id), e.type !== "" && t.uint32(18).string(e.type), e.function !== void 0 && Va.encode(e.function, t.uint32(26).fork()).join(), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = La();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = Ra();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
@@ -5615,7 +5615,7 @@ var Ra = {
 					continue;
 				case 3:
 					if (e !== 26) break;
-					i.function = Ba.decode(n, n.uint32());
+					i.function = Va.decode(n, n.uint32());
 					continue;
 			}
 			if ((e & 7) == 4 || e === 0) break;
@@ -5624,25 +5624,25 @@ var Ra = {
 		return i;
 	},
 	create(e) {
-		return Ra.fromPartial(e ?? {});
+		return za.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = La();
-		return t.id = e.id ?? "", t.type = e.type ?? "", t.function = e.function !== void 0 && e.function !== null ? Ba.fromPartial(e.function) : void 0, t;
+		let t = Ra();
+		return t.id = e.id ?? "", t.type = e.type ?? "", t.function = e.function !== void 0 && e.function !== null ? Va.fromPartial(e.function) : void 0, t;
 	}
 };
-function za() {
+function Ba() {
 	return {
 		name: "",
 		arguments: ""
 	};
 }
-var Ba = {
-	encode(e, t = new W()) {
+var Va = {
+	encode(e, t = new U()) {
 		return e.name !== "" && t.uint32(10).string(e.name), e.arguments !== "" && t.uint32(18).string(e.arguments), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = za();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = Ba();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
@@ -5661,25 +5661,25 @@ var Ba = {
 		return i;
 	},
 	create(e) {
-		return Ba.fromPartial(e ?? {});
+		return Va.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = za();
+		let t = Ba();
 		return t.name = e.name ?? "", t.arguments = e.arguments ?? "", t;
 	}
 };
-function Va() {
+function Ha() {
 	return {
 		value: "",
 		mimeType: ""
 	};
 }
-var Ha = {
-	encode(e, t = new W()) {
+var Ua = {
+	encode(e, t = new U()) {
 		return e.value !== "" && t.uint32(10).string(e.value), e.mimeType !== "" && t.uint32(18).string(e.mimeType), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = Va();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = Ha();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
@@ -5698,25 +5698,25 @@ var Ha = {
 		return i;
 	},
 	create(e) {
-		return Ha.fromPartial(e ?? {});
+		return Ua.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = Va();
+		let t = Ha();
 		return t.value = e.value ?? "", t.mimeType = e.mimeType ?? "", t;
 	}
 };
-function Ua() {
+function Wa() {
 	return {
 		value: "",
 		mimeType: void 0
 	};
 }
-var Wa = {
-	encode(e, t = new W()) {
+var Ga = {
+	encode(e, t = new U()) {
 		return e.value !== "" && t.uint32(10).string(e.value), e.mimeType !== void 0 && t.uint32(18).string(e.mimeType), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = Ua();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = Wa();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
@@ -5735,35 +5735,35 @@ var Wa = {
 		return i;
 	},
 	create(e) {
-		return Wa.fromPartial(e ?? {});
+		return Ga.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = Ua();
+		let t = Wa();
 		return t.value = e.value ?? "", t.mimeType = e.mimeType ?? void 0, t;
 	}
 };
-function Ga() {
+function Ka() {
 	return {
 		data: void 0,
 		url: void 0
 	};
 }
-var q = {
-	encode(e, t = new W()) {
-		return e.data !== void 0 && Ha.encode(e.data, t.uint32(10).fork()).join(), e.url !== void 0 && Wa.encode(e.url, t.uint32(18).fork()).join(), t;
+var K = {
+	encode(e, t = new U()) {
+		return e.data !== void 0 && Ua.encode(e.data, t.uint32(10).fork()).join(), e.url !== void 0 && Ga.encode(e.url, t.uint32(18).fork()).join(), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = Ga();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = Ka();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.data = Ha.decode(n, n.uint32());
+					i.data = Ua.decode(n, n.uint32());
 					continue;
 				case 2:
 					if (e !== 18) break;
-					i.url = Wa.decode(n, n.uint32());
+					i.url = Ga.decode(n, n.uint32());
 					continue;
 			}
 			if ((e & 7) == 4 || e === 0) break;
@@ -5772,22 +5772,22 @@ var q = {
 		return i;
 	},
 	create(e) {
-		return q.fromPartial(e ?? {});
+		return K.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = Ga();
-		return t.data = e.data !== void 0 && e.data !== null ? Ha.fromPartial(e.data) : void 0, t.url = e.url !== void 0 && e.url !== null ? Wa.fromPartial(e.url) : void 0, t;
+		let t = Ka();
+		return t.data = e.data !== void 0 && e.data !== null ? Ua.fromPartial(e.data) : void 0, t.url = e.url !== void 0 && e.url !== null ? Ga.fromPartial(e.url) : void 0, t;
 	}
 };
-function Ka() {
+function qa() {
 	return { text: "" };
 }
-var qa = {
-	encode(e, t = new W()) {
+var Ja = {
+	encode(e, t = new U()) {
 		return e.text !== "" && t.uint32(10).string(e.text), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = Ka();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = qa();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
@@ -5802,35 +5802,35 @@ var qa = {
 		return i;
 	},
 	create(e) {
-		return qa.fromPartial(e ?? {});
+		return Ja.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = Ka();
+		let t = qa();
 		return t.text = e.text ?? "", t;
 	}
 };
-function Ja() {
+function Ya() {
 	return {
 		source: void 0,
 		metadata: void 0
 	};
 }
-var Ya = {
-	encode(e, t = new W()) {
-		return e.source !== void 0 && q.encode(e.source, t.uint32(10).fork()).join(), e.metadata !== void 0 && K.encode(K.wrap(e.metadata), t.uint32(18).fork()).join(), t;
+var Xa = {
+	encode(e, t = new U()) {
+		return e.source !== void 0 && K.encode(e.source, t.uint32(10).fork()).join(), e.metadata !== void 0 && G.encode(G.wrap(e.metadata), t.uint32(18).fork()).join(), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = Ja();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = Ya();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.source = q.decode(n, n.uint32());
+					i.source = K.decode(n, n.uint32());
 					continue;
 				case 2:
 					if (e !== 18) break;
-					i.metadata = K.unwrap(K.decode(n, n.uint32()));
+					i.metadata = G.unwrap(G.decode(n, n.uint32()));
 					continue;
 			}
 			if ((e & 7) == 4 || e === 0) break;
@@ -5839,35 +5839,35 @@ var Ya = {
 		return i;
 	},
 	create(e) {
-		return Ya.fromPartial(e ?? {});
+		return Xa.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = Ja();
-		return t.source = e.source !== void 0 && e.source !== null ? q.fromPartial(e.source) : void 0, t.metadata = e.metadata ?? void 0, t;
+		let t = Ya();
+		return t.source = e.source !== void 0 && e.source !== null ? K.fromPartial(e.source) : void 0, t.metadata = e.metadata ?? void 0, t;
 	}
 };
-function Xa() {
+function Za() {
 	return {
 		source: void 0,
 		metadata: void 0
 	};
 }
-var Za = {
-	encode(e, t = new W()) {
-		return e.source !== void 0 && q.encode(e.source, t.uint32(10).fork()).join(), e.metadata !== void 0 && K.encode(K.wrap(e.metadata), t.uint32(18).fork()).join(), t;
+var Qa = {
+	encode(e, t = new U()) {
+		return e.source !== void 0 && K.encode(e.source, t.uint32(10).fork()).join(), e.metadata !== void 0 && G.encode(G.wrap(e.metadata), t.uint32(18).fork()).join(), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = Xa();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = Za();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.source = q.decode(n, n.uint32());
+					i.source = K.decode(n, n.uint32());
 					continue;
 				case 2:
 					if (e !== 18) break;
-					i.metadata = K.unwrap(K.decode(n, n.uint32()));
+					i.metadata = G.unwrap(G.decode(n, n.uint32()));
 					continue;
 			}
 			if ((e & 7) == 4 || e === 0) break;
@@ -5876,35 +5876,35 @@ var Za = {
 		return i;
 	},
 	create(e) {
-		return Za.fromPartial(e ?? {});
+		return Qa.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = Xa();
-		return t.source = e.source !== void 0 && e.source !== null ? q.fromPartial(e.source) : void 0, t.metadata = e.metadata ?? void 0, t;
+		let t = Za();
+		return t.source = e.source !== void 0 && e.source !== null ? K.fromPartial(e.source) : void 0, t.metadata = e.metadata ?? void 0, t;
 	}
 };
-function Qa() {
+function $a() {
 	return {
 		source: void 0,
 		metadata: void 0
 	};
 }
-var $a = {
-	encode(e, t = new W()) {
-		return e.source !== void 0 && q.encode(e.source, t.uint32(10).fork()).join(), e.metadata !== void 0 && K.encode(K.wrap(e.metadata), t.uint32(18).fork()).join(), t;
+var eo = {
+	encode(e, t = new U()) {
+		return e.source !== void 0 && K.encode(e.source, t.uint32(10).fork()).join(), e.metadata !== void 0 && G.encode(G.wrap(e.metadata), t.uint32(18).fork()).join(), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = Qa();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = $a();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.source = q.decode(n, n.uint32());
+					i.source = K.decode(n, n.uint32());
 					continue;
 				case 2:
 					if (e !== 18) break;
-					i.metadata = K.unwrap(K.decode(n, n.uint32()));
+					i.metadata = G.unwrap(G.decode(n, n.uint32()));
 					continue;
 			}
 			if ((e & 7) == 4 || e === 0) break;
@@ -5913,35 +5913,35 @@ var $a = {
 		return i;
 	},
 	create(e) {
-		return $a.fromPartial(e ?? {});
+		return eo.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = Qa();
-		return t.source = e.source !== void 0 && e.source !== null ? q.fromPartial(e.source) : void 0, t.metadata = e.metadata ?? void 0, t;
+		let t = $a();
+		return t.source = e.source !== void 0 && e.source !== null ? K.fromPartial(e.source) : void 0, t.metadata = e.metadata ?? void 0, t;
 	}
 };
-function eo() {
+function to() {
 	return {
 		source: void 0,
 		metadata: void 0
 	};
 }
-var to = {
-	encode(e, t = new W()) {
-		return e.source !== void 0 && q.encode(e.source, t.uint32(10).fork()).join(), e.metadata !== void 0 && K.encode(K.wrap(e.metadata), t.uint32(18).fork()).join(), t;
+var no = {
+	encode(e, t = new U()) {
+		return e.source !== void 0 && K.encode(e.source, t.uint32(10).fork()).join(), e.metadata !== void 0 && G.encode(G.wrap(e.metadata), t.uint32(18).fork()).join(), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = eo();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = to();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.source = q.decode(n, n.uint32());
+					i.source = K.decode(n, n.uint32());
 					continue;
 				case 2:
 					if (e !== 18) break;
-					i.metadata = K.unwrap(K.decode(n, n.uint32()));
+					i.metadata = G.unwrap(G.decode(n, n.uint32()));
 					continue;
 			}
 			if ((e & 7) == 4 || e === 0) break;
@@ -5950,14 +5950,14 @@ var to = {
 		return i;
 	},
 	create(e) {
-		return to.fromPartial(e ?? {});
+		return no.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = eo();
-		return t.source = e.source !== void 0 && e.source !== null ? q.fromPartial(e.source) : void 0, t.metadata = e.metadata ?? void 0, t;
+		let t = to();
+		return t.source = e.source !== void 0 && e.source !== null ? K.fromPartial(e.source) : void 0, t.metadata = e.metadata ?? void 0, t;
 	}
 };
-function no() {
+function ro() {
 	return {
 		text: void 0,
 		image: void 0,
@@ -5966,34 +5966,34 @@ function no() {
 		document: void 0
 	};
 }
-var ro = {
-	encode(e, t = new W()) {
-		return e.text !== void 0 && qa.encode(e.text, t.uint32(10).fork()).join(), e.image !== void 0 && Ya.encode(e.image, t.uint32(18).fork()).join(), e.audio !== void 0 && Za.encode(e.audio, t.uint32(26).fork()).join(), e.video !== void 0 && $a.encode(e.video, t.uint32(34).fork()).join(), e.document !== void 0 && to.encode(e.document, t.uint32(42).fork()).join(), t;
+var io = {
+	encode(e, t = new U()) {
+		return e.text !== void 0 && Ja.encode(e.text, t.uint32(10).fork()).join(), e.image !== void 0 && Xa.encode(e.image, t.uint32(18).fork()).join(), e.audio !== void 0 && Qa.encode(e.audio, t.uint32(26).fork()).join(), e.video !== void 0 && eo.encode(e.video, t.uint32(34).fork()).join(), e.document !== void 0 && no.encode(e.document, t.uint32(42).fork()).join(), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = no();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = ro();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.text = qa.decode(n, n.uint32());
+					i.text = Ja.decode(n, n.uint32());
 					continue;
 				case 2:
 					if (e !== 18) break;
-					i.image = Ya.decode(n, n.uint32());
+					i.image = Xa.decode(n, n.uint32());
 					continue;
 				case 3:
 					if (e !== 26) break;
-					i.audio = Za.decode(n, n.uint32());
+					i.audio = Qa.decode(n, n.uint32());
 					continue;
 				case 4:
 					if (e !== 34) break;
-					i.video = $a.decode(n, n.uint32());
+					i.video = eo.decode(n, n.uint32());
 					continue;
 				case 5:
 					if (e !== 42) break;
-					i.document = to.decode(n, n.uint32());
+					i.document = no.decode(n, n.uint32());
 					continue;
 			}
 			if ((e & 7) == 4 || e === 0) break;
@@ -6002,14 +6002,14 @@ var ro = {
 		return i;
 	},
 	create(e) {
-		return ro.fromPartial(e ?? {});
+		return io.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = no();
-		return t.text = e.text !== void 0 && e.text !== null ? qa.fromPartial(e.text) : void 0, t.image = e.image !== void 0 && e.image !== null ? Ya.fromPartial(e.image) : void 0, t.audio = e.audio !== void 0 && e.audio !== null ? Za.fromPartial(e.audio) : void 0, t.video = e.video !== void 0 && e.video !== null ? $a.fromPartial(e.video) : void 0, t.document = e.document !== void 0 && e.document !== null ? to.fromPartial(e.document) : void 0, t;
+		let t = ro();
+		return t.text = e.text !== void 0 && e.text !== null ? Ja.fromPartial(e.text) : void 0, t.image = e.image !== void 0 && e.image !== null ? Xa.fromPartial(e.image) : void 0, t.audio = e.audio !== void 0 && e.audio !== null ? Qa.fromPartial(e.audio) : void 0, t.video = e.video !== void 0 && e.video !== null ? eo.fromPartial(e.video) : void 0, t.document = e.document !== void 0 && e.document !== null ? no.fromPartial(e.document) : void 0, t;
 	}
 };
-function io() {
+function ao() {
 	return {
 		id: "",
 		role: "",
@@ -6021,16 +6021,16 @@ function io() {
 		contentParts: []
 	};
 }
-var ao = {
-	encode(e, t = new W()) {
+var oo = {
+	encode(e, t = new U()) {
 		e.id !== "" && t.uint32(10).string(e.id), e.role !== "" && t.uint32(18).string(e.role), e.content !== void 0 && t.uint32(26).string(e.content), e.name !== void 0 && t.uint32(34).string(e.name);
-		for (let n of e.toolCalls) Ra.encode(n, t.uint32(42).fork()).join();
+		for (let n of e.toolCalls) za.encode(n, t.uint32(42).fork()).join();
 		e.toolCallId !== void 0 && t.uint32(50).string(e.toolCallId), e.error !== void 0 && t.uint32(58).string(e.error);
-		for (let n of e.contentParts) ro.encode(n, t.uint32(66).fork()).join();
+		for (let n of e.contentParts) io.encode(n, t.uint32(66).fork()).join();
 		return t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = io();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = ao();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
@@ -6052,7 +6052,7 @@ var ao = {
 					continue;
 				case 5:
 					if (e !== 42) break;
-					i.toolCalls.push(Ra.decode(n, n.uint32()));
+					i.toolCalls.push(za.decode(n, n.uint32()));
 					continue;
 				case 6:
 					if (e !== 50) break;
@@ -6064,7 +6064,7 @@ var ao = {
 					continue;
 				case 8:
 					if (e !== 66) break;
-					i.contentParts.push(ro.decode(n, n.uint32()));
+					i.contentParts.push(io.decode(n, n.uint32()));
 					continue;
 			}
 			if ((e & 7) == 4 || e === 0) break;
@@ -6073,28 +6073,28 @@ var ao = {
 		return i;
 	},
 	create(e) {
-		return ao.fromPartial(e ?? {});
+		return oo.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = io();
-		return t.id = e.id ?? "", t.role = e.role ?? "", t.content = e.content ?? void 0, t.name = e.name ?? void 0, t.toolCalls = e.toolCalls?.map((e) => Ra.fromPartial(e)) || [], t.toolCallId = e.toolCallId ?? void 0, t.error = e.error ?? void 0, t.contentParts = e.contentParts?.map((e) => ro.fromPartial(e)) || [], t;
+		let t = ao();
+		return t.id = e.id ?? "", t.role = e.role ?? "", t.content = e.content ?? void 0, t.name = e.name ?? void 0, t.toolCalls = e.toolCalls?.map((e) => za.fromPartial(e)) || [], t.toolCallId = e.toolCallId ?? void 0, t.error = e.error ?? void 0, t.contentParts = e.contentParts?.map((e) => io.fromPartial(e)) || [], t;
 	}
-}, oo = /* @__PURE__ */ function(e) {
+}, so = /* @__PURE__ */ function(e) {
 	return e[e.TEXT_MESSAGE_START = 0] = "TEXT_MESSAGE_START", e[e.TEXT_MESSAGE_CONTENT = 1] = "TEXT_MESSAGE_CONTENT", e[e.TEXT_MESSAGE_END = 2] = "TEXT_MESSAGE_END", e[e.TOOL_CALL_START = 3] = "TOOL_CALL_START", e[e.TOOL_CALL_ARGS = 4] = "TOOL_CALL_ARGS", e[e.TOOL_CALL_END = 5] = "TOOL_CALL_END", e[e.STATE_SNAPSHOT = 6] = "STATE_SNAPSHOT", e[e.STATE_DELTA = 7] = "STATE_DELTA", e[e.MESSAGES_SNAPSHOT = 8] = "MESSAGES_SNAPSHOT", e[e.RAW = 9] = "RAW", e[e.CUSTOM = 10] = "CUSTOM", e[e.RUN_STARTED = 11] = "RUN_STARTED", e[e.RUN_FINISHED = 12] = "RUN_FINISHED", e[e.RUN_ERROR = 13] = "RUN_ERROR", e[e.STEP_STARTED = 14] = "STEP_STARTED", e[e.STEP_FINISHED = 15] = "STEP_FINISHED", e[e.UNRECOGNIZED = -1] = "UNRECOGNIZED", e;
 }({});
-function so() {
+function co() {
 	return {
 		type: 0,
 		timestamp: void 0,
 		rawEvent: void 0
 	};
 }
-var J = {
-	encode(e, t = new W()) {
-		return e.type !== 0 && t.uint32(8).int32(e.type), e.timestamp !== void 0 && t.uint32(16).int64(e.timestamp), e.rawEvent !== void 0 && K.encode(K.wrap(e.rawEvent), t.uint32(26).fork()).join(), t;
+var q = {
+	encode(e, t = new U()) {
+		return e.type !== 0 && t.uint32(8).int32(e.type), e.timestamp !== void 0 && t.uint32(16).int64(e.timestamp), e.rawEvent !== void 0 && G.encode(G.wrap(e.rawEvent), t.uint32(26).fork()).join(), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = so();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = co();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
@@ -6104,11 +6104,11 @@ var J = {
 					continue;
 				case 2:
 					if (e !== 16) break;
-					i.timestamp = qo(n.int64());
+					i.timestamp = Jo(n.int64());
 					continue;
 				case 3:
 					if (e !== 26) break;
-					i.rawEvent = K.unwrap(K.decode(n, n.uint32()));
+					i.rawEvent = G.unwrap(G.decode(n, n.uint32()));
 					continue;
 			}
 			if ((e & 7) == 4 || e === 0) break;
@@ -6117,14 +6117,14 @@ var J = {
 		return i;
 	},
 	create(e) {
-		return J.fromPartial(e ?? {});
+		return q.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = so();
+		let t = co();
 		return t.type = e.type ?? 0, t.timestamp = e.timestamp ?? void 0, t.rawEvent = e.rawEvent ?? void 0, t;
 	}
 };
-function co() {
+function lo() {
 	return {
 		baseEvent: void 0,
 		messageId: "",
@@ -6132,18 +6132,18 @@ function co() {
 		name: void 0
 	};
 }
-var lo = {
-	encode(e, t = new W()) {
-		return e.baseEvent !== void 0 && J.encode(e.baseEvent, t.uint32(10).fork()).join(), e.messageId !== "" && t.uint32(18).string(e.messageId), e.role !== void 0 && t.uint32(26).string(e.role), e.name !== void 0 && t.uint32(34).string(e.name), t;
+var uo = {
+	encode(e, t = new U()) {
+		return e.baseEvent !== void 0 && q.encode(e.baseEvent, t.uint32(10).fork()).join(), e.messageId !== "" && t.uint32(18).string(e.messageId), e.role !== void 0 && t.uint32(26).string(e.role), e.name !== void 0 && t.uint32(34).string(e.name), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = co();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = lo();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.baseEvent = J.decode(n, n.uint32());
+					i.baseEvent = q.decode(n, n.uint32());
 					continue;
 				case 2:
 					if (e !== 18) break;
@@ -6164,32 +6164,32 @@ var lo = {
 		return i;
 	},
 	create(e) {
-		return lo.fromPartial(e ?? {});
+		return uo.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = co();
-		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? J.fromPartial(e.baseEvent) : void 0, t.messageId = e.messageId ?? "", t.role = e.role ?? void 0, t.name = e.name ?? void 0, t;
+		let t = lo();
+		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? q.fromPartial(e.baseEvent) : void 0, t.messageId = e.messageId ?? "", t.role = e.role ?? void 0, t.name = e.name ?? void 0, t;
 	}
 };
-function uo() {
+function fo() {
 	return {
 		baseEvent: void 0,
 		messageId: "",
 		delta: ""
 	};
 }
-var fo = {
-	encode(e, t = new W()) {
-		return e.baseEvent !== void 0 && J.encode(e.baseEvent, t.uint32(10).fork()).join(), e.messageId !== "" && t.uint32(18).string(e.messageId), e.delta !== "" && t.uint32(26).string(e.delta), t;
+var po = {
+	encode(e, t = new U()) {
+		return e.baseEvent !== void 0 && q.encode(e.baseEvent, t.uint32(10).fork()).join(), e.messageId !== "" && t.uint32(18).string(e.messageId), e.delta !== "" && t.uint32(26).string(e.delta), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = uo();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = fo();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.baseEvent = J.decode(n, n.uint32());
+					i.baseEvent = q.decode(n, n.uint32());
 					continue;
 				case 2:
 					if (e !== 18) break;
@@ -6206,31 +6206,31 @@ var fo = {
 		return i;
 	},
 	create(e) {
-		return fo.fromPartial(e ?? {});
+		return po.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = uo();
-		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? J.fromPartial(e.baseEvent) : void 0, t.messageId = e.messageId ?? "", t.delta = e.delta ?? "", t;
+		let t = fo();
+		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? q.fromPartial(e.baseEvent) : void 0, t.messageId = e.messageId ?? "", t.delta = e.delta ?? "", t;
 	}
 };
-function po() {
+function mo() {
 	return {
 		baseEvent: void 0,
 		messageId: ""
 	};
 }
-var mo = {
-	encode(e, t = new W()) {
-		return e.baseEvent !== void 0 && J.encode(e.baseEvent, t.uint32(10).fork()).join(), e.messageId !== "" && t.uint32(18).string(e.messageId), t;
+var ho = {
+	encode(e, t = new U()) {
+		return e.baseEvent !== void 0 && q.encode(e.baseEvent, t.uint32(10).fork()).join(), e.messageId !== "" && t.uint32(18).string(e.messageId), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = po();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = mo();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.baseEvent = J.decode(n, n.uint32());
+					i.baseEvent = q.decode(n, n.uint32());
 					continue;
 				case 2:
 					if (e !== 18) break;
@@ -6243,14 +6243,14 @@ var mo = {
 		return i;
 	},
 	create(e) {
-		return mo.fromPartial(e ?? {});
+		return ho.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = po();
-		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? J.fromPartial(e.baseEvent) : void 0, t.messageId = e.messageId ?? "", t;
+		let t = mo();
+		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? q.fromPartial(e.baseEvent) : void 0, t.messageId = e.messageId ?? "", t;
 	}
 };
-function ho() {
+function go() {
 	return {
 		baseEvent: void 0,
 		toolCallId: "",
@@ -6258,18 +6258,18 @@ function ho() {
 		parentMessageId: void 0
 	};
 }
-var go = {
-	encode(e, t = new W()) {
-		return e.baseEvent !== void 0 && J.encode(e.baseEvent, t.uint32(10).fork()).join(), e.toolCallId !== "" && t.uint32(18).string(e.toolCallId), e.toolCallName !== "" && t.uint32(26).string(e.toolCallName), e.parentMessageId !== void 0 && t.uint32(34).string(e.parentMessageId), t;
+var _o = {
+	encode(e, t = new U()) {
+		return e.baseEvent !== void 0 && q.encode(e.baseEvent, t.uint32(10).fork()).join(), e.toolCallId !== "" && t.uint32(18).string(e.toolCallId), e.toolCallName !== "" && t.uint32(26).string(e.toolCallName), e.parentMessageId !== void 0 && t.uint32(34).string(e.parentMessageId), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = ho();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = go();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.baseEvent = J.decode(n, n.uint32());
+					i.baseEvent = q.decode(n, n.uint32());
 					continue;
 				case 2:
 					if (e !== 18) break;
@@ -6290,32 +6290,32 @@ var go = {
 		return i;
 	},
 	create(e) {
-		return go.fromPartial(e ?? {});
+		return _o.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = ho();
-		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? J.fromPartial(e.baseEvent) : void 0, t.toolCallId = e.toolCallId ?? "", t.toolCallName = e.toolCallName ?? "", t.parentMessageId = e.parentMessageId ?? void 0, t;
+		let t = go();
+		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? q.fromPartial(e.baseEvent) : void 0, t.toolCallId = e.toolCallId ?? "", t.toolCallName = e.toolCallName ?? "", t.parentMessageId = e.parentMessageId ?? void 0, t;
 	}
 };
-function _o() {
+function vo() {
 	return {
 		baseEvent: void 0,
 		toolCallId: "",
 		delta: ""
 	};
 }
-var vo = {
-	encode(e, t = new W()) {
-		return e.baseEvent !== void 0 && J.encode(e.baseEvent, t.uint32(10).fork()).join(), e.toolCallId !== "" && t.uint32(18).string(e.toolCallId), e.delta !== "" && t.uint32(26).string(e.delta), t;
+var yo = {
+	encode(e, t = new U()) {
+		return e.baseEvent !== void 0 && q.encode(e.baseEvent, t.uint32(10).fork()).join(), e.toolCallId !== "" && t.uint32(18).string(e.toolCallId), e.delta !== "" && t.uint32(26).string(e.delta), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = _o();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = vo();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.baseEvent = J.decode(n, n.uint32());
+					i.baseEvent = q.decode(n, n.uint32());
 					continue;
 				case 2:
 					if (e !== 18) break;
@@ -6332,31 +6332,31 @@ var vo = {
 		return i;
 	},
 	create(e) {
-		return vo.fromPartial(e ?? {});
+		return yo.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = _o();
-		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? J.fromPartial(e.baseEvent) : void 0, t.toolCallId = e.toolCallId ?? "", t.delta = e.delta ?? "", t;
+		let t = vo();
+		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? q.fromPartial(e.baseEvent) : void 0, t.toolCallId = e.toolCallId ?? "", t.delta = e.delta ?? "", t;
 	}
 };
-function yo() {
+function bo() {
 	return {
 		baseEvent: void 0,
 		toolCallId: ""
 	};
 }
-var bo = {
-	encode(e, t = new W()) {
-		return e.baseEvent !== void 0 && J.encode(e.baseEvent, t.uint32(10).fork()).join(), e.toolCallId !== "" && t.uint32(18).string(e.toolCallId), t;
+var xo = {
+	encode(e, t = new U()) {
+		return e.baseEvent !== void 0 && q.encode(e.baseEvent, t.uint32(10).fork()).join(), e.toolCallId !== "" && t.uint32(18).string(e.toolCallId), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = yo();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = bo();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.baseEvent = J.decode(n, n.uint32());
+					i.baseEvent = q.decode(n, n.uint32());
 					continue;
 				case 2:
 					if (e !== 18) break;
@@ -6369,35 +6369,35 @@ var bo = {
 		return i;
 	},
 	create(e) {
-		return bo.fromPartial(e ?? {});
+		return xo.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = yo();
-		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? J.fromPartial(e.baseEvent) : void 0, t.toolCallId = e.toolCallId ?? "", t;
+		let t = bo();
+		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? q.fromPartial(e.baseEvent) : void 0, t.toolCallId = e.toolCallId ?? "", t;
 	}
 };
-function xo() {
+function So() {
 	return {
 		baseEvent: void 0,
 		snapshot: void 0
 	};
 }
-var So = {
-	encode(e, t = new W()) {
-		return e.baseEvent !== void 0 && J.encode(e.baseEvent, t.uint32(10).fork()).join(), e.snapshot !== void 0 && K.encode(K.wrap(e.snapshot), t.uint32(18).fork()).join(), t;
+var Co = {
+	encode(e, t = new U()) {
+		return e.baseEvent !== void 0 && q.encode(e.baseEvent, t.uint32(10).fork()).join(), e.snapshot !== void 0 && G.encode(G.wrap(e.snapshot), t.uint32(18).fork()).join(), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = xo();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = So();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.baseEvent = J.decode(n, n.uint32());
+					i.baseEvent = q.decode(n, n.uint32());
 					continue;
 				case 2:
 					if (e !== 18) break;
-					i.snapshot = K.unwrap(K.decode(n, n.uint32()));
+					i.snapshot = G.unwrap(G.decode(n, n.uint32()));
 					continue;
 			}
 			if ((e & 7) == 4 || e === 0) break;
@@ -6406,37 +6406,37 @@ var So = {
 		return i;
 	},
 	create(e) {
-		return So.fromPartial(e ?? {});
+		return Co.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = xo();
-		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? J.fromPartial(e.baseEvent) : void 0, t.snapshot = e.snapshot ?? void 0, t;
+		let t = So();
+		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? q.fromPartial(e.baseEvent) : void 0, t.snapshot = e.snapshot ?? void 0, t;
 	}
 };
-function Co() {
+function wo() {
 	return {
 		baseEvent: void 0,
 		delta: []
 	};
 }
-var wo = {
-	encode(e, t = new W()) {
-		e.baseEvent !== void 0 && J.encode(e.baseEvent, t.uint32(10).fork()).join();
-		for (let n of e.delta) Ia.encode(n, t.uint32(18).fork()).join();
+var To = {
+	encode(e, t = new U()) {
+		e.baseEvent !== void 0 && q.encode(e.baseEvent, t.uint32(10).fork()).join();
+		for (let n of e.delta) La.encode(n, t.uint32(18).fork()).join();
 		return t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = Co();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = wo();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.baseEvent = J.decode(n, n.uint32());
+					i.baseEvent = q.decode(n, n.uint32());
 					continue;
 				case 2:
 					if (e !== 18) break;
-					i.delta.push(Ia.decode(n, n.uint32()));
+					i.delta.push(La.decode(n, n.uint32()));
 					continue;
 			}
 			if ((e & 7) == 4 || e === 0) break;
@@ -6445,37 +6445,37 @@ var wo = {
 		return i;
 	},
 	create(e) {
-		return wo.fromPartial(e ?? {});
+		return To.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = Co();
-		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? J.fromPartial(e.baseEvent) : void 0, t.delta = e.delta?.map((e) => Ia.fromPartial(e)) || [], t;
+		let t = wo();
+		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? q.fromPartial(e.baseEvent) : void 0, t.delta = e.delta?.map((e) => La.fromPartial(e)) || [], t;
 	}
 };
-function To() {
+function Eo() {
 	return {
 		baseEvent: void 0,
 		messages: []
 	};
 }
-var Eo = {
-	encode(e, t = new W()) {
-		e.baseEvent !== void 0 && J.encode(e.baseEvent, t.uint32(10).fork()).join();
-		for (let n of e.messages) ao.encode(n, t.uint32(18).fork()).join();
+var Do = {
+	encode(e, t = new U()) {
+		e.baseEvent !== void 0 && q.encode(e.baseEvent, t.uint32(10).fork()).join();
+		for (let n of e.messages) oo.encode(n, t.uint32(18).fork()).join();
 		return t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = To();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = Eo();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.baseEvent = J.decode(n, n.uint32());
+					i.baseEvent = q.decode(n, n.uint32());
 					continue;
 				case 2:
 					if (e !== 18) break;
-					i.messages.push(ao.decode(n, n.uint32()));
+					i.messages.push(oo.decode(n, n.uint32()));
 					continue;
 			}
 			if ((e & 7) == 4 || e === 0) break;
@@ -6484,36 +6484,36 @@ var Eo = {
 		return i;
 	},
 	create(e) {
-		return Eo.fromPartial(e ?? {});
+		return Do.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = To();
-		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? J.fromPartial(e.baseEvent) : void 0, t.messages = e.messages?.map((e) => ao.fromPartial(e)) || [], t;
+		let t = Eo();
+		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? q.fromPartial(e.baseEvent) : void 0, t.messages = e.messages?.map((e) => oo.fromPartial(e)) || [], t;
 	}
 };
-function Do() {
+function Oo() {
 	return {
 		baseEvent: void 0,
 		event: void 0,
 		source: void 0
 	};
 }
-var Oo = {
-	encode(e, t = new W()) {
-		return e.baseEvent !== void 0 && J.encode(e.baseEvent, t.uint32(10).fork()).join(), e.event !== void 0 && K.encode(K.wrap(e.event), t.uint32(18).fork()).join(), e.source !== void 0 && t.uint32(26).string(e.source), t;
+var ko = {
+	encode(e, t = new U()) {
+		return e.baseEvent !== void 0 && q.encode(e.baseEvent, t.uint32(10).fork()).join(), e.event !== void 0 && G.encode(G.wrap(e.event), t.uint32(18).fork()).join(), e.source !== void 0 && t.uint32(26).string(e.source), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = Do();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = Oo();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.baseEvent = J.decode(n, n.uint32());
+					i.baseEvent = q.decode(n, n.uint32());
 					continue;
 				case 2:
 					if (e !== 18) break;
-					i.event = K.unwrap(K.decode(n, n.uint32()));
+					i.event = G.unwrap(G.decode(n, n.uint32()));
 					continue;
 				case 3:
 					if (e !== 26) break;
@@ -6526,32 +6526,32 @@ var Oo = {
 		return i;
 	},
 	create(e) {
-		return Oo.fromPartial(e ?? {});
+		return ko.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = Do();
-		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? J.fromPartial(e.baseEvent) : void 0, t.event = e.event ?? void 0, t.source = e.source ?? void 0, t;
+		let t = Oo();
+		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? q.fromPartial(e.baseEvent) : void 0, t.event = e.event ?? void 0, t.source = e.source ?? void 0, t;
 	}
 };
-function ko() {
+function Ao() {
 	return {
 		baseEvent: void 0,
 		name: "",
 		value: void 0
 	};
 }
-var Ao = {
-	encode(e, t = new W()) {
-		return e.baseEvent !== void 0 && J.encode(e.baseEvent, t.uint32(10).fork()).join(), e.name !== "" && t.uint32(18).string(e.name), e.value !== void 0 && K.encode(K.wrap(e.value), t.uint32(26).fork()).join(), t;
+var jo = {
+	encode(e, t = new U()) {
+		return e.baseEvent !== void 0 && q.encode(e.baseEvent, t.uint32(10).fork()).join(), e.name !== "" && t.uint32(18).string(e.name), e.value !== void 0 && G.encode(G.wrap(e.value), t.uint32(26).fork()).join(), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = ko();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = Ao();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.baseEvent = J.decode(n, n.uint32());
+					i.baseEvent = q.decode(n, n.uint32());
 					continue;
 				case 2:
 					if (e !== 18) break;
@@ -6559,7 +6559,7 @@ var Ao = {
 					continue;
 				case 3:
 					if (e !== 26) break;
-					i.value = K.unwrap(K.decode(n, n.uint32()));
+					i.value = G.unwrap(G.decode(n, n.uint32()));
 					continue;
 			}
 			if ((e & 7) == 4 || e === 0) break;
@@ -6568,32 +6568,32 @@ var Ao = {
 		return i;
 	},
 	create(e) {
-		return Ao.fromPartial(e ?? {});
+		return jo.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = ko();
-		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? J.fromPartial(e.baseEvent) : void 0, t.name = e.name ?? "", t.value = e.value ?? void 0, t;
+		let t = Ao();
+		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? q.fromPartial(e.baseEvent) : void 0, t.name = e.name ?? "", t.value = e.value ?? void 0, t;
 	}
 };
-function jo() {
+function Mo() {
 	return {
 		baseEvent: void 0,
 		threadId: "",
 		runId: ""
 	};
 }
-var Mo = {
-	encode(e, t = new W()) {
-		return e.baseEvent !== void 0 && J.encode(e.baseEvent, t.uint32(10).fork()).join(), e.threadId !== "" && t.uint32(18).string(e.threadId), e.runId !== "" && t.uint32(26).string(e.runId), t;
+var No = {
+	encode(e, t = new U()) {
+		return e.baseEvent !== void 0 && q.encode(e.baseEvent, t.uint32(10).fork()).join(), e.threadId !== "" && t.uint32(18).string(e.threadId), e.runId !== "" && t.uint32(26).string(e.runId), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = jo();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = Mo();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.baseEvent = J.decode(n, n.uint32());
+					i.baseEvent = q.decode(n, n.uint32());
 					continue;
 				case 2:
 					if (e !== 18) break;
@@ -6610,14 +6610,14 @@ var Mo = {
 		return i;
 	},
 	create(e) {
-		return Mo.fromPartial(e ?? {});
+		return No.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = jo();
-		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? J.fromPartial(e.baseEvent) : void 0, t.threadId = e.threadId ?? "", t.runId = e.runId ?? "", t;
+		let t = Mo();
+		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? q.fromPartial(e.baseEvent) : void 0, t.threadId = e.threadId ?? "", t.runId = e.runId ?? "", t;
 	}
 };
-function No() {
+function Po() {
 	return {
 		baseEvent: void 0,
 		threadId: "",
@@ -6625,18 +6625,18 @@ function No() {
 		result: void 0
 	};
 }
-var Po = {
-	encode(e, t = new W()) {
-		return e.baseEvent !== void 0 && J.encode(e.baseEvent, t.uint32(10).fork()).join(), e.threadId !== "" && t.uint32(18).string(e.threadId), e.runId !== "" && t.uint32(26).string(e.runId), e.result !== void 0 && K.encode(K.wrap(e.result), t.uint32(34).fork()).join(), t;
+var Fo = {
+	encode(e, t = new U()) {
+		return e.baseEvent !== void 0 && q.encode(e.baseEvent, t.uint32(10).fork()).join(), e.threadId !== "" && t.uint32(18).string(e.threadId), e.runId !== "" && t.uint32(26).string(e.runId), e.result !== void 0 && G.encode(G.wrap(e.result), t.uint32(34).fork()).join(), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = No();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = Po();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.baseEvent = J.decode(n, n.uint32());
+					i.baseEvent = q.decode(n, n.uint32());
 					continue;
 				case 2:
 					if (e !== 18) break;
@@ -6648,7 +6648,7 @@ var Po = {
 					continue;
 				case 4:
 					if (e !== 34) break;
-					i.result = K.unwrap(K.decode(n, n.uint32()));
+					i.result = G.unwrap(G.decode(n, n.uint32()));
 					continue;
 			}
 			if ((e & 7) == 4 || e === 0) break;
@@ -6657,32 +6657,32 @@ var Po = {
 		return i;
 	},
 	create(e) {
-		return Po.fromPartial(e ?? {});
+		return Fo.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = No();
-		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? J.fromPartial(e.baseEvent) : void 0, t.threadId = e.threadId ?? "", t.runId = e.runId ?? "", t.result = e.result ?? void 0, t;
+		let t = Po();
+		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? q.fromPartial(e.baseEvent) : void 0, t.threadId = e.threadId ?? "", t.runId = e.runId ?? "", t.result = e.result ?? void 0, t;
 	}
 };
-function Fo() {
+function Io() {
 	return {
 		baseEvent: void 0,
 		code: void 0,
 		message: ""
 	};
 }
-var Io = {
-	encode(e, t = new W()) {
-		return e.baseEvent !== void 0 && J.encode(e.baseEvent, t.uint32(10).fork()).join(), e.code !== void 0 && t.uint32(18).string(e.code), e.message !== "" && t.uint32(26).string(e.message), t;
+var Lo = {
+	encode(e, t = new U()) {
+		return e.baseEvent !== void 0 && q.encode(e.baseEvent, t.uint32(10).fork()).join(), e.code !== void 0 && t.uint32(18).string(e.code), e.message !== "" && t.uint32(26).string(e.message), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = Fo();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = Io();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.baseEvent = J.decode(n, n.uint32());
+					i.baseEvent = q.decode(n, n.uint32());
 					continue;
 				case 2:
 					if (e !== 18) break;
@@ -6699,31 +6699,31 @@ var Io = {
 		return i;
 	},
 	create(e) {
-		return Io.fromPartial(e ?? {});
+		return Lo.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = Fo();
-		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? J.fromPartial(e.baseEvent) : void 0, t.code = e.code ?? void 0, t.message = e.message ?? "", t;
+		let t = Io();
+		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? q.fromPartial(e.baseEvent) : void 0, t.code = e.code ?? void 0, t.message = e.message ?? "", t;
 	}
 };
-function Lo() {
+function Ro() {
 	return {
 		baseEvent: void 0,
 		stepName: ""
 	};
 }
-var Ro = {
-	encode(e, t = new W()) {
-		return e.baseEvent !== void 0 && J.encode(e.baseEvent, t.uint32(10).fork()).join(), e.stepName !== "" && t.uint32(18).string(e.stepName), t;
+var zo = {
+	encode(e, t = new U()) {
+		return e.baseEvent !== void 0 && q.encode(e.baseEvent, t.uint32(10).fork()).join(), e.stepName !== "" && t.uint32(18).string(e.stepName), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = Lo();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = Ro();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.baseEvent = J.decode(n, n.uint32());
+					i.baseEvent = q.decode(n, n.uint32());
 					continue;
 				case 2:
 					if (e !== 18) break;
@@ -6736,31 +6736,31 @@ var Ro = {
 		return i;
 	},
 	create(e) {
-		return Ro.fromPartial(e ?? {});
+		return zo.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = Lo();
-		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? J.fromPartial(e.baseEvent) : void 0, t.stepName = e.stepName ?? "", t;
+		let t = Ro();
+		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? q.fromPartial(e.baseEvent) : void 0, t.stepName = e.stepName ?? "", t;
 	}
 };
-function zo() {
+function Bo() {
 	return {
 		baseEvent: void 0,
 		stepName: ""
 	};
 }
-var Bo = {
-	encode(e, t = new W()) {
-		return e.baseEvent !== void 0 && J.encode(e.baseEvent, t.uint32(10).fork()).join(), e.stepName !== "" && t.uint32(18).string(e.stepName), t;
+var Vo = {
+	encode(e, t = new U()) {
+		return e.baseEvent !== void 0 && q.encode(e.baseEvent, t.uint32(10).fork()).join(), e.stepName !== "" && t.uint32(18).string(e.stepName), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = zo();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = Bo();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.baseEvent = J.decode(n, n.uint32());
+					i.baseEvent = q.decode(n, n.uint32());
 					continue;
 				case 2:
 					if (e !== 18) break;
@@ -6773,14 +6773,14 @@ var Bo = {
 		return i;
 	},
 	create(e) {
-		return Bo.fromPartial(e ?? {});
+		return Vo.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = zo();
-		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? J.fromPartial(e.baseEvent) : void 0, t.stepName = e.stepName ?? "", t;
+		let t = Bo();
+		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? q.fromPartial(e.baseEvent) : void 0, t.stepName = e.stepName ?? "", t;
 	}
 };
-function Vo() {
+function Ho() {
 	return {
 		baseEvent: void 0,
 		messageId: void 0,
@@ -6789,18 +6789,18 @@ function Vo() {
 		name: void 0
 	};
 }
-var Ho = {
-	encode(e, t = new W()) {
-		return e.baseEvent !== void 0 && J.encode(e.baseEvent, t.uint32(10).fork()).join(), e.messageId !== void 0 && t.uint32(18).string(e.messageId), e.role !== void 0 && t.uint32(26).string(e.role), e.delta !== void 0 && t.uint32(34).string(e.delta), e.name !== void 0 && t.uint32(42).string(e.name), t;
+var Uo = {
+	encode(e, t = new U()) {
+		return e.baseEvent !== void 0 && q.encode(e.baseEvent, t.uint32(10).fork()).join(), e.messageId !== void 0 && t.uint32(18).string(e.messageId), e.role !== void 0 && t.uint32(26).string(e.role), e.delta !== void 0 && t.uint32(34).string(e.delta), e.name !== void 0 && t.uint32(42).string(e.name), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = Vo();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = Ho();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.baseEvent = J.decode(n, n.uint32());
+					i.baseEvent = q.decode(n, n.uint32());
 					continue;
 				case 2:
 					if (e !== 18) break;
@@ -6825,14 +6825,14 @@ var Ho = {
 		return i;
 	},
 	create(e) {
-		return Ho.fromPartial(e ?? {});
+		return Uo.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = Vo();
-		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? J.fromPartial(e.baseEvent) : void 0, t.messageId = e.messageId ?? void 0, t.role = e.role ?? void 0, t.delta = e.delta ?? void 0, t.name = e.name ?? void 0, t;
+		let t = Ho();
+		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? q.fromPartial(e.baseEvent) : void 0, t.messageId = e.messageId ?? void 0, t.role = e.role ?? void 0, t.delta = e.delta ?? void 0, t.name = e.name ?? void 0, t;
 	}
 };
-function Uo() {
+function Wo() {
 	return {
 		baseEvent: void 0,
 		toolCallId: void 0,
@@ -6841,18 +6841,18 @@ function Uo() {
 		delta: void 0
 	};
 }
-var Wo = {
-	encode(e, t = new W()) {
-		return e.baseEvent !== void 0 && J.encode(e.baseEvent, t.uint32(10).fork()).join(), e.toolCallId !== void 0 && t.uint32(18).string(e.toolCallId), e.toolCallName !== void 0 && t.uint32(26).string(e.toolCallName), e.parentMessageId !== void 0 && t.uint32(34).string(e.parentMessageId), e.delta !== void 0 && t.uint32(42).string(e.delta), t;
+var Go = {
+	encode(e, t = new U()) {
+		return e.baseEvent !== void 0 && q.encode(e.baseEvent, t.uint32(10).fork()).join(), e.toolCallId !== void 0 && t.uint32(18).string(e.toolCallId), e.toolCallName !== void 0 && t.uint32(26).string(e.toolCallName), e.parentMessageId !== void 0 && t.uint32(34).string(e.parentMessageId), e.delta !== void 0 && t.uint32(42).string(e.delta), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = Uo();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = Wo();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.baseEvent = J.decode(n, n.uint32());
+					i.baseEvent = q.decode(n, n.uint32());
 					continue;
 				case 2:
 					if (e !== 18) break;
@@ -6877,14 +6877,14 @@ var Wo = {
 		return i;
 	},
 	create(e) {
-		return Wo.fromPartial(e ?? {});
+		return Go.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = Uo();
-		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? J.fromPartial(e.baseEvent) : void 0, t.toolCallId = e.toolCallId ?? void 0, t.toolCallName = e.toolCallName ?? void 0, t.parentMessageId = e.parentMessageId ?? void 0, t.delta = e.delta ?? void 0, t;
+		let t = Wo();
+		return t.baseEvent = e.baseEvent !== void 0 && e.baseEvent !== null ? q.fromPartial(e.baseEvent) : void 0, t.toolCallId = e.toolCallId ?? void 0, t.toolCallName = e.toolCallName ?? void 0, t.parentMessageId = e.parentMessageId ?? void 0, t.delta = e.delta ?? void 0, t;
 	}
 };
-function Go() {
+function Ko() {
 	return {
 		textMessageStart: void 0,
 		textMessageContent: void 0,
@@ -6906,86 +6906,86 @@ function Go() {
 		toolCallChunk: void 0
 	};
 }
-var Ko = {
-	encode(e, t = new W()) {
-		return e.textMessageStart !== void 0 && lo.encode(e.textMessageStart, t.uint32(10).fork()).join(), e.textMessageContent !== void 0 && fo.encode(e.textMessageContent, t.uint32(18).fork()).join(), e.textMessageEnd !== void 0 && mo.encode(e.textMessageEnd, t.uint32(26).fork()).join(), e.toolCallStart !== void 0 && go.encode(e.toolCallStart, t.uint32(34).fork()).join(), e.toolCallArgs !== void 0 && vo.encode(e.toolCallArgs, t.uint32(42).fork()).join(), e.toolCallEnd !== void 0 && bo.encode(e.toolCallEnd, t.uint32(50).fork()).join(), e.stateSnapshot !== void 0 && So.encode(e.stateSnapshot, t.uint32(58).fork()).join(), e.stateDelta !== void 0 && wo.encode(e.stateDelta, t.uint32(66).fork()).join(), e.messagesSnapshot !== void 0 && Eo.encode(e.messagesSnapshot, t.uint32(74).fork()).join(), e.raw !== void 0 && Oo.encode(e.raw, t.uint32(82).fork()).join(), e.custom !== void 0 && Ao.encode(e.custom, t.uint32(90).fork()).join(), e.runStarted !== void 0 && Mo.encode(e.runStarted, t.uint32(98).fork()).join(), e.runFinished !== void 0 && Po.encode(e.runFinished, t.uint32(106).fork()).join(), e.runError !== void 0 && Io.encode(e.runError, t.uint32(114).fork()).join(), e.stepStarted !== void 0 && Ro.encode(e.stepStarted, t.uint32(122).fork()).join(), e.stepFinished !== void 0 && Bo.encode(e.stepFinished, t.uint32(130).fork()).join(), e.textMessageChunk !== void 0 && Ho.encode(e.textMessageChunk, t.uint32(138).fork()).join(), e.toolCallChunk !== void 0 && Wo.encode(e.toolCallChunk, t.uint32(146).fork()).join(), t;
+var qo = {
+	encode(e, t = new U()) {
+		return e.textMessageStart !== void 0 && uo.encode(e.textMessageStart, t.uint32(10).fork()).join(), e.textMessageContent !== void 0 && po.encode(e.textMessageContent, t.uint32(18).fork()).join(), e.textMessageEnd !== void 0 && ho.encode(e.textMessageEnd, t.uint32(26).fork()).join(), e.toolCallStart !== void 0 && _o.encode(e.toolCallStart, t.uint32(34).fork()).join(), e.toolCallArgs !== void 0 && yo.encode(e.toolCallArgs, t.uint32(42).fork()).join(), e.toolCallEnd !== void 0 && xo.encode(e.toolCallEnd, t.uint32(50).fork()).join(), e.stateSnapshot !== void 0 && Co.encode(e.stateSnapshot, t.uint32(58).fork()).join(), e.stateDelta !== void 0 && To.encode(e.stateDelta, t.uint32(66).fork()).join(), e.messagesSnapshot !== void 0 && Do.encode(e.messagesSnapshot, t.uint32(74).fork()).join(), e.raw !== void 0 && ko.encode(e.raw, t.uint32(82).fork()).join(), e.custom !== void 0 && jo.encode(e.custom, t.uint32(90).fork()).join(), e.runStarted !== void 0 && No.encode(e.runStarted, t.uint32(98).fork()).join(), e.runFinished !== void 0 && Fo.encode(e.runFinished, t.uint32(106).fork()).join(), e.runError !== void 0 && Lo.encode(e.runError, t.uint32(114).fork()).join(), e.stepStarted !== void 0 && zo.encode(e.stepStarted, t.uint32(122).fork()).join(), e.stepFinished !== void 0 && Vo.encode(e.stepFinished, t.uint32(130).fork()).join(), e.textMessageChunk !== void 0 && Uo.encode(e.textMessageChunk, t.uint32(138).fork()).join(), e.toolCallChunk !== void 0 && Go.encode(e.toolCallChunk, t.uint32(146).fork()).join(), t;
 	},
 	decode(e, t) {
-		let n = e instanceof G ? e : new G(e), r = t === void 0 ? n.len : n.pos + t, i = Go();
+		let n = e instanceof W ? e : new W(e), r = t === void 0 ? n.len : n.pos + t, i = Ko();
 		for (; n.pos < r;) {
 			let e = n.uint32();
 			switch (e >>> 3) {
 				case 1:
 					if (e !== 10) break;
-					i.textMessageStart = lo.decode(n, n.uint32());
+					i.textMessageStart = uo.decode(n, n.uint32());
 					continue;
 				case 2:
 					if (e !== 18) break;
-					i.textMessageContent = fo.decode(n, n.uint32());
+					i.textMessageContent = po.decode(n, n.uint32());
 					continue;
 				case 3:
 					if (e !== 26) break;
-					i.textMessageEnd = mo.decode(n, n.uint32());
+					i.textMessageEnd = ho.decode(n, n.uint32());
 					continue;
 				case 4:
 					if (e !== 34) break;
-					i.toolCallStart = go.decode(n, n.uint32());
+					i.toolCallStart = _o.decode(n, n.uint32());
 					continue;
 				case 5:
 					if (e !== 42) break;
-					i.toolCallArgs = vo.decode(n, n.uint32());
+					i.toolCallArgs = yo.decode(n, n.uint32());
 					continue;
 				case 6:
 					if (e !== 50) break;
-					i.toolCallEnd = bo.decode(n, n.uint32());
+					i.toolCallEnd = xo.decode(n, n.uint32());
 					continue;
 				case 7:
 					if (e !== 58) break;
-					i.stateSnapshot = So.decode(n, n.uint32());
+					i.stateSnapshot = Co.decode(n, n.uint32());
 					continue;
 				case 8:
 					if (e !== 66) break;
-					i.stateDelta = wo.decode(n, n.uint32());
+					i.stateDelta = To.decode(n, n.uint32());
 					continue;
 				case 9:
 					if (e !== 74) break;
-					i.messagesSnapshot = Eo.decode(n, n.uint32());
+					i.messagesSnapshot = Do.decode(n, n.uint32());
 					continue;
 				case 10:
 					if (e !== 82) break;
-					i.raw = Oo.decode(n, n.uint32());
+					i.raw = ko.decode(n, n.uint32());
 					continue;
 				case 11:
 					if (e !== 90) break;
-					i.custom = Ao.decode(n, n.uint32());
+					i.custom = jo.decode(n, n.uint32());
 					continue;
 				case 12:
 					if (e !== 98) break;
-					i.runStarted = Mo.decode(n, n.uint32());
+					i.runStarted = No.decode(n, n.uint32());
 					continue;
 				case 13:
 					if (e !== 106) break;
-					i.runFinished = Po.decode(n, n.uint32());
+					i.runFinished = Fo.decode(n, n.uint32());
 					continue;
 				case 14:
 					if (e !== 114) break;
-					i.runError = Io.decode(n, n.uint32());
+					i.runError = Lo.decode(n, n.uint32());
 					continue;
 				case 15:
 					if (e !== 122) break;
-					i.stepStarted = Ro.decode(n, n.uint32());
+					i.stepStarted = zo.decode(n, n.uint32());
 					continue;
 				case 16:
 					if (e !== 130) break;
-					i.stepFinished = Bo.decode(n, n.uint32());
+					i.stepFinished = Vo.decode(n, n.uint32());
 					continue;
 				case 17:
 					if (e !== 138) break;
-					i.textMessageChunk = Ho.decode(n, n.uint32());
+					i.textMessageChunk = Uo.decode(n, n.uint32());
 					continue;
 				case 18:
 					if (e !== 146) break;
-					i.toolCallChunk = Wo.decode(n, n.uint32());
+					i.toolCallChunk = Go.decode(n, n.uint32());
 					continue;
 			}
 			if ((e & 7) == 4 || e === 0) break;
@@ -6994,20 +6994,20 @@ var Ko = {
 		return i;
 	},
 	create(e) {
-		return Ko.fromPartial(e ?? {});
+		return qo.fromPartial(e ?? {});
 	},
 	fromPartial(e) {
-		let t = Go();
-		return t.textMessageStart = e.textMessageStart !== void 0 && e.textMessageStart !== null ? lo.fromPartial(e.textMessageStart) : void 0, t.textMessageContent = e.textMessageContent !== void 0 && e.textMessageContent !== null ? fo.fromPartial(e.textMessageContent) : void 0, t.textMessageEnd = e.textMessageEnd !== void 0 && e.textMessageEnd !== null ? mo.fromPartial(e.textMessageEnd) : void 0, t.toolCallStart = e.toolCallStart !== void 0 && e.toolCallStart !== null ? go.fromPartial(e.toolCallStart) : void 0, t.toolCallArgs = e.toolCallArgs !== void 0 && e.toolCallArgs !== null ? vo.fromPartial(e.toolCallArgs) : void 0, t.toolCallEnd = e.toolCallEnd !== void 0 && e.toolCallEnd !== null ? bo.fromPartial(e.toolCallEnd) : void 0, t.stateSnapshot = e.stateSnapshot !== void 0 && e.stateSnapshot !== null ? So.fromPartial(e.stateSnapshot) : void 0, t.stateDelta = e.stateDelta !== void 0 && e.stateDelta !== null ? wo.fromPartial(e.stateDelta) : void 0, t.messagesSnapshot = e.messagesSnapshot !== void 0 && e.messagesSnapshot !== null ? Eo.fromPartial(e.messagesSnapshot) : void 0, t.raw = e.raw !== void 0 && e.raw !== null ? Oo.fromPartial(e.raw) : void 0, t.custom = e.custom !== void 0 && e.custom !== null ? Ao.fromPartial(e.custom) : void 0, t.runStarted = e.runStarted !== void 0 && e.runStarted !== null ? Mo.fromPartial(e.runStarted) : void 0, t.runFinished = e.runFinished !== void 0 && e.runFinished !== null ? Po.fromPartial(e.runFinished) : void 0, t.runError = e.runError !== void 0 && e.runError !== null ? Io.fromPartial(e.runError) : void 0, t.stepStarted = e.stepStarted !== void 0 && e.stepStarted !== null ? Ro.fromPartial(e.stepStarted) : void 0, t.stepFinished = e.stepFinished !== void 0 && e.stepFinished !== null ? Bo.fromPartial(e.stepFinished) : void 0, t.textMessageChunk = e.textMessageChunk !== void 0 && e.textMessageChunk !== null ? Ho.fromPartial(e.textMessageChunk) : void 0, t.toolCallChunk = e.toolCallChunk !== void 0 && e.toolCallChunk !== null ? Wo.fromPartial(e.toolCallChunk) : void 0, t;
+		let t = Ko();
+		return t.textMessageStart = e.textMessageStart !== void 0 && e.textMessageStart !== null ? uo.fromPartial(e.textMessageStart) : void 0, t.textMessageContent = e.textMessageContent !== void 0 && e.textMessageContent !== null ? po.fromPartial(e.textMessageContent) : void 0, t.textMessageEnd = e.textMessageEnd !== void 0 && e.textMessageEnd !== null ? ho.fromPartial(e.textMessageEnd) : void 0, t.toolCallStart = e.toolCallStart !== void 0 && e.toolCallStart !== null ? _o.fromPartial(e.toolCallStart) : void 0, t.toolCallArgs = e.toolCallArgs !== void 0 && e.toolCallArgs !== null ? yo.fromPartial(e.toolCallArgs) : void 0, t.toolCallEnd = e.toolCallEnd !== void 0 && e.toolCallEnd !== null ? xo.fromPartial(e.toolCallEnd) : void 0, t.stateSnapshot = e.stateSnapshot !== void 0 && e.stateSnapshot !== null ? Co.fromPartial(e.stateSnapshot) : void 0, t.stateDelta = e.stateDelta !== void 0 && e.stateDelta !== null ? To.fromPartial(e.stateDelta) : void 0, t.messagesSnapshot = e.messagesSnapshot !== void 0 && e.messagesSnapshot !== null ? Do.fromPartial(e.messagesSnapshot) : void 0, t.raw = e.raw !== void 0 && e.raw !== null ? ko.fromPartial(e.raw) : void 0, t.custom = e.custom !== void 0 && e.custom !== null ? jo.fromPartial(e.custom) : void 0, t.runStarted = e.runStarted !== void 0 && e.runStarted !== null ? No.fromPartial(e.runStarted) : void 0, t.runFinished = e.runFinished !== void 0 && e.runFinished !== null ? Fo.fromPartial(e.runFinished) : void 0, t.runError = e.runError !== void 0 && e.runError !== null ? Lo.fromPartial(e.runError) : void 0, t.stepStarted = e.stepStarted !== void 0 && e.stepStarted !== null ? zo.fromPartial(e.stepStarted) : void 0, t.stepFinished = e.stepFinished !== void 0 && e.stepFinished !== null ? Vo.fromPartial(e.stepFinished) : void 0, t.textMessageChunk = e.textMessageChunk !== void 0 && e.textMessageChunk !== null ? Uo.fromPartial(e.textMessageChunk) : void 0, t.toolCallChunk = e.toolCallChunk !== void 0 && e.toolCallChunk !== null ? Go.fromPartial(e.toolCallChunk) : void 0, t;
 	}
 };
-function qo(e) {
+function Jo(e) {
 	let t = globalThis.Number(e.toString());
 	if (t > globalThis.Number.MAX_SAFE_INTEGER) throw new globalThis.Error("Value is larger than Number.MAX_SAFE_INTEGER");
 	if (t < globalThis.Number.MIN_SAFE_INTEGER) throw new globalThis.Error("Value is smaller than Number.MIN_SAFE_INTEGER");
 	return t;
 }
-var Jo = (e) => {
+var Yo = (e) => {
 	if (!(!e || typeof e != "object")) {
 		if (e.data) return {
 			type: "data",
@@ -7020,7 +7020,7 @@ var Jo = (e) => {
 			mimeType: e.url.mimeType
 		};
 	}
-}, Yo = (e) => {
+}, Xo = (e) => {
 	if (!(!e || typeof e != "object")) {
 		if (e.text) return {
 			type: "text",
@@ -7028,38 +7028,38 @@ var Jo = (e) => {
 		};
 		if (e.image) return {
 			type: "image",
-			source: Jo(e.image.source),
+			source: Yo(e.image.source),
 			metadata: e.image.metadata
 		};
 		if (e.audio) return {
 			type: "audio",
-			source: Jo(e.audio.source),
+			source: Yo(e.audio.source),
 			metadata: e.audio.metadata
 		};
 		if (e.video) return {
 			type: "video",
-			source: Jo(e.video.source),
+			source: Yo(e.video.source),
 			metadata: e.video.metadata
 		};
 		if (e.document) return {
 			type: "document",
-			source: Jo(e.document.source),
+			source: Yo(e.document.source),
 			metadata: e.document.metadata
 		};
 	}
 };
-function Xo(e) {
-	let t = Ko.decode(e), n = Object.values(t).find((e) => e !== void 0);
+function Zo(e) {
+	let t = qo.decode(e), n = Object.values(t).find((e) => e !== void 0);
 	if (!n) throw Error("Invalid event");
-	if (n.type = oo[n.baseEvent.type], n.timestamp = n.baseEvent.timestamp, n.rawEvent = n.baseEvent.rawEvent, n.type === N.MESSAGES_SNAPSHOT) for (let e of n.messages) {
+	if (n.type = so[n.baseEvent.type], n.timestamp = n.baseEvent.timestamp, n.rawEvent = n.baseEvent.rawEvent, n.type === N.MESSAGES_SNAPSHOT) for (let e of n.messages) {
 		let t = e;
 		if (t.role === "user" && Array.isArray(t.contentParts)) {
-			let e = t.contentParts.map((e) => Yo(e)).filter((e) => e !== void 0);
+			let e = t.contentParts.map((e) => Xo(e)).filter((e) => e !== void 0);
 			e.length > 0 && (t.content = e);
 		}
 		Array.isArray(t.contentParts) && t.contentParts.length === 0 && (t.contentParts = void 0), t.toolCalls?.length === 0 && (t.toolCalls = void 0);
 	}
-	if (n.type === N.STATE_DELTA) for (let e of n.delta) e.op = Pa[e.op].toLowerCase(), Object.keys(e).forEach((t) => {
+	if (n.type === N.STATE_DELTA) for (let e of n.delta) e.op = Fa[e.op].toLowerCase(), Object.keys(e).forEach((t) => {
 		e[t] === void 0 && delete e[t];
 	});
 	return Object.keys(n).forEach((e) => {
@@ -7068,28 +7068,28 @@ function Xo(e) {
 }
 //#endregion
 //#region node_modules/compare-versions/lib/esm/utils.js
-var Zo = /^[v^~<>=]*?(\d+)(?:\.([x*]|\d+)(?:\.([x*]|\d+)(?:\.([x*]|\d+))?(?:-([\da-z\-]+(?:\.[\da-z\-]+)*))?(?:\+[\da-z\-]+(?:\.[\da-z\-]+)*)?)?)?$/i, Qo = (e) => {
+var Qo = /^[v^~<>=]*?(\d+)(?:\.([x*]|\d+)(?:\.([x*]|\d+)(?:\.([x*]|\d+))?(?:-([\da-z\-]+(?:\.[\da-z\-]+)*))?(?:\+[\da-z\-]+(?:\.[\da-z\-]+)*)?)?)?$/i, $o = (e) => {
 	if (typeof e != "string") throw TypeError("Invalid argument expected string");
-	let t = e.match(Zo);
+	let t = e.match(Qo);
 	if (!t) throw Error(`Invalid argument not valid semver ('${e}' received)`);
 	return t.shift(), t;
-}, $o = (e) => e === "*" || e === "x" || e === "X", es = (e) => {
+}, es = (e) => e === "*" || e === "x" || e === "X", ts = (e) => {
 	let t = parseInt(e, 10);
 	return isNaN(t) ? e : t;
-}, ts = (e, t) => typeof e == typeof t ? [e, t] : [String(e), String(t)], ns = (e, t) => {
-	if ($o(e) || $o(t)) return 0;
-	let [n, r] = ts(es(e), es(t));
+}, ns = (e, t) => typeof e == typeof t ? [e, t] : [String(e), String(t)], rs = (e, t) => {
+	if (es(e) || es(t)) return 0;
+	let [n, r] = ns(ts(e), ts(t));
 	return n > r ? 1 : n < r ? -1 : 0;
-}, rs = (e, t) => {
+}, is = (e, t) => {
 	for (let n = 0; n < Math.max(e.length, t.length); n++) {
-		let r = ns(e[n] || "0", t[n] || "0");
+		let r = rs(e[n] || "0", t[n] || "0");
 		if (r !== 0) return r;
 	}
 	return 0;
-}, is = (e, t) => {
-	let n = Qo(e), r = Qo(t), i = n.pop(), a = r.pop(), o = rs(n, r);
-	return o === 0 ? i && a ? rs(i.split("."), a.split(".")) : i || a ? i ? -1 : 1 : 0 : o;
-}, Y = (e) => {
+}, as = (e, t) => {
+	let n = $o(e), r = $o(t), i = n.pop(), a = r.pop(), o = is(n, r);
+	return o === 0 ? i && a ? is(i.split("."), a.split(".")) : i || a ? i ? -1 : 1 : 0 : o;
+}, J = (e) => {
 	if (typeof structuredClone == "function") return structuredClone(e);
 	try {
 		return JSON.parse(JSON.stringify(e));
@@ -7097,20 +7097,20 @@ var Zo = /^[v^~<>=]*?(\d+)(?:\.([x*]|\d+)(?:\.([x*]|\d+)(?:\.([x*]|\d+))?(?:-([\
 		return Array.isArray(e) ? [...e] : { ...e };
 	}
 };
-function as() {
+function os() {
 	return c();
 }
-function os(e) {
-	if (Object.freeze(e), typeof e == "object" && e) for (let t of Object.values(e)) typeof t == "object" && t && !Object.isFrozen(t) && os(t);
+function ss(e) {
+	if (Object.freeze(e), typeof e == "object" && e) for (let t of Object.values(e)) typeof t == "object" && t && !Object.isFrozen(t) && ss(t);
 	return e;
 }
-async function X(e, t, n, r) {
-	let i = typeof process < "u" && process.env !== void 0, a = i && (process.env.NODE_ENV === "test" || !!process.env.VITEST_WORKER_ID), o = i && (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test" || !!process.env.VITEST_WORKER_ID), s = Y(t), c = Y(n), l = s, u = c, d;
+async function Y(e, t, n, r) {
+	let i = typeof process < "u" && process.env !== void 0, a = i && (process.env.NODE_ENV === "test" || !!process.env.VITEST_WORKER_ID), o = i && (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test" || !!process.env.VITEST_WORKER_ID), s = J(t), c = J(n), l = s, u = c, d;
 	for (let t of e) try {
-		o && (os(l), os(u));
+		o && (ss(l), ss(u));
 		let e = await r(t, l, u);
 		if (e === void 0) continue;
-		if (e.messages !== void 0 && e.messages !== l && (l = Y(e.messages)), e.state !== void 0 && e.state !== u && (u = Y(e.state)), d = e.stopPropagation, d === !0) break;
+		if (e.messages !== void 0 && e.messages !== l && (l = J(e.messages)), e.state !== void 0 && e.state !== u && (u = J(e.state)), d = e.stopPropagation, d === !0) break;
 	} catch (e) {
 		if (o && e instanceof TypeError) {
 			if (a) throw e;
@@ -7119,12 +7119,12 @@ async function X(e, t, n, r) {
 		continue;
 	}
 	return {
-		...l === s ? {} : { messages: o && Object.isFrozen(l) ? Y(l) : l },
-		...u === c ? {} : { state: o && Object.isFrozen(u) ? Y(u) : u },
+		...l === s ? {} : { messages: o && Object.isFrozen(l) ? J(l) : l },
+		...u === c ? {} : { state: o && Object.isFrozen(u) ? J(u) : u },
 		...d === void 0 ? {} : { stopPropagation: d }
 	};
 }
-function ss(e) {
+function cs(e) {
 	if (!e) return {
 		enabled: !1,
 		events: !1,
@@ -7145,11 +7145,11 @@ function ss(e) {
 		verbose: r
 	};
 }
-function cs(e) {
-	if (e instanceof ls) return e;
-	if (e === !0) return new ls(ss(!0));
+function ls(e) {
+	if (e instanceof us) return e;
+	if (e === !0) return new us(cs(!0));
 }
-var ls = class {
+var us = class {
 	constructor(e) {
 		this.config = e;
 	}
@@ -7169,10 +7169,10 @@ var ls = class {
 		return this.config.enabled;
 	}
 };
-function us(e) {
-	return e.enabled ? new ls(e) : void 0;
+function ds(e) {
+	return e.enabled ? new us(e) : void 0;
 }
-function ds(e, t, n) {
+function fs(e, t, n) {
 	if (t) {
 		let r = e.find((e) => e.id === t);
 		if (r?.role === "assistant") return r;
@@ -7191,15 +7191,15 @@ function ds(e, t, n) {
 	};
 	return e.push(r), r;
 }
-var fs = (e, t, n, r, i) => {
-	let a = cs(i), o = Y(n.messages), s = Y(e.state), c = {}, l = (e) => {
+var ps = (e, t, n, r, i) => {
+	let a = ls(i), o = J(n.messages), s = J(e.state), c = {}, l = (e) => {
 		e.messages !== void 0 && (o = e.messages, c.messages = e.messages), e.state !== void 0 && (s = e.state, c.state = e.state);
 	}, u = () => {
-		let e = Y(c);
+		let e = J(c);
 		return c = {}, e.messages !== void 0 || e.state !== void 0 ? V(e) : ui;
 	};
 	return t.pipe(Zi(async (t) => {
-		let i = await X(r, o, s, (r, i, a) => r.onEvent?.({
+		let i = await Y(r, o, s, (r, i, a) => r.onEvent?.({
 			event: t,
 			agent: n,
 			input: e,
@@ -7215,7 +7215,7 @@ var fs = (e, t, n, r, i) => {
 		}), i.stopPropagation === !0) return u();
 		switch (t.type) {
 			case N.TEXT_MESSAGE_START: {
-				let i = await X(r, o, s, (r, i, a) => r.onTextMessageStartEvent?.({
+				let i = await Y(r, o, s, (r, i, a) => r.onTextMessageStartEvent?.({
 					event: t,
 					messages: i,
 					state: a,
@@ -7239,7 +7239,7 @@ var fs = (e, t, n, r, i) => {
 			case N.TEXT_MESSAGE_CONTENT: {
 				let { messageId: i, delta: a } = t, c = o.find((e) => e.id === i);
 				if (!c) return console.warn(`TEXT_MESSAGE_CONTENT: No message found with ID '${i}'`), u();
-				let d = await X(r, o, s, (r, i, a) => r.onTextMessageContentEvent?.({
+				let d = await Y(r, o, s, (r, i, a) => r.onTextMessageContentEvent?.({
 					event: t,
 					messages: i,
 					state: a,
@@ -7251,7 +7251,7 @@ var fs = (e, t, n, r, i) => {
 			}
 			case N.TEXT_MESSAGE_END: {
 				let { messageId: i } = t, a = o.find((e) => e.id === i);
-				return a ? (l(await X(r, o, s, (r, i, o) => r.onTextMessageEndEvent?.({
+				return a ? (l(await Y(r, o, s, (r, i, o) => r.onTextMessageEndEvent?.({
 					event: t,
 					messages: i,
 					state: o,
@@ -7269,7 +7269,7 @@ var fs = (e, t, n, r, i) => {
 				})), u()) : (console.warn(`TEXT_MESSAGE_END: No message found with ID '${i}'`), u());
 			}
 			case N.TOOL_CALL_START: {
-				let i = await X(r, o, s, (r, i, a) => r.onToolCallStartEvent?.({
+				let i = await Y(r, o, s, (r, i, a) => r.onToolCallStartEvent?.({
 					event: t,
 					messages: i,
 					state: a,
@@ -7277,7 +7277,7 @@ var fs = (e, t, n, r, i) => {
 					input: e
 				}));
 				if (l(i), i.stopPropagation !== !0) {
-					let { toolCallId: e, toolCallName: n, parentMessageId: r } = t, i = ds(o, r, e);
+					let { toolCallId: e, toolCallName: n, parentMessageId: r } = t, i = fs(o, r, e);
 					i.toolCalls ??= [], i.toolCalls.push({
 						id: e,
 						type: "function",
@@ -7294,7 +7294,7 @@ var fs = (e, t, n, r, i) => {
 				if (!c) return console.warn(`TOOL_CALL_ARGS: No message found containing tool call with ID '${i}'`), u();
 				let d = c.toolCalls?.find((e) => e.id === i);
 				if (!d) return console.warn(`TOOL_CALL_ARGS: No tool call found with ID '${i}'`), u();
-				let f = await X(r, o, s, (r, i, a) => {
+				let f = await Y(r, o, s, (r, i, a) => {
 					let o = d.function.arguments, s = d.function.name, c = {};
 					try {
 						c = ia(o);
@@ -7316,7 +7316,7 @@ var fs = (e, t, n, r, i) => {
 				let { toolCallId: i } = t, a = o.find((e) => e.toolCalls?.some((e) => e.id === i));
 				if (!a) return console.warn(`TOOL_CALL_END: No message found containing tool call with ID '${i}'`), u();
 				let c = a.toolCalls?.find((e) => e.id === i);
-				return c ? (l(await X(r, o, s, (r, i, a) => {
+				return c ? (l(await Y(r, o, s, (r, i, a) => {
 					let o = c.function.arguments, s = c.function.name, l = {};
 					try {
 						l = JSON.parse(o);
@@ -7341,7 +7341,7 @@ var fs = (e, t, n, r, i) => {
 				})), u()) : (console.warn(`TOOL_CALL_END: No tool call found with ID '${i}'`), u());
 			}
 			case N.TOOL_CALL_RESULT: {
-				let i = await X(r, o, s, (r, i, a) => r.onToolCallResultEvent?.({
+				let i = await Y(r, o, s, (r, i, a) => r.onToolCallResultEvent?.({
 					event: t,
 					messages: i,
 					state: a,
@@ -7368,7 +7368,7 @@ var fs = (e, t, n, r, i) => {
 				return u();
 			}
 			case N.STATE_SNAPSHOT: {
-				let i = await X(r, o, s, (r, i, a) => r.onStateSnapshotEvent?.({
+				let i = await Y(r, o, s, (r, i, a) => r.onStateSnapshotEvent?.({
 					event: t,
 					messages: i,
 					state: a,
@@ -7382,7 +7382,7 @@ var fs = (e, t, n, r, i) => {
 				return u();
 			}
 			case N.STATE_DELTA: {
-				let i = await X(r, o, s, (r, i, a) => r.onStateDeltaEvent?.({
+				let i = await Y(r, o, s, (r, i, a) => r.onStateDeltaEvent?.({
 					event: t,
 					messages: i,
 					state: a,
@@ -7401,7 +7401,7 @@ var fs = (e, t, n, r, i) => {
 				return u();
 			}
 			case N.MESSAGES_SNAPSHOT: {
-				let i = await X(r, o, s, (r, i, a) => r.onMessagesSnapshotEvent?.({
+				let i = await Y(r, o, s, (r, i, a) => r.onMessagesSnapshotEvent?.({
 					event: t,
 					messages: i,
 					state: a,
@@ -7418,7 +7418,7 @@ var fs = (e, t, n, r, i) => {
 				return u();
 			}
 			case N.ACTIVITY_SNAPSHOT: {
-				let i = t, a = o.findIndex((e) => e.id === i.messageId), c = a >= 0 ? o[a] : void 0, d = c?.role === "activity" ? c : void 0, f = i.replace ?? !0, p = await X(r, o, s, (t, r, a) => t.onActivitySnapshotEvent?.({
+				let i = t, a = o.findIndex((e) => e.id === i.messageId), c = a >= 0 ? o[a] : void 0, d = c?.role === "activity" ? c : void 0, f = i.replace ?? !0, p = await Y(r, o, s, (t, r, a) => t.onActivitySnapshotEvent?.({
 					event: i,
 					messages: r,
 					state: a,
@@ -7432,12 +7432,12 @@ var fs = (e, t, n, r, i) => {
 						id: i.messageId,
 						role: "activity",
 						activityType: i.activityType,
-						content: Y(i.content)
+						content: J(i.content)
 					}, c;
 					a === -1 ? (o.push(t), c = t) : d ? f && (o[a] = {
 						...d,
 						activityType: i.activityType,
-						content: Y(i.content)
+						content: J(i.content)
 					}) : f && (o[a] = t, c = t), l({ messages: o }), c && await Promise.all(r.map((t) => t.onNewMessage?.({
 						message: c,
 						messages: o,
@@ -7453,7 +7453,7 @@ var fs = (e, t, n, r, i) => {
 				if (a === -1) return u();
 				let c = o[a];
 				if (c.role !== "activity") return console.warn(`ACTIVITY_DELTA: Message '${i.messageId}' is not an activity message`), u();
-				let d = c, f = await X(r, o, s, (t, r, a) => t.onActivityDeltaEvent?.({
+				let d = c, f = await Y(r, o, s, (t, r, a) => t.onActivityDeltaEvent?.({
 					event: i,
 					messages: r,
 					state: a,
@@ -7462,10 +7462,10 @@ var fs = (e, t, n, r, i) => {
 					activityMessage: d
 				}));
 				if (l(f), f.stopPropagation !== !0) try {
-					let e = Y(d.content ?? {}), t = fr.applyPatch(e, i.patch ?? [], !0, !1).newDocument;
+					let e = J(d.content ?? {}), t = fr.applyPatch(e, i.patch ?? [], !0, !1).newDocument;
 					o[a] = {
 						...d,
-						content: Y(t),
+						content: J(t),
 						activityType: i.activityType
 					}, l({ messages: o });
 				} catch (e) {
@@ -7474,14 +7474,14 @@ var fs = (e, t, n, r, i) => {
 				}
 				return u();
 			}
-			case N.RAW: return l(await X(r, o, s, (r, i, a) => r.onRawEvent?.({
+			case N.RAW: return l(await Y(r, o, s, (r, i, a) => r.onRawEvent?.({
 				event: t,
 				messages: i,
 				state: a,
 				agent: n,
 				input: e
 			}))), u();
-			case N.CUSTOM: return l(await X(r, o, s, (r, i, a) => r.onCustomEvent?.({
+			case N.CUSTOM: return l(await Y(r, o, s, (r, i, a) => r.onCustomEvent?.({
 				event: t,
 				messages: i,
 				state: a,
@@ -7489,7 +7489,7 @@ var fs = (e, t, n, r, i) => {
 				input: e
 			}))), u();
 			case N.RUN_STARTED: {
-				let i = await X(r, o, s, (r, i, a) => r.onRunStartedEvent?.({
+				let i = await Y(r, o, s, (r, i, a) => r.onRunStartedEvent?.({
 					event: t,
 					messages: i,
 					state: a,
@@ -7505,7 +7505,7 @@ var fs = (e, t, n, r, i) => {
 				}
 				return u();
 			}
-			case N.RUN_FINISHED: return l(await X(r, o, s, (r, i, a) => r.onRunFinishedEvent?.({
+			case N.RUN_FINISHED: return l(await Y(r, o, s, (r, i, a) => r.onRunFinishedEvent?.({
 				event: t,
 				messages: i,
 				state: a,
@@ -7513,21 +7513,21 @@ var fs = (e, t, n, r, i) => {
 				input: e,
 				result: t.result
 			}))), u();
-			case N.RUN_ERROR: return l(await X(r, o, s, (r, i, a) => r.onRunErrorEvent?.({
+			case N.RUN_ERROR: return l(await Y(r, o, s, (r, i, a) => r.onRunErrorEvent?.({
 				event: t,
 				messages: i,
 				state: a,
 				agent: n,
 				input: e
 			}))), u();
-			case N.STEP_STARTED: return l(await X(r, o, s, (r, i, a) => r.onStepStartedEvent?.({
+			case N.STEP_STARTED: return l(await Y(r, o, s, (r, i, a) => r.onStepStartedEvent?.({
 				event: t,
 				messages: i,
 				state: a,
 				agent: n,
 				input: e
 			}))), u();
-			case N.STEP_FINISHED: return l(await X(r, o, s, (r, i, a) => r.onStepFinishedEvent?.({
+			case N.STEP_FINISHED: return l(await Y(r, o, s, (r, i, a) => r.onStepFinishedEvent?.({
 				event: t,
 				messages: i,
 				state: a,
@@ -7541,7 +7541,7 @@ var fs = (e, t, n, r, i) => {
 			case N.THINKING_TEXT_MESSAGE_START: return u();
 			case N.THINKING_TEXT_MESSAGE_CONTENT: return u();
 			case N.THINKING_TEXT_MESSAGE_END: return u();
-			case N.REASONING_START: return l(await X(r, o, s, (r, i, a) => r.onReasoningStartEvent?.({
+			case N.REASONING_START: return l(await Y(r, o, s, (r, i, a) => r.onReasoningStartEvent?.({
 				event: t,
 				messages: i,
 				state: a,
@@ -7549,7 +7549,7 @@ var fs = (e, t, n, r, i) => {
 				input: e
 			}))), u();
 			case N.REASONING_MESSAGE_START: {
-				let i = await X(r, o, s, (r, i, a) => r.onReasoningMessageStartEvent?.({
+				let i = await Y(r, o, s, (r, i, a) => r.onReasoningMessageStartEvent?.({
 					event: t,
 					messages: i,
 					state: a,
@@ -7572,7 +7572,7 @@ var fs = (e, t, n, r, i) => {
 			case N.REASONING_MESSAGE_CONTENT: {
 				let { messageId: i, delta: a } = t, c = o.find((e) => e.id === i);
 				if (!c) return console.warn(`REASONING_MESSAGE_CONTENT: No message found with ID '${i}'`), u();
-				let d = await X(r, o, s, (r, i, a) => r.onReasoningMessageContentEvent?.({
+				let d = await Y(r, o, s, (r, i, a) => r.onReasoningMessageContentEvent?.({
 					event: t,
 					messages: i,
 					state: a,
@@ -7584,7 +7584,7 @@ var fs = (e, t, n, r, i) => {
 			}
 			case N.REASONING_MESSAGE_END: {
 				let { messageId: i } = t, a = o.find((e) => e.id === i);
-				return a ? (l(await X(r, o, s, (r, i, o) => r.onReasoningMessageEndEvent?.({
+				return a ? (l(await Y(r, o, s, (r, i, o) => r.onReasoningMessageEndEvent?.({
 					event: t,
 					messages: i,
 					state: o,
@@ -7602,7 +7602,7 @@ var fs = (e, t, n, r, i) => {
 				})), u()) : (console.warn(`REASONING_MESSAGE_END: No message found with ID '${i}'`), u());
 			}
 			case N.REASONING_MESSAGE_CHUNK: throw Error("REASONING_MESSAGE_CHUNK must be transformed before being applied");
-			case N.REASONING_END: return l(await X(r, o, s, (r, i, a) => r.onReasoningEndEvent?.({
+			case N.REASONING_END: return l(await Y(r, o, s, (r, i, a) => r.onReasoningEndEvent?.({
 				event: t,
 				messages: i,
 				state: a,
@@ -7610,7 +7610,7 @@ var fs = (e, t, n, r, i) => {
 				input: e
 			}))), u();
 			case N.REASONING_ENCRYPTED_VALUE: {
-				let { subtype: i, entityId: a, encryptedValue: d } = t, f = await X(r, o, s, (r, i, a) => r.onReasoningEncryptedValueEvent?.({
+				let { subtype: i, entityId: a, encryptedValue: d } = t, f = await Y(r, o, s, (r, i, a) => r.onReasoningEncryptedValueEvent?.({
 					event: t,
 					messages: i,
 					state: a,
@@ -7638,8 +7638,8 @@ var fs = (e, t, n, r, i) => {
 		}
 		return t.type, u();
 	}), Ji(), r.length > 0 ? Qi({}) : (e) => e);
-}, ps = (e) => (t) => {
-	let n = cs(e), r = /* @__PURE__ */ new Map(), i = /* @__PURE__ */ new Map(), a = !1, o = !1, s = !1, c = /* @__PURE__ */ new Map(), l = !1, u = !1, d = !1, f = () => {
+}, ms = (e) => (t) => {
+	let n = ls(e), r = /* @__PURE__ */ new Map(), i = /* @__PURE__ */ new Map(), a = !1, o = !1, s = !1, c = /* @__PURE__ */ new Map(), l = !1, u = !1, d = !1, f = () => {
 		r.clear(), i.clear(), c.clear(), l = !1, u = !1, a = !1, o = !1, d = !0;
 	};
 	return t.pipe(qi((e) => {
@@ -7710,9 +7710,9 @@ var fs = (e, t, n, r, i) => {
 			default: return V(e);
 		}
 	}));
-}, ms = function(e) {
+}, hs = function(e) {
 	return e.HEADERS = "headers", e.DATA = "data", e;
-}({}), hs = (e, t) => Yi(() => Hi(fetch(e, t))).pipe(ea((e) => {
+}({}), gs = (e, t) => Yi(() => Hi(fetch(e, t))).pipe(ea((e) => {
 	if (!e.ok) {
 		let t = e.headers.get("content-type") || "";
 		return Hi(e.text()).pipe(qi((n) => {
@@ -7725,7 +7725,7 @@ var fs = (e, t, n, r, i) => {
 		}));
 	}
 	let t = {
-		type: ms.HEADERS,
+		type: hs.HEADERS,
 		status: e.status,
 		headers: e.headers
 	}, n = e.body?.getReader();
@@ -7735,7 +7735,7 @@ var fs = (e, t, n, r, i) => {
 				let { done: t, value: r } = await n.read();
 				if (t) break;
 				let i = {
-					type: ms.DATA,
+					type: hs.DATA,
 					data: r
 				};
 				e.next(i);
@@ -7749,11 +7749,11 @@ var fs = (e, t, n, r, i) => {
 			if (e?.name !== "AbortError") throw e;
 		});
 	})) : H(() => Error("Failed to getReader() from response"));
-})), gs = (e, t) => {
-	let n = cs(t), r = new oi(), i = new TextDecoder("utf-8", { fatal: !1 }), a = "";
+})), _s = (e, t) => {
+	let n = ls(t), r = new oi(), i = new TextDecoder("utf-8", { fatal: !1 }), a = "";
 	e.subscribe({
 		next: (e) => {
-			if (e.type !== ms.HEADERS && e.type === ms.DATA && e.data) {
+			if (e.type !== hs.HEADERS && e.type === hs.DATA && e.data) {
 				let t = i.decode(e.data, { stream: !0 });
 				a += t;
 				let n = a.split(/\n\n/);
@@ -7777,11 +7777,11 @@ var fs = (e, t, n, r, i) => {
 		}
 	}
 	return r.asObservable();
-}, _s = (e) => {
+}, vs = (e) => {
 	let t = new oi(), n = new Uint8Array();
 	e.subscribe({
 		next: (e) => {
-			if (e.type !== ms.HEADERS && e.type === ms.DATA && e.data) {
+			if (e.type !== hs.HEADERS && e.type === hs.DATA && e.data) {
 				let t = new Uint8Array(n.length + e.data.length);
 				t.set(n, 0), t.set(e.data, n.length), n = t, r();
 			}
@@ -7801,7 +7801,7 @@ var fs = (e, t, n, r, i) => {
 			let e = 4 + new DataView(n.buffer, n.byteOffset, 4).getUint32(0, !1);
 			if (n.length < e) break;
 			try {
-				let r = Xo(n.slice(4, e));
+				let r = Zo(n.slice(4, e));
 				t.next(r), n = n.slice(e);
 			} catch (e) {
 				let n = e instanceof Error ? e.message : String(e);
@@ -7811,21 +7811,21 @@ var fs = (e, t, n, r, i) => {
 		}
 	}
 	return t.asObservable();
-}, vs = (e, t) => {
-	let n = cs(t), r = new oi(), i = new li(), a = !1;
+}, ys = (e, t) => {
+	let n = ls(t), r = new oi(), i = new li(), a = !1;
 	return e.subscribe({
 		next: (e) => {
-			if (i.next(e), e.type === ms.HEADERS && !a) {
+			if (i.next(e), e.type === hs.HEADERS && !a) {
 				a = !0;
 				let t = e.headers.get("content-type");
 				n?.lifecycle("HTTP", "Stream format detected:", {
 					contentType: t,
 					parser: t === "application/vnd.ag-ui.event+proto" ? "protobuf" : "sse"
-				}), t === "application/vnd.ag-ui.event+proto" ? _s(i).subscribe({
+				}), t === "application/vnd.ag-ui.event+proto" ? vs(i).subscribe({
 					next: (e) => r.next(e),
 					error: (e) => r.error(e),
 					complete: () => r.complete()
-				}) : gs(i, n).subscribe({
+				}) : _s(i, n).subscribe({
 					next: (e) => {
 						try {
 							let t = Mn.parse(e);
@@ -7863,7 +7863,7 @@ var fs = (e, t, n, r, i) => {
 			i.complete();
 		}
 	}), r.asObservable();
-}, Z = wt([
+}, X = wt([
 	"TextMessageStart",
 	"TextMessageContent",
 	"TextMessageEnd",
@@ -7878,50 +7878,50 @@ var fs = (e, t, n, r, i) => {
 	"RunError",
 	"NodeStarted",
 	"NodeFinished"
-]), ys = wt([
+]), bs = wt([
 	"LangGraphInterruptEvent",
 	"PredictState",
 	"Exit"
 ]);
 St("type", [
 	A({
-		type: j(Z.enum.TextMessageStart),
+		type: j(X.enum.TextMessageStart),
 		messageId: E(),
 		parentMessageId: E().optional(),
 		role: E().optional()
 	}),
 	A({
-		type: j(Z.enum.TextMessageContent),
+		type: j(X.enum.TextMessageContent),
 		messageId: E(),
 		content: E()
 	}),
 	A({
-		type: j(Z.enum.TextMessageEnd),
+		type: j(X.enum.TextMessageEnd),
 		messageId: E()
 	}),
 	A({
-		type: j(Z.enum.ActionExecutionStart),
+		type: j(X.enum.ActionExecutionStart),
 		actionExecutionId: E(),
 		actionName: E(),
 		parentMessageId: E().optional()
 	}),
 	A({
-		type: j(Z.enum.ActionExecutionArgs),
+		type: j(X.enum.ActionExecutionArgs),
 		actionExecutionId: E(),
 		args: E()
 	}),
 	A({
-		type: j(Z.enum.ActionExecutionEnd),
+		type: j(X.enum.ActionExecutionEnd),
 		actionExecutionId: E()
 	}),
 	A({
-		type: j(Z.enum.ActionExecutionResult),
+		type: j(X.enum.ActionExecutionResult),
 		actionName: E(),
 		actionExecutionId: E(),
 		result: E()
 	}),
 	A({
-		type: j(Z.enum.AgentStateMessage),
+		type: j(X.enum.AgentStateMessage),
 		threadId: E(),
 		agentName: E(),
 		nodeName: E(),
@@ -7932,12 +7932,12 @@ St("type", [
 		running: D()
 	}),
 	A({
-		type: j(Z.enum.MetaEvent),
-		name: ys,
+		type: j(X.enum.MetaEvent),
+		name: bs,
 		value: O()
 	}),
 	A({
-		type: j(Z.enum.RunError),
+		type: j(X.enum.RunError),
 		message: E(),
 		code: E().optional()
 	})
@@ -7957,12 +7957,12 @@ St("type", [
 	actionExecutionId: E(),
 	actionName: E()
 });
-var bs = (e) => {
+var xs = (e) => {
 	if (typeof e == "string") return e;
 	if (!Array.isArray(e)) return;
 	let t = e.filter((e) => e.type === "text").map((e) => e.text).filter((e) => e.length > 0);
 	if (t.length !== 0) return t.join("\n");
-}, xs = (e, t, n) => (r) => {
+}, Ss = (e, t, n) => (r) => {
 	let i = {}, a = !0, o = !0, s = "", c = null, l = null, u = [], d = {}, f = (e) => {
 		typeof e == "object" && e && ("messages" in e && delete e.messages, i = e);
 	};
@@ -7971,7 +7971,7 @@ var bs = (e) => {
 			case N.TEXT_MESSAGE_START: {
 				let e = r;
 				return [{
-					type: Z.enum.TextMessageStart,
+					type: X.enum.TextMessageStart,
 					messageId: e.messageId,
 					role: e.role
 				}];
@@ -7979,7 +7979,7 @@ var bs = (e) => {
 			case N.TEXT_MESSAGE_CONTENT: {
 				let e = r;
 				return [{
-					type: Z.enum.TextMessageContent,
+					type: X.enum.TextMessageContent,
 					messageId: e.messageId,
 					content: e.delta
 				}];
@@ -7987,7 +7987,7 @@ var bs = (e) => {
 			case N.TEXT_MESSAGE_END: {
 				let e = r;
 				return [{
-					type: Z.enum.TextMessageEnd,
+					type: X.enum.TextMessageEnd,
 					messageId: e.messageId
 				}];
 			}
@@ -8001,7 +8001,7 @@ var bs = (e) => {
 						arguments: ""
 					}
 				}), o = !0, d[e.toolCallId] = e.toolCallName, [{
-					type: Z.enum.ActionExecutionStart,
+					type: X.enum.ActionExecutionStart,
 					actionExecutionId: e.toolCallId,
 					actionName: e.toolCallName,
 					parentMessageId: e.parentMessageId
@@ -8026,11 +8026,11 @@ var bs = (e) => {
 					} catch {}
 				}
 				return [{
-					type: Z.enum.ActionExecutionArgs,
+					type: X.enum.ActionExecutionArgs,
 					actionExecutionId: c.toolCallId,
 					args: c.delta
 				}, ...p ? [{
-					type: Z.enum.AgentStateMessage,
+					type: X.enum.AgentStateMessage,
 					threadId: e,
 					agentName: n,
 					nodeName: s,
@@ -8044,14 +8044,14 @@ var bs = (e) => {
 			case N.TOOL_CALL_END: {
 				let e = r;
 				return [{
-					type: Z.enum.ActionExecutionEnd,
+					type: X.enum.ActionExecutionEnd,
 					actionExecutionId: e.toolCallId
 				}];
 			}
 			case N.TOOL_CALL_RESULT: {
 				let e = r;
 				return [{
-					type: Z.enum.ActionExecutionResult,
+					type: X.enum.ActionExecutionResult,
 					actionExecutionId: e.toolCallId,
 					result: e.content,
 					actionName: d[e.toolCallId] || "unknown"
@@ -8069,13 +8069,13 @@ var bs = (e) => {
 						break;
 				}
 				return [{
-					type: Z.enum.MetaEvent,
+					type: X.enum.MetaEvent,
 					name: e.name,
 					value: e.value
 				}];
 			}
 			case N.STATE_SNAPSHOT: return f(r.snapshot), [{
-				type: Z.enum.AgentStateMessage,
+				type: X.enum.AgentStateMessage,
 				threadId: e,
 				agentName: n,
 				nodeName: s,
@@ -8088,7 +8088,7 @@ var bs = (e) => {
 			case N.STATE_DELTA: {
 				let c = r, l = fr.applyPatch(i, c.delta, !0, !1);
 				return l ? (f(l.newDocument), [{
-					type: Z.enum.AgentStateMessage,
+					type: X.enum.AgentStateMessage,
 					threadId: e,
 					agentName: n,
 					nodeName: s,
@@ -8100,7 +8100,7 @@ var bs = (e) => {
 				}]) : [];
 			}
 			case N.MESSAGES_SNAPSHOT: return c = r.messages, [{
-				type: Z.enum.AgentStateMessage,
+				type: X.enum.AgentStateMessage,
 				threadId: e,
 				agentName: n,
 				nodeName: s,
@@ -8115,7 +8115,7 @@ var bs = (e) => {
 			}];
 			case N.RUN_STARTED: return [];
 			case N.RUN_FINISHED: return c && (i.messages = c), Object.keys(i).length === 0 ? [] : [{
-				type: Z.enum.AgentStateMessage,
+				type: X.enum.AgentStateMessage,
 				threadId: e,
 				agentName: n,
 				nodeName: s,
@@ -8124,20 +8124,20 @@ var bs = (e) => {
 				role: "assistant",
 				state: JSON.stringify({
 					...i,
-					...c ? { messages: Ss(c) } : {}
+					...c ? { messages: Cs(c) } : {}
 				}),
 				active: !1
 			}];
 			case N.RUN_ERROR: {
 				let e = r;
 				return [{
-					type: Z.enum.RunError,
+					type: X.enum.RunError,
 					message: e.message,
 					code: e.code
 				}];
 			}
 			case N.STEP_STARTED: return s = r.stepName, u = [], l = null, [{
-				type: Z.enum.AgentStateMessage,
+				type: X.enum.AgentStateMessage,
 				threadId: e,
 				agentName: n,
 				nodeName: s,
@@ -8148,7 +8148,7 @@ var bs = (e) => {
 				active: !0
 			}];
 			case N.STEP_FINISHED: return u = [], l = null, [{
-				type: Z.enum.AgentStateMessage,
+				type: X.enum.AgentStateMessage,
 				threadId: e,
 				agentName: n,
 				nodeName: s,
@@ -8162,10 +8162,10 @@ var bs = (e) => {
 		}
 	}));
 };
-function Ss(e) {
+function Cs(e) {
 	let t = [];
 	for (let n of e) if (n.role === "assistant" || n.role === "user" || n.role === "system") {
-		let e = bs(n.content);
+		let e = xs(n.content);
 		if (e) {
 			let r = {
 				id: n.id,
@@ -8201,8 +8201,8 @@ function Ss(e) {
 	}
 	return t;
 }
-var Cs = (e) => (t) => {
-	let n = cs(e), r, i, a, o, s = () => {
+var ws = (e) => (t) => {
+	let n = ls(e), r, i, a, o, s = () => {
 		if (!r || o !== "text") throw Error("No text message to close");
 		let e = {
 			type: N.TEXT_MESSAGE_END,
@@ -8336,21 +8336,21 @@ var Cs = (e) => (t) => {
 	}), $i(() => {
 		u();
 	}));
-}, ws = class {
+}, Ts = class {
 	runNext(e, t) {
-		return t.run(e).pipe(Cs(!1));
+		return t.run(e).pipe(ws(!1));
 	}
 	runNextWithState(e, t) {
-		let n = Y(e.messages || []), r = Y(e.state || {}), i = new li();
-		return fs(e, i, t, []).subscribe((e) => {
+		let n = J(e.messages || []), r = J(e.state || {}), i = new li();
+		return ps(e, i, t, []).subscribe((e) => {
 			e.messages !== void 0 && (n = e.messages), e.state !== void 0 && (r = e.state);
 		}), this.runNext(e, t).pipe(Zi(async (e) => (i.next(e), await new Promise((e) => setTimeout(e, 0)), {
 			event: e,
-			messages: Y(n),
-			state: Y(r)
+			messages: J(n),
+			state: J(r)
 		})));
 	}
-}, Ts = class extends ws {
+}, Es = class extends Ts {
 	constructor(e) {
 		super(), this.fn = e;
 	}
@@ -8358,7 +8358,7 @@ var Cs = (e) => (t) => {
 		return this.fn(e, t);
 	}
 };
-function Es(e) {
+function Ds(e) {
 	let t = e.content;
 	if (Array.isArray(t)) {
 		let n = t.filter((e) => typeof e == "object" && !!e && "type" in e && e.type === "text" && typeof e.text == "string").map((e) => e.text).join("");
@@ -8372,15 +8372,15 @@ function Es(e) {
 		content: ""
 	};
 }
-var Ds = class extends ws {
+var Os = class extends Ts {
 	run(e, t) {
 		let { parentRunId: n, ...r } = e, i = {
 			...r,
-			messages: r.messages.map(Es)
+			messages: r.messages.map(Ds)
 		};
 		return this.runNext(i, t);
 	}
-}, Os = "THINKING_START", ks = "THINKING_END", As = "THINKING_TEXT_MESSAGE_START", js = "THINKING_TEXT_MESSAGE_CONTENT", Ms = "THINKING_TEXT_MESSAGE_END", Ns = class extends ws {
+}, ks = "THINKING_START", As = "THINKING_END", js = "THINKING_TEXT_MESSAGE_START", Ms = "THINKING_TEXT_MESSAGE_CONTENT", Ns = "THINKING_TEXT_MESSAGE_END", Ps = class extends Ts {
 	constructor(...e) {
 		super(...e), this.currentReasoningId = null, this.currentMessageId = null;
 	}
@@ -8392,41 +8392,41 @@ var Ds = class extends ws {
 	}
 	transformEvent(e) {
 		switch (e.type) {
-			case Os: {
-				this.currentReasoningId = as();
+			case ks: {
+				this.currentReasoningId = os();
 				let { title: t, ...n } = e;
-				return this.warnAboutTransformation(Os, N.REASONING_START), {
+				return this.warnAboutTransformation(ks, N.REASONING_START), {
 					...n,
 					type: N.REASONING_START,
 					messageId: this.currentReasoningId
 				};
 			}
-			case As: return this.currentMessageId = as(), this.warnAboutTransformation(As, N.REASONING_MESSAGE_START), {
+			case js: return this.currentMessageId = os(), this.warnAboutTransformation(js, N.REASONING_MESSAGE_START), {
 				...e,
 				type: N.REASONING_MESSAGE_START,
 				messageId: this.currentMessageId,
 				role: "assistant"
 			};
-			case js: {
+			case Ms: {
 				let { delta: t, ...n } = e;
-				return this.warnAboutTransformation(js, N.REASONING_MESSAGE_CONTENT), {
+				return this.warnAboutTransformation(Ms, N.REASONING_MESSAGE_CONTENT), {
 					...n,
 					type: N.REASONING_MESSAGE_CONTENT,
-					messageId: this.currentMessageId ?? as(),
+					messageId: this.currentMessageId ?? os(),
 					delta: t
 				};
 			}
-			case Ms: {
-				let t = this.currentMessageId ?? as();
-				return this.warnAboutTransformation(Ms, N.REASONING_MESSAGE_END), {
+			case Ns: {
+				let t = this.currentMessageId ?? os();
+				return this.warnAboutTransformation(Ns, N.REASONING_MESSAGE_END), {
 					...e,
 					type: N.REASONING_MESSAGE_END,
 					messageId: t
 				};
 			}
-			case ks: {
-				let t = this.currentReasoningId ?? as();
-				return this.warnAboutTransformation(ks, N.REASONING_END), {
+			case As: {
+				let t = this.currentReasoningId ?? os();
+				return this.warnAboutTransformation(As, N.REASONING_END), {
 					...e,
 					type: N.REASONING_END,
 					messageId: t
@@ -8436,14 +8436,14 @@ var Ds = class extends ws {
 		}
 	}
 };
-function Ps(e) {
+function Fs(e) {
 	return e.startsWith("image/") ? "image" : e.startsWith("audio/") ? "audio" : e.startsWith("video/") ? "video" : "document";
 }
-function Fs(e) {
+function Is(e) {
 	return typeof e == "object" && !!e && "type" in e && e.type === "binary" && "mimeType" in e && typeof e.mimeType == "string";
 }
-function Is(e) {
-	let t = Ps(e.mimeType);
+function Ls(e) {
+	let t = Fs(e.mimeType);
 	return e.data ? {
 		type: t,
 		source: {
@@ -8462,41 +8462,41 @@ function Is(e) {
 		...e.filename ? { metadata: { filename: e.filename } } : {}
 	} : e;
 }
-function Ls(e) {
+function Rs(e) {
 	let t = e.content;
 	if (!Array.isArray(t)) return e;
-	let n = t.map((e) => Fs(e) ? Is(e) : e);
+	let n = t.map((e) => Is(e) ? Ls(e) : e);
 	return {
 		...e,
 		content: n
 	};
 }
-var Rs = class extends ws {
+var zs = class extends Ts {
 	run(e, t) {
 		let n = {
 			...e,
-			messages: e.messages.map(Ls)
+			messages: e.messages.map(Rs)
 		};
 		return this.runNext(n, t);
 	}
-}, zs = "0.0.53", Bs = class {
+}, Bs = "0.0.53", Vs = class {
 	get maxVersion() {
-		return zs;
+		return Bs;
 	}
 	get debug() {
 		return this._debug;
 	}
 	set debug(e) {
-		this._debug = ss(e), this._debugLogger = us(this._debug);
+		this._debug = cs(e), this._debugLogger = ds(this._debug);
 	}
 	get debugLogger() {
 		return this._debugLogger;
 	}
 	set debugLogger(e) {
-		typeof e == "boolean" ? this._debugLogger = e ? us(ss(!0)) : void 0 : this._debugLogger = e;
+		typeof e == "boolean" ? this._debugLogger = e ? ds(cs(!0)) : void 0 : this._debugLogger = e;
 	}
 	constructor({ agentId: e, description: t, threadId: n, initialMessages: r, initialState: i, debug: a } = {}) {
-		this.subscribers = [], this.isRunning = !1, this.middlewares = [], this.agentId = e, this.description = t ?? "", this.threadId = n ?? c(), this.messages = Y(r ?? []), this.state = Y(i ?? {}), this._debug = ss(a), this._debugLogger = us(this._debug), is(this.maxVersion, "0.0.39") <= 0 && this.middlewares.unshift(new Ds()), is(this.maxVersion, "0.0.45") <= 0 && this.middlewares.unshift(new Ns()), is(this.maxVersion, "0.0.47") <= 0 && this.middlewares.unshift(new Rs());
+		this.subscribers = [], this.isRunning = !1, this.middlewares = [], this.agentId = e, this.description = t ?? "", this.threadId = n ?? c(), this.messages = J(r ?? []), this.state = J(i ?? {}), this._debug = cs(a), this._debugLogger = ds(this._debug), as(this.maxVersion, "0.0.39") <= 0 && this.middlewares.unshift(new Os()), as(this.maxVersion, "0.0.45") <= 0 && this.middlewares.unshift(new Ps()), as(this.maxVersion, "0.0.47") <= 0 && this.middlewares.unshift(new zs());
 	}
 	subscribe(e) {
 		return this.subscribers.push(e), { unsubscribe: () => {
@@ -8504,7 +8504,7 @@ var Rs = class extends ws {
 		} };
 	}
 	use(...e) {
-		let t = e.map((e) => typeof e == "function" ? new Ts(e) : e);
+		let t = e.map((e) => typeof e == "function" ? new Es(e) : e);
 		return this.middlewares.push(...t), this;
 	}
 	async runAgent(e, t) {
@@ -8534,7 +8534,7 @@ var Rs = class extends ws {
 				get state() {
 					return e.state;
 				}
-			}), this).run(n), Cs(this.debugLogger), ps(this.debugLogger), (e) => e.pipe(ta(this.activeRunDetach$)), (e) => this.apply(n, e, a), (e) => this.processApplyEvents(n, e, a), Xi((e) => (this.debugLogger?.lifecycle("LIFECYCLE", "Run errored:", {
+			}), this).run(n), ws(this.debugLogger), ms(this.debugLogger), (e) => e.pipe(ta(this.activeRunDetach$)), (e) => this.apply(n, e, a), (e) => this.processApplyEvents(n, e, a), Xi((e) => (this.debugLogger?.lifecycle("LIFECYCLE", "Run errored:", {
 				agentId: this.agentId,
 				error: e instanceof Error ? e.message : String(e)
 			}), this.isRunning = !1, this.onError(n, e, a))), $i(() => {
@@ -8543,7 +8543,7 @@ var Rs = class extends ws {
 					threadId: this.threadId
 				}), this.isRunning = !1, this.onFinalize(n, a), o?.(), o = void 0, this.activeRunCompletionPromise = void 0, this.activeRunDetach$ = void 0;
 			}))(V(null)));
-			let s = Y(this.messages).filter((e) => !i.has(e.id));
+			let s = J(this.messages).filter((e) => !i.has(e.id));
 			return {
 				result: r,
 				newMessages: s
@@ -8569,10 +8569,10 @@ var Rs = class extends ws {
 			let o;
 			this.activeRunCompletionPromise = new Promise((e) => {
 				o = e;
-			}), await Wi(Qr(() => Yi(() => this.connect(n)), Cs(this.debugLogger), ps(this.debugLogger), (e) => e.pipe(ta(this.activeRunDetach$)), (e) => this.apply(n, e, a), (e) => this.processApplyEvents(n, e, a), Xi((e) => (this.isRunning = !1, e instanceof Ut ? ui : this.onError(n, e, a))), $i(() => {
+			}), await Wi(Qr(() => Yi(() => this.connect(n)), ws(this.debugLogger), ms(this.debugLogger), (e) => e.pipe(ta(this.activeRunDetach$)), (e) => this.apply(n, e, a), (e) => this.processApplyEvents(n, e, a), Xi((e) => (this.isRunning = !1, e instanceof Ut ? ui : this.onError(n, e, a))), $i(() => {
 				this.isRunning = !1, this.onFinalize(n, a), o?.(), o = void 0, this.activeRunCompletionPromise = void 0, this.activeRunDetach$ = void 0;
 			}))(V(null)), { defaultValue: void 0 });
-			let s = Y(this.messages).filter((e) => !i.has(e.id));
+			let s = J(this.messages).filter((e) => !i.has(e.id));
 			return {
 				result: r,
 				newMessages: s
@@ -8588,7 +8588,7 @@ var Rs = class extends ws {
 		this.activeRunDetach$.next(), this.activeRunDetach$?.complete(), await e;
 	}
 	apply(e, t, n) {
-		return fs(e, t, this, n, this.debugLogger);
+		return ps(e, t, this, n, this.debugLogger);
 	}
 	processApplyEvents(e, t, n) {
 		return t.pipe(na((t) => {
@@ -8610,19 +8610,19 @@ var Rs = class extends ws {
 		}));
 	}
 	prepareRunAgentInput(e) {
-		let t = Y(this.messages).filter((e) => e.role !== "activity");
+		let t = J(this.messages).filter((e) => e.role !== "activity");
 		return {
 			threadId: this.threadId,
 			runId: e?.runId || c(),
-			tools: Y(e?.tools ?? []),
-			context: Y(e?.context ?? []),
-			forwardedProps: Y(e?.forwardedProps ?? {}),
-			state: Y(this.state),
+			tools: J(e?.tools ?? []),
+			context: J(e?.context ?? []),
+			forwardedProps: J(e?.forwardedProps ?? {}),
+			state: J(this.state),
 			messages: t
 		};
 	}
 	async onInitialize(e, t) {
-		let n = await X(t, this.messages, this.state, (t, n, r) => t.onRunInitialized?.({
+		let n = await Y(t, this.messages, this.state, (t, n, r) => t.onRunInitialized?.({
 			messages: n,
 			state: r,
 			agent: this,
@@ -8645,7 +8645,7 @@ var Rs = class extends ws {
 		})));
 	}
 	onError(e, t, n) {
-		return Hi(X(n, this.messages, this.state, (n, r, i) => n.onRunFailed?.({
+		return Hi(Y(n, this.messages, this.state, (n, r, i) => n.onRunFailed?.({
 			error: t,
 			messages: r,
 			state: i,
@@ -8675,7 +8675,7 @@ var Rs = class extends ws {
 		}));
 	}
 	async onFinalize(e, t) {
-		let n = await X(t, this.messages, this.state, (t, n, r) => t.onRunFinalized?.({
+		let n = await Y(t, this.messages, this.state, (t, n, r) => t.onRunFinalized?.({
 			messages: n,
 			state: r,
 			agent: this,
@@ -8699,7 +8699,7 @@ var Rs = class extends ws {
 	}
 	clone() {
 		let e = Object.create(Object.getPrototypeOf(this));
-		return e.agentId = this.agentId, e.description = this.description, e.threadId = this.threadId, e.messages = Y(this.messages), e.state = Y(this.state), e._debug = this._debug, e._debugLogger = this._debugLogger, e.isRunning = this.isRunning, e.subscribers = [...this.subscribers], e.middlewares = [...this.middlewares], e;
+		return e.agentId = this.agentId, e.description = this.description, e.threadId = this.threadId, e.messages = J(this.messages), e.state = J(this.state), e._debug = this._debug, e._debugLogger = this._debugLogger, e.isRunning = this.isRunning, e.subscribers = [...this.subscribers], e.middlewares = [...this.middlewares], e;
 	}
 	addMessage(e) {
 		this.messages.push(e), (async () => {
@@ -8746,7 +8746,7 @@ var Rs = class extends ws {
 		})();
 	}
 	setMessages(e) {
-		this.messages = Y(e), (async () => {
+		this.messages = J(e), (async () => {
 			for (let e of this.subscribers) await e.onMessagesChanged?.({
 				messages: this.messages,
 				state: this.state,
@@ -8755,7 +8755,7 @@ var Rs = class extends ws {
 		})();
 	}
 	setState(e) {
-		this.state = Y(e), (async () => {
+		this.state = J(e), (async () => {
 			for (let e of this.subscribers) await e.onStateChanged?.({
 				messages: this.messages,
 				state: this.state,
@@ -8774,9 +8774,9 @@ var Rs = class extends ws {
 			get state() {
 				return e.state;
 			}
-		}), this).run(t)).pipe(Cs(this.debugLogger), ps(this.debugLogger), xs(this.threadId, t.runId, this.agentId), (e) => e.pipe(Gi((e) => (this.debugLogger?.event("LEGACY", "Event:", e, { type: e.type }), e))));
+		}), this).run(t)).pipe(ws(this.debugLogger), ms(this.debugLogger), Ss(this.threadId, t.runId, this.agentId), (e) => e.pipe(Gi((e) => (this.debugLogger?.event("LEGACY", "Event:", e, { type: e.type }), e))));
 	}
-}, Vs = class extends Bs {
+}, Hs = class extends Vs {
 	requestInit(e) {
 		return {
 			method: "POST",
@@ -8796,47 +8796,88 @@ var Rs = class extends ws {
 		this.abortController.abort(), super.abortRun();
 	}
 	constructor(e) {
-		super(e), this.abortController = new AbortController(), this.url = e.url, this.headers = Y(e.headers ?? {});
+		super(e), this.abortController = new AbortController(), this.url = e.url, this.headers = J(e.headers ?? {});
 	}
 	run(e) {
-		return vs(hs(this.url, this.requestInit(e)), this.debugLogger);
+		return ys(gs(this.url, this.requestInit(e)), this.debugLogger);
 	}
 	clone() {
 		let e = super.clone();
-		e.url = this.url, e.headers = Y(this.headers ?? {});
+		e.url = this.url, e.headers = J(this.headers ?? {});
 		let t = new AbortController(), n = this.abortController.signal;
 		return n.aborted && t.abort(n.reason), e.abortController = t, e;
 	}
-}, Q = document.getElementById("messages"), $ = document.getElementById("input"), Hs = document.getElementById("send"), Us = document.getElementById("attach-btn"), Ws = document.getElementById("file-input"), Gs = document.getElementById("attachment-preview-container"), Ks = localStorage.getItem("ag-ui-thread-id") ?? crypto.randomUUID();
-localStorage.setItem("ag-ui-thread-id", Ks);
-var qs = [], Js = [];
-Us.addEventListener("click", () => Ws.click()), Ws.addEventListener("change", () => {
-	if (Ws.files) {
-		for (let e of Array.from(Ws.files)) Js.push(e);
-		Ys(), Ws.value = "";
+}, Z = document.getElementById("messages"), Q = document.getElementById("input"), Us = document.getElementById("send"), Ws = document.getElementById("attach-btn"), Gs = document.getElementById("file-input"), Ks = document.getElementById("attachment-preview-container"), $ = document.getElementById("conversation-select"), qs = document.getElementById("new-conversation-btn"), Js = document.getElementById("delete-conversation-btn"), Ys = localStorage.getItem("ag-ui-thread-id") ?? crypto.randomUUID();
+localStorage.setItem("ag-ui-thread-id", Ys);
+var Xs = [], Zs = !1;
+function Qs(e) {
+	Ys = e, localStorage.setItem("ag-ui-thread-id", e), $s(e);
+}
+function $s(e) {
+	let t = $.querySelector(`option[value="${CSS.escape(e)}"]`);
+	t || (t = document.createElement("option"), t.value = e, t.textContent = e, $.appendChild(t)), $.value = e;
+}
+async function ec() {
+	if (Zs) return;
+	let e = [], t = await fetch("/history");
+	t.ok && (e = await t.json());
+	let n = new Set([...e, Ys]);
+	$.innerHTML = "";
+	for (let e of n) {
+		let t = document.createElement("option");
+		t.value = e, t.textContent = e, $.appendChild(t);
+	}
+	$.value = Ys, Zs = !0;
+}
+$.addEventListener("mousedown", (e) => {
+	Zs || (e.preventDefault(), (async () => {
+		await ec(), $.showPicker();
+	})());
+}), $.addEventListener("change", async () => {
+	let e = $.value;
+	!e || e === Ys || (Qs(e), Xs.length = 0, Z.innerHTML = "", await sc());
+}), qs.addEventListener("click", () => {
+	let e = crypto.randomUUID();
+	Qs(e), Xs.length = 0, Z.innerHTML = "";
+	let t = document.createElement("option");
+	t.value = e, t.textContent = e, $.appendChild(t), $.value = e;
+}), Js.addEventListener("click", async () => {
+	let e = Ys;
+	if (confirm(`Delete conversation\n${e}?\n\nThis cannot be undone.`)) {
+		try {
+			await fetch(`/history/${encodeURIComponent(e)}`, { method: "DELETE" });
+		} catch {}
+		localStorage.removeItem("ag-ui-thread-id"), Qs(crypto.randomUUID()), Xs.length = 0, Z.innerHTML = "", $.querySelector(`option[value="${CSS.escape(e)}"]`)?.remove();
 	}
 });
-function Ys() {
-	Gs.innerHTML = "", Js.forEach((e, t) => {
+var tc = [];
+Ws.addEventListener("click", () => Gs.click()), Gs.addEventListener("change", () => {
+	if (Gs.files) {
+		for (let e of Array.from(Gs.files)) tc.push(e);
+		nc(), Gs.value = "";
+	}
+});
+function nc() {
+	Ks.innerHTML = "", tc.forEach((e, t) => {
 		let n = document.createElement("div");
 		n.className = "file-preview-badge", n.innerHTML = `<span>&#128196; ${e.name}</span><span class="remove-file" data-index="${t}">&times;</span>`, n.querySelector(".remove-file").addEventListener("click", (e) => {
 			let t = parseInt(e.target.dataset.index);
-			Js.splice(t, 1), Ys();
-		}), Gs.appendChild(n);
+			tc.splice(t, 1), nc();
+		}), Ks.appendChild(n);
 	});
 }
-function Xs(e) {
+function rc(e) {
 	return new Promise((t, n) => {
 		let r = new FileReader();
 		r.onload = () => t(r.result), r.onerror = (e) => n(e), r.readAsDataURL(e);
 	});
 }
-async function Zs(e) {
-	let t = await Xs(e), n = t.indexOf(",");
+async function ic(e) {
+	let t = await rc(e), n = t.indexOf(",");
 	if (n < 0) throw Error(`Failed to encode file '${e.name}' as base64.`);
 	return t.slice(n + 1);
 }
-function Qs(e, t, n) {
+function ac(e, t, n) {
 	let r = document.createElement("div");
 	if (r.className = `msg ${e}`, e === "assistant" && t === "…") r.innerHTML = "<div class=\"loading-wave\"><span class=\"dot\">.</span><span class=\"dot\">.</span><span class=\"dot\">.</span></div>";
 	else {
@@ -8857,13 +8898,13 @@ function Qs(e, t, n) {
 			r.appendChild(e);
 		}
 	}
-	return Q.appendChild(r), Q.scrollTop = Q.scrollHeight, r;
+	return Z.appendChild(r), Z.scrollTop = Z.scrollHeight, r;
 }
-function $s() {
-	for (let e of qs) e.role === "user" && typeof e.content == "string" ? Qs("user", e.content) : e.role === "assistant" && typeof e.content == "string" && e.content.length > 0 && Qs("assistant", e.content);
+function oc() {
+	for (let e of Xs) e.role === "user" && typeof e.content == "string" ? ac("user", e.content) : e.role === "assistant" && typeof e.content == "string" && e.content.length > 0 && ac("assistant", e.content);
 }
-async function ec() {
-	let e = await fetch(`/history/${encodeURIComponent(Ks)}`);
+async function sc() {
+	let e = await fetch(`/history/${encodeURIComponent(Ys)}`);
 	if (!e.ok) return;
 	let t = await e.json(), n = /* @__PURE__ */ new Set();
 	for (let e of t) {
@@ -8871,20 +8912,20 @@ async function ec() {
 		if (n.has(t)) continue;
 		n.add(t);
 		let r = e.contents.find((e) => e.$type === "text")?.text;
-		r && (e.role === "user" ? qs.push({
+		r && (e.role === "user" ? Xs.push({
 			id: t,
 			role: "user",
 			content: r
-		}) : e.role === "assistant" && qs.push({
+		}) : e.role === "assistant" && Xs.push({
 			id: t,
 			role: "assistant",
 			content: r
 		}));
 	}
-	qs.length > 0 && $s();
+	Xs.length > 0 && oc();
 }
-var tc = /* @__PURE__ */ new Map();
-function nc(e) {
+var cc = /* @__PURE__ */ new Map();
+function lc(e) {
 	let t = document.createElement("div");
 	t.className = "msg approval-request", t.dataset.toolCallId = e.toolCallId, t.innerHTML = `
 		<div class="approval-header"><span>&#9888;</span> Approval Required</div>
@@ -8893,26 +8934,26 @@ function nc(e) {
 			<button class="approve-btn">Approve</button>
 			<button class="deny-btn">Deny</button>
 		</div>`, t.querySelector(".approve-btn").addEventListener("click", () => {
-		t.remove(), tc.delete(e.toolCallId), e.resolve(!0);
+		t.remove(), cc.delete(e.toolCallId), e.resolve(!0);
 	}), t.querySelector(".deny-btn").addEventListener("click", () => {
-		t.remove(), tc.delete(e.toolCallId), e.resolve(!1);
-	}), Q.appendChild(t), Q.scrollTop = Q.scrollHeight;
+		t.remove(), cc.delete(e.toolCallId), e.resolve(!1);
+	}), Z.appendChild(t), Z.scrollTop = Z.scrollHeight;
 }
-async function rc(e, t) {
-	let n = new Vs({ url: "/agui" }), r = t.querySelector(".loading-wave") ? "" : t.textContent ?? "", i = /* @__PURE__ */ new Map(), a = /* @__PURE__ */ new Map(), o = [];
+async function uc(e, t) {
+	let n = new Hs({ url: "/agui" }), r = t.querySelector(".loading-wave") ? "" : t.textContent ?? "", i = /* @__PURE__ */ new Map(), a = /* @__PURE__ */ new Map(), o = [];
 	await new Promise((s, c) => {
 		n.run(e).subscribe({
 			next: (n) => {
 				switch (n.type) {
 					case N.TEXT_MESSAGE_CONTENT:
-						r += n.delta ?? "", t.textContent = r, Q.scrollTop = Q.scrollHeight;
+						r += n.delta ?? "", t.textContent = r, Z.scrollTop = Z.scrollHeight;
 						break;
 					case N.RUN_ERROR: {
 						let e = n;
 						t.classList.add("error"), t.innerHTML = `
 							<div class="error-header"><span>&#10060;</span> Run Error</div>
 							${e.code ? `<div class="error-detail">Code: <code>${e.code}</code></div>` : ""}
-							<div class="error-detail">${e.message}</div>`, Q.scrollTop = Q.scrollHeight;
+							<div class="error-detail">${e.message}</div>`, Z.scrollTop = Z.scrollHeight;
 						break;
 					}
 					case N.TOOL_CALL_START: {
@@ -8963,7 +9004,7 @@ async function rc(e, t) {
 										approved: n
 									})
 								};
-								await rc({
+								await uc({
 									...e,
 									runId: crypto.randomUUID(),
 									messages: [
@@ -8974,7 +9015,7 @@ async function rc(e, t) {
 								}, t);
 							}
 						};
-						tc.set(r, f), nc(f);
+						cc.set(r, f), lc(f);
 						break;
 					}
 				}
@@ -8982,25 +9023,25 @@ async function rc(e, t) {
 			error: (e) => {
 				t.classList.add("error"), t.innerHTML = `
 					<div class="error-header"><span>&#10060;</span> Connection Error</div>
-					<div class="error-detail">${e}</div>`, Hs.disabled = !1, c(e);
+					<div class="error-detail">${e}</div>`, Us.disabled = !1, c(e);
 			},
 			complete: () => s()
 		});
 	});
 }
-async function ic() {
-	let e = $.value.trim();
-	if (!e && Js.length === 0) return;
-	$.value = "", ac(), Hs.disabled = !0, Us.disabled = !0;
+async function dc() {
+	let e = Q.value.trim();
+	if (!e && tc.length === 0) return;
+	Q.value = "", fc(), Us.disabled = !0, Ws.disabled = !0;
 	let t = [];
 	e && t.push({
 		type: "text",
 		text: e
 	});
 	let n = [];
-	for (let e of Js) {
+	for (let e of tc) {
 		n.push(e.name);
-		let r = await Zs(e), i = e.type || "application/octet-stream";
+		let r = await ic(e), i = e.type || "application/octet-stream";
 		t.push({
 			type: "binary",
 			mimeType: i,
@@ -9008,41 +9049,41 @@ async function ic() {
 			data: r
 		});
 	}
-	let r = [...Js], i = e;
-	Js = [], Gs.innerHTML = "";
+	let r = [...tc], i = e;
+	tc = [], Ks.innerHTML = "";
 	let a = (t.length, e), o = {
 		id: crypto.randomUUID(),
 		role: "user",
 		content: a
 	}, s = i || (r.length > 0 ? "" : "[Attached file]");
-	qs.push({
+	Xs.push({
 		id: o.id,
 		role: "user",
 		content: s || "[Attached file]"
-	}), Qs("user", s, r);
-	let c = Qs("assistant", "…"), l = {
-		threadId: Ks,
+	}), ac("user", s, r);
+	let c = ac("assistant", "…"), l = {
+		threadId: Ys,
 		runId: crypto.randomUUID(),
 		messages: [o],
 		tools: [],
 		context: []
 	};
 	try {
-		await rc(l, c), c.textContent && c.textContent !== "…" && qs.push({
+		await uc(l, c), c.textContent && c.textContent !== "…" && Xs.push({
 			id: crypto.randomUUID(),
 			role: "assistant",
 			content: c.textContent
 		});
 	} finally {
-		Hs.disabled = !1, Us.disabled = !1, $.focus();
+		Us.disabled = !1, Ws.disabled = !1, Q.focus();
 	}
 }
-function ac() {
-	$.style.height = "0";
-	let e = $.scrollHeight, t = parseFloat(getComputedStyle($).maxHeight);
-	e >= t ? ($.style.height = `${t}px`, $.style.overflowY = "auto") : ($.style.height = `${e}px`, $.style.overflowY = "hidden");
+function fc() {
+	Q.style.height = "0";
+	let e = Q.scrollHeight, t = parseFloat(getComputedStyle(Q).maxHeight);
+	e >= t ? (Q.style.height = `${t}px`, Q.style.overflowY = "auto") : (Q.style.height = `${e}px`, Q.style.overflowY = "hidden");
 }
-Hs.addEventListener("click", ic), $.addEventListener("keydown", (e) => {
-	e.key === "Enter" && (e.shiftKey ? setTimeout(ac, 0) : (e.preventDefault(), ic()));
-}), $.addEventListener("input", ac), ec(), $.focus();
+Us.addEventListener("click", dc), Q.addEventListener("keydown", (e) => {
+	e.key === "Enter" && (e.shiftKey ? setTimeout(fc, 0) : (e.preventDefault(), dc()));
+}), Q.addEventListener("input", fc), $s(Ys), sc(), Q.focus();
 //#endregion
