@@ -5,6 +5,7 @@ A SAL plugin that connects an AI assistant to the host application using [Micros
 [![UI Screenshot](.github/assets/UI-1-200.png)](.github/assets/UI-1.png)
 [![UI Screenshot](.github/assets/UI-2-200.png)](.github/assets/UI-2.png)
 [![UI Screenshot](.github/assets/UI-3-200.png)](.github/assets/UI-3.png)
+[![UI Screenshot](.github/assets/UI-4-200.png)](.github/assets/UI-4.png)
 
 ## Overview
 

@@ -118,17 +118,24 @@ namespace Plugin.McpBridge
 
 		internal async Task<AssistantAgent> InitializeAgent(AiProviderDto provider, String? conversationId = null)
 		{
-			ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings, this.Settings.SelectedAgent);
-			AgentFactory agentFactory = new AgentFactory();
+			try
+			{
+				ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings, this.Settings.SelectedAgent);
+				AgentFactory agentFactory = new AgentFactory();
 
-			FileSystemAgentSessionStore? sessionStore = this.Settings.SessionStorageDirectory != null
-				? new FileSystemAgentSessionStore(this.Settings.SessionStorageDirectory)
-				: null;
+				FileSystemAgentSessionStore? sessionStore = this.Settings.SessionStorageDirectory != null
+					? new FileSystemAgentSessionStore(this.Settings.SessionStorageDirectory)
+					: null;
 
-			var result = new AssistantAgent(this.Trace, this.Host, toolsFactory, agentFactory);
-			//var result = new RAG.IronMindRagAgent(this.Trace, this.Host, toolsFactory, agentFactory);
-			await result.Initialize(this.Settings, provider, sessionStore, conversationId);
-			return result;
+				var result = new AssistantAgent(this.Trace, this.Host, toolsFactory, agentFactory);
+				//var result = new RAG.IronMindRagAgent(this.Trace, this.Host, toolsFactory, agentFactory);
+				await result.Initialize(this.Settings, provider, sessionStore, conversationId);
+				return result;
+			}catch(Exception exc)
+			{
+				this.Trace.TraceData(System.Diagnostics.TraceEventType.Error, 10, exc);
+				throw;
+			}
 		}
 
 		Boolean IPlugin.OnConnection(ConnectMode mode)

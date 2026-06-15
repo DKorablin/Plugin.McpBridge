@@ -61,9 +61,25 @@ public partial class PanelChat : UserControl
 		base.OnCreateControl();
 
 		this._conversationId = this.Plugin.Settings.LastConversationId;
+		this.UpdateSessionComboWidth();
 		this.RefreshSessionList();
 		this.LoadConversationHistory(this._conversationId);
 		this.UpdateUiState();
+	}
+
+	protected override void OnSizeChanged(EventArgs e)
+	{
+		base.OnSizeChanged(e);
+		this.UpdateSessionComboWidth();
+	}
+
+	private void UpdateSessionComboWidth()
+	{
+		if(!this.IsHandleCreated)
+			return;
+
+		Int32 availableWidth = this.bnRemoveSession.Bounds.Left - this.cbSessions.Bounds.Left - this.cbSessions.Margin.Right;
+		this.cbSessions.Width = Math.Max(1, availableWidth);
 	}
 
 	private void LoadConversationHistory(String conversationId)
@@ -327,7 +343,7 @@ public partial class PanelChat : UserControl
 		for(Int32 i = 0; i < settings.AiAgents.Count; i++)
 		{
 			AiAgentDto agentDto = settings.AiAgents[i];
-			ToolStripMenuItem item = new ToolStripMenuItem($"Agent {i + 1}")
+			ToolStripMenuItem item = new ToolStripMenuItem(agentDto.Description ?? $"Agent {i + 1}")
 			{
 				Tag = agentDto.Id,
 				Checked = agentDto.Id == selectedAgentId,
@@ -442,7 +458,14 @@ public partial class PanelChat : UserControl
 
 		// Window Caption Logic
 		Int32 agentIndex = this.Plugin.Settings.AiAgents.IndexOf(this.Plugin.Settings.SelectedAgent);
-		String agentInfo = this.Plugin.Settings.AiAgents.Count > 1 ? $"Agent {agentIndex + 1} | " : String.Empty;
+		String agentInfo;
+		if(this.Plugin.Settings.SelectedAgent.Description != null)
+			agentInfo = $"{this.Plugin.Settings.SelectedAgent.Description} | ";
+		else if(this.Plugin.Settings.AiAgents.Count > 1)
+			agentInfo = $"Agent {agentIndex + 1} | ";
+		else
+			agentInfo = String.Empty;
+
 		String providerInfo = this.CurrentProvider?.ToString() ?? "Undefined";
 		String statusIcon = needsConfirmation ? " (!)" : String.Empty;
 		this.Window.Caption = agentInfo + providerInfo + statusIcon;

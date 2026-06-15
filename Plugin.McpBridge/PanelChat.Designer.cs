@@ -136,6 +136,7 @@ partial class PanelChat
 		// 
 		// bnRemoveSession
 		// 
+		this.bnRemoveSession.Alignment = ToolStripItemAlignment.Right;
 		this.bnRemoveSession.DisplayStyle = ToolStripItemDisplayStyle.Image;
 		this.bnRemoveSession.Image = global::Plugin.McpBridge.Properties.Resources.iconDelete;
 		this.bnRemoveSession.ImageTransparentColor = System.Drawing.Color.Magenta;

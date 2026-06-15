@@ -1,16 +1,66 @@
-﻿using Microsoft.Agents.AI;
+﻿using System.Runtime.InteropServices;
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.VectorData;
-using Microsoft.Extensions.AI;
 using Microsoft.SemanticKernel.Connectors.InMemory;
 using Microsoft.SemanticKernel.Connectors.SqliteVec;
+using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Data;
 
 namespace Plugin.McpBridge.RAG;
 
 public class TextSearchStore
 {
-	private static readonly String DefaultStoragePath = Path.Combine(AppContext.BaseDirectory, ".RagStore");
 	public const String DefaultCollectionName = "rag-kb";
+	private static Int32 _sqliteBundleInitialized;
+
+	private static void EnsureSqliteBundleInitialized()
+	{
+		if(System.Threading.Interlocked.Exchange(ref _sqliteBundleInitialized, 1) != 0)
+			return;
+
+		TextSearchStore.LoadNativeSqliteLibraryIfNeeded();
+		SQLitePCL.Batteries.Init();
+	}
+
+	private static void LoadNativeSqliteLibraryIfNeeded()
+	{
+		if(!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+			return;
+
+		String? architectureFolder = RuntimeInformation.ProcessArchitecture switch
+		{
+			Architecture.X64 => "win-x64",
+			Architecture.X86 => "win-x86",
+			Architecture.Arm64 => "win-arm64",
+			Architecture.Arm => "win-arm",
+			_ => null,
+		};
+		if(architectureFolder == null)
+			return;
+
+		String[] probeRoots =
+		[
+			AppContext.BaseDirectory,
+			Path.GetDirectoryName(typeof(TextSearchStore).Assembly.Location) ?? AppContext.BaseDirectory,
+		];
+		foreach(String probeRoot in probeRoots.Distinct(StringComparer.OrdinalIgnoreCase))
+		{
+			String nativeDirectory = Path.Combine(probeRoot, "runtimes", architectureFolder, "native");
+			if(!Directory.Exists(nativeDirectory))
+				continue;
+
+			TextSearchStore.TryLoadNativeLibrary(Path.Combine(nativeDirectory, "e_sqlite3.dll"));
+			TextSearchStore.TryLoadNativeLibrary(Path.Combine(nativeDirectory, "vec0.dll"));
+		}
+	}
+
+	private static void TryLoadNativeLibrary(String nativeLibraryPath)
+	{
+		if(!File.Exists(nativeLibraryPath))
+			return;
+
+		_ = NativeLibrary.TryLoad(nativeLibraryPath, out _);
+	}
 
 	private readonly VectorStoreCollection<String, TextSearchRecord> _collection;
 	private readonly UInt16 _topK;
@@ -23,8 +73,7 @@ public class TextSearchStore
 
 	public TextSearchStore(SqliteVectorStore vectorStore, String collectionName, Int32 dimensions, UInt16 topK = 3, IEnumerable<String>? supportedExtensions = null)
 		: this((name, definition) => vectorStore.GetCollection<String, TextSearchRecord>(name, definition), collectionName, dimensions, topK, supportedExtensions)
-	{
-	}
+		=> TextSearchStore.EnsureSqliteBundleInitialized();
 
 	private TextSearchStore(Func<String, VectorStoreCollectionDefinition, VectorStoreCollection<String, TextSearchRecord>> collectionFactory, String collectionName, Int32 dimensions, UInt16 topK = 3, IEnumerable<String>? supportedExtensions = null)
 	{
@@ -75,7 +124,7 @@ public class TextSearchStore
 	public Task ResetCollectionAsync(CancellationToken cancellationToken = default)
 		=> this._collection.EnsureCollectionDeletedAsync(cancellationToken);
 
-	public async Task<IEnumerable<TextSearchDocument>> SearchAsync(String query, Int32 topK, CancellationToken cancellationToken = default)
+	public virtual async Task<IEnumerable<TextSearchDocument>> SearchAsync(String query, Int32 topK, CancellationToken cancellationToken = default)
 	{
 		var results = this._collection.SearchAsync(query, topK, cancellationToken: cancellationToken);
 		var documents = new List<TextSearchDocument>();
@@ -105,7 +154,7 @@ public class TextSearchStore
 	}
 
 	public static String GetSqliteDatabasePath(String ragDirectory, Guid agentId)
-		=> Path.Combine(DefaultStoragePath, $"rag-{agentId:N}.sqlite");
+		=> Path.Combine(ragDirectory, $"rag-{agentId:N}.sqlite");
 
 	public static Boolean IsSupportedDocumentPath(String filePath, IEnumerable<String>? supportedExtensions = null)
 	{

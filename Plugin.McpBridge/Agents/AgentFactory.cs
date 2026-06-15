@@ -3,8 +3,8 @@ using System.ClientModel.Primitives;
 using System.Text;
 using Azure.AI.OpenAI;
 using Microsoft.Agents.AI;
-using Microsoft.Extensions.AI;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.AI;
 using Microsoft.SemanticKernel.Connectors.InMemory;
 using Microsoft.SemanticKernel.Connectors.SqliteVec;
 using OpenAI;
@@ -19,8 +19,6 @@ namespace Plugin.McpBridge.Agents;
 /// <summary>Shared factory methods for building AI agent components, usable by both the WinForms chat path and DevUI.</summary>
 internal class AgentFactory
 {
-	private TextSearchStore? _textSearchStore;
-
 	public async Task<AgentHandle> CreateAgent(
 		AiAgentDto agent,
 		AiProviderDto provider,
@@ -212,6 +210,7 @@ internal class AgentFactory
 			TextSearchStore.AssertDocumentsInFolder(agent.RagDirectory, supportedExtensions);
 
 			IEmbeddingGenerator<String, Embedding<Single>> embeddingGenerator = AgentFactory.CreateEmbeddingGenerator(embeddingProvider);
+			TextSearchStore textSearchStore;
 			String sqlitePath = TextSearchStore.GetSqliteDatabasePath(agent.RagDirectory, agent.Id);
 			if(File.Exists(sqlitePath))
 			{
@@ -220,19 +219,15 @@ internal class AgentFactory
 				{
 					EmbeddingGenerator = embeddingGenerator,
 				});
-				this._textSearchStore = new TextSearchStore(sqliteStore, TextSearchStore.DefaultCollectionName, embeddingProvider.Embeddings.Dimension.Value, embeddingProvider.Embeddings.TopResults, supportedExtensions);
-				await this._textSearchStore.EnsureCollectionExistsAsync();
-			}
-
-			if(this._textSearchStore == null)
+				textSearchStore = new TextSearchStore(sqliteStore, TextSearchStore.DefaultCollectionName, embeddingProvider.Embeddings.Dimension.Value, embeddingProvider.Embeddings.TopResults, supportedExtensions);
+				await textSearchStore.EnsureCollectionExistsAsync();
+			} else
 			{
-				var vectorStore = new InMemoryVectorStore(new() { EmbeddingGenerator = embeddingGenerator });
-				this._textSearchStore = new TextSearchStore(vectorStore, TextSearchStore.DefaultCollectionName, embeddingProvider.Embeddings.Dimension.Value, embeddingProvider.Embeddings.TopResults, supportedExtensions);
-				var documents = TextSearchStore.GetDocumentsFromFolder(agent.RagDirectory, supportedExtensions);
-				await this._textSearchStore.UpsertDocumentsAsync(documents);
+				InMemoryVectorStore vectorStore = new InMemoryVectorStore(new() { EmbeddingGenerator = embeddingGenerator });
+				textSearchStore = new TextSearchLazyStore(vectorStore, TextSearchStore.DefaultCollectionName, embeddingProvider.Embeddings.Dimension.Value, agent.RagDirectory, supportedExtensions, embeddingProvider.Embeddings.TopResults);
 			}
 
-			providers.Add(new TextSearchProvider((text, ct) => this._textSearchStore!.SearchTextAsync(text, ct), new TextSearchProviderOptions
+			providers.Add(new TextSearchProvider((text, ct) => textSearchStore.SearchTextAsync(text, ct), new TextSearchProviderOptions
 			{
 				SearchTime = TextSearchProviderOptions.TextSearchBehavior.OnDemandFunctionCalling,
 				FunctionToolName = agent.RagToolName,
