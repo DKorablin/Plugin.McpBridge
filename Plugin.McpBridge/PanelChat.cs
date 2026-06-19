@@ -117,13 +117,14 @@ public partial class PanelChat : UserControl
 		String? sessionStorageDir = this.Plugin.Settings.SessionStorageDirectory;
 		if(sessionStorageDir == null)
 			return;
+		if(this._conversationId != conversationId)
+			return;
 
+		var store = new FileSystemAgentSessionStore(sessionStorageDir);
 		Task.Run(async () =>
 		{
-			var store = new FileSystemAgentSessionStore(sessionStorageDir);
-			JsonElement? json = await store.ReadSessionAsync(this.GetSessionScopeName(), conversationId);
-			if(json != null && this._conversationId == conversationId)
-				this.LoadSessionHistory(json.Value);
+			await foreach(ChatMessage message in store.ReadSessionAsync(this.GetSessionScopeName(), conversationId))
+				mdResponse.AppendMessage(message);
 		});
 	}
 
@@ -180,30 +181,6 @@ public partial class PanelChat : UserControl
 		if(loadHistory)
 			this.LoadConversationHistory(conversationId);
 		this.RefreshSessionList();
-	}
-
-	private void LoadSessionHistory(JsonElement root)
-	{
-		if(!root.TryGetProperty("stateBag", out JsonElement stateBag) ||
-			!stateBag.TryGetProperty("InMemoryChatHistoryProvider", out JsonElement historyState) ||
-			!historyState.TryGetProperty("messages", out JsonElement messagesElement))
-		{
-			this.Plugin.Trace.TraceEvent(System.Diagnostics.TraceEventType.Warning, 0, "Failed to load session history: invalid format.");
-			return;
-		}
-
-		ChatMessage[]? messages = JsonSerializer.Deserialize<ChatMessage[]>(messagesElement, AIJsonUtilities.DefaultOptions);
-		if(messages?.Length > 0)
-			this.Invoke(() =>
-			{
-				foreach(ChatMessage msg in messages)
-				{
-					if(msg.Role == ChatRole.User)
-						mdResponse.AppendMessage(msg.Text, MarkdownTextBox.MessageKind.User);
-					else if(msg.Role == ChatRole.Assistant)
-						mdResponse.AppendMarkdown(msg.Text);
-				}
-			});
 	}
 
 	private void Window_Closed(Object? sender, EventArgs e)
@@ -342,7 +319,7 @@ public partial class PanelChat : UserControl
 			}
 		} catch(Exception ex)
 		{
-			this.Invoke(() => mdResponse.AppendMessage(ex.Message, MarkdownTextBox.MessageKind.Error));
+			mdResponse.AppendMessage(ex.Message, MarkdownTextBox.MessageKind.Error);
 		} finally
 		{
 			this._cts?.Dispose();

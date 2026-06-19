@@ -1,6 +1,6 @@
-﻿using System.Collections.Generic;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.AI;
 
 namespace Plugin.McpBridge.UI;
 
@@ -16,8 +16,28 @@ internal class MarkdownTextBox : RichTextBox
 
 	public enum MessageKind { User, Error }
 
+	public void AppendMessage(ChatMessage message)
+	{
+		if(this.InvokeRequired)
+		{
+			this.Invoke(new Action(() => this.AppendMessage(message)));
+			return;
+		}
+
+		if(message.Role == ChatRole.User)
+			this.AppendMessage(message.Text, MarkdownTextBox.MessageKind.User);
+		else if(message.Role == ChatRole.Assistant)
+			this.AppendMarkdown(message.Text);
+	}
+
 	public void AppendMessage(String text, MessageKind kind)
 	{
+		if(this.InvokeRequired)
+		{
+			this.Invoke(new Action(() => this.AppendMessage(text, kind)));
+			return;
+		}
+
 		Color color = kind == MessageKind.User ? Color.FromArgb(0, 102, 204) : Color.FromArgb(185, 43, 39);
 		FontStyle style = kind == MessageKind.User ? FontStyle.Bold : FontStyle.Italic;
 		String prefix = kind == MessageKind.User ? "You: " : "Error: ";
@@ -38,6 +58,9 @@ internal class MarkdownTextBox : RichTextBox
 
 	public void AppendMarkdown(String markdown)
 	{
+		if(String.IsNullOrEmpty(markdown))
+			return;
+
 		Boolean inCodeBlock = false;
 		Font baseFont = this.Font;
 		Color defaultColor = Color.FromArgb(33, 37, 41);
