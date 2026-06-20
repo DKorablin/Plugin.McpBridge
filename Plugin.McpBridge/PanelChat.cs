@@ -1,12 +1,9 @@
 ﻿using System.ComponentModel;
-using System.Diagnostics;
 using Microsoft.Agents.AI;
-using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Events;
-using Plugin.McpBridge.Tools;
 using Plugin.McpBridge.UI;
 using Plugin.McpBridge.Workflows;
 using SAL.Windows;
@@ -16,8 +13,6 @@ namespace Plugin.McpBridge;
 public partial class PanelChat : UserControl
 {
 	private AssistantAgent? _agent;
-	private AIAgent? _workflowAgent;
-	private AgentSession? _workflowSession;
 	private WorkflowFactory? _workflowFactory;
 	private String? _selectedWorkflowName;
 	private Boolean _streamingActive;
@@ -210,8 +205,6 @@ public partial class PanelChat : UserControl
 			this._agent.ConfirmationRequired -= this.Agent_ConfirmationRequired;
 		}
 		this._agent = null;
-		this._workflowAgent = null;
-		this._workflowSession = null;
 
 		this._cts?.Cancel();
 		this._cts?.Dispose();
@@ -227,7 +220,7 @@ public partial class PanelChat : UserControl
 		if(this._selectedWorkflowName != null)
 			return this._selectedWorkflowName;
 
-		return this._agent?.AgentName ?? FileSystemAgentSessionStore.DefaultAgentName;
+		return this._agent?.SessionScopeName ?? FileSystemAgentSessionStore.DefaultAgentName;
 	}
 
 	private void DisposeWorkflows()
@@ -248,10 +241,18 @@ public partial class PanelChat : UserControl
 	{
 		if(this._agent == null)
 		{
-			if(this.CurrentProvider == null)
-				throw new InvalidOperationException("No AI provider configured.");
+			if(this.IsWorkflowSelected)
+			{
+				WorkflowFactoryItem workflow = this.SelectedWorkflow
+					?? throw new InvalidOperationException("Selected workflow was not found.");
+				this._agent = await this.Plugin.InitializeWorkflowAgent(workflow, this._conversationId.ToString());
+			} else
+			{
+				AiProviderDto provider = this.CurrentProvider
+					?? throw new InvalidOperationException("No AI provider configured.");
+				this._agent = await this.Plugin.InitializeAgent(provider, this._conversationId.ToString());
+			}
 
-			this._agent = await this.Plugin.InitializeAgent(this.CurrentProvider, this._conversationId.ToString());
 			this._agent.AiResponseReceived += this.Agent_AiResponseReceived;
 			this._agent.ConfirmationRequired += this.Agent_ConfirmationRequired;
 			this.UpdateUiState();
@@ -272,19 +273,8 @@ public partial class PanelChat : UserControl
 
 		try
 		{
-			if(this.IsWorkflowSelected)
-				try {
-					await this.InvokeWorkflowMessage(message, attachments, token);
-				}catch(Exception exc)
-				{//TODO: Centralize this catch inside AssistantAgent class
-					this.Plugin.Trace.TraceData(TraceEventType.Error, 0, exc);
-					throw;
-				}
-			else
-			{
-				AssistantAgent agent = await this.GetAgent();
-				await agent.InvokeMessageAsync(message, attachments, token);
-			}
+			AssistantAgent agent = await this.GetAgent();
+			await agent.InvokeMessageAsync(message, attachments, token);
 		} catch(Exception ex)
 		{
 			mdResponse.AppendMessage(ex.Message, MarkdownTextBox.MessageKind.Error);
@@ -297,83 +287,9 @@ public partial class PanelChat : UserControl
 		}
 	}
 
-	private async Task InvokeWorkflowMessage(String message, DataContent[] attachments, CancellationToken token)
-	{
-		WorkflowFactoryItem workflow = this.SelectedWorkflow
-			?? throw new InvalidOperationException("Selected workflow was not found.");
-		WorkflowHandle workflowHandle = await this.WorkflowFactory.GetHandleAsync(workflow, token);
-
-		if(this._workflowAgent == null || this._workflowAgent.Name != workflow.Name)
-		{
-			this._workflowAgent = workflowHandle.Workflow.AsAIAgent(name: workflow.Name);
-			this._workflowSession = null;
-		}
-
-		if(this._workflowSession == null)
-		{
-			String? storageDir = this.Plugin.Settings.SessionStorageDirectory;
-			if(storageDir != null)
-			{
-				var store = new FileSystemAgentSessionStore(storageDir);
-				this._workflowSession = await store.GetSessionAsync(this._workflowAgent, this._conversationId, token);
-			} else
-				this._workflowSession = await this._workflowAgent.CreateSessionAsync(token);
-		}
-
-		ChatMessage input = PanelChat.BuildUserMessage(message, attachments);
-		AgentResponse response = await this._workflowAgent.RunAsync(input, this._workflowSession, null, token);
-		while(response.FinishReason == ChatFinishReason.ToolCalls)
-		{
-			ToolApprovalRequestContent request = (ToolApprovalRequestContent)response.Messages[^1].Contents[0];
-			if(request.ToolCall is not FunctionCallContent functionCall)
-				break;
-
-			Boolean approved = await this.RequestWorkflowApproval(functionCall);
-			ToolApprovalResponseContent approval = request.CreateResponse(approved);
-			ChatMessage approvalMessage = new ChatMessage(ChatRole.User, [approval]);
-			response = await this._workflowAgent.RunAsync(approvalMessage, this._workflowSession, null, token);
-		}
-
-		String? sessionStorageDirectory = this.Plugin.Settings.SessionStorageDirectory;
-		if(sessionStorageDirectory != null && this._workflowSession != null)
-		{
-			var store = new FileSystemAgentSessionStore(sessionStorageDirectory);
-			await store.SaveSessionAsync(this._workflowAgent, this._conversationId, this._workflowSession, token);
-		}
-
-		this.Invoke(() =>
-		{
-			mdResponse.AppendMarkdown(response.Text);
-			mdResponse.ScrollToCaret();
-		});
-	}
-
-	private Task<Boolean> RequestWorkflowApproval(FunctionCallContent call)
-	{
-		AgentConfirmationEventArgs request = new AgentConfirmationEventArgs(call);
-		this.BeginInvoke(() =>
-		{
-			pnlConfirmation.Request(request);
-			this.UpdateUiState();
-		});
-
-		return request.ConfirmationTask;
-	}
-
-	private static ChatMessage BuildUserMessage(String text, DataContent[]? attachments)
-	{
-		if(attachments == null || attachments.Length == 0)
-			return new ChatMessage(ChatRole.User, text);
-
-		List<AIContent> contents = new List<AIContent> { new TextContent(text) };
-		foreach(DataContent attachment in attachments)
-			contents.Add(attachment);
-		return new ChatMessage(ChatRole.User, contents);
-	}
-
 	private void Agent_AiResponseReceived(Object? sender, AgentResponseEventArgs e)
 	{
-		this.Invoke(() =>
+		this.BeginInvoke(() =>
 		{
 			if(!this._streamingActive)
 				this._streamingActive = true;

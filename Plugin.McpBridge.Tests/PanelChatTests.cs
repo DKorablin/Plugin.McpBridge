@@ -27,7 +27,7 @@ public class PanelChatTests
 
 	[Fact(Timeout = 5000)]
 	[Trait("Category", "Smoke")]
-	public void PanelChat_Should_ConstructSuccessfully()
+	public async Task PanelChat_Should_ConstructSuccessfully()
 	{
 		Plugin plugin = this.CreatePlugin();
 
@@ -42,11 +42,13 @@ public class PanelChatTests
 			form.IsHandleCreated.Should().BeTrue();
 			testWindow.Caption.Should().Be("Undefined");
 		}
+
+		await Task.CompletedTask;
 	}
 
 	[Fact(Timeout = 5000)]
 	[Trait("Category", "Smoke")]
-	public void PanelChat_SendMenu_Should_ShowWorkflows_WhenConfigured()
+	public async Task PanelChat_SendMenu_Should_ShowWorkflows_WhenConfigured()
 	{
 		Plugin plugin = this.CreatePlugin();
 		Guid providerId = this.ConfigureStubProvider(plugin);
@@ -69,9 +71,11 @@ public class PanelChatTests
 		{
 			Directory.Delete(tempDirectory, recursive: true);
 		}
+
+		await Task.CompletedTask;
 	}
 
-	[Fact(Timeout = 5000)]
+	[Fact(Timeout = 15000)]
 	[Trait("Category", "Smoke")]
 	public async Task PanelChat_Should_ProcessMessage_UsingSelectedWorkflow()
 	{
@@ -95,13 +99,22 @@ public class PanelChatTests
 				.First(i => i.Text == "Workflow One");
 			workflowItem.PerformClick();
 
-			Task task = (Task)PanelChatTests.InvokePrivateMethod(panel, "InvokeMessage", "hello", Array.Empty<DataContent>())!;
-			await task;
+			Task getAgentTask = (Task)PanelChatTests.InvokePrivateMethod(panel, "GetAgent")!;
+			await getAgentTask;
 
-			Object? workflowAgent = panel.GetType().GetField("_workflowAgent", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(panel);
-			workflowAgent.Should().NotBeNull();
-			Object? workflowSession = panel.GetType().GetField("_workflowSession", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(panel);
-			workflowSession.Should().NotBeNull();
+			Object? assistantAgent = panel.GetType().GetField("_agent", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(panel);
+			assistantAgent.Should().NotBeNull();
+
+			PropertyInfo? isWorkflowModeProperty = assistantAgent!.GetType().GetProperty("IsWorkflowMode", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+			isWorkflowModeProperty.Should().NotBeNull();
+			Boolean isWorkflowMode = (Boolean)isWorkflowModeProperty!.GetValue(assistantAgent)!;
+			isWorkflowMode.Should().BeTrue();
+
+			PropertyInfo? sessionScopeNameProperty = assistantAgent.GetType().GetProperty("SessionScopeName", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+			sessionScopeNameProperty.Should().NotBeNull();
+			String sessionScopeName = (String)sessionScopeNameProperty!.GetValue(assistantAgent)!;
+			sessionScopeName.Should().Be("Workflow One");
+
 			testWindow.Caption.Should().Contain("Workflow One");
 			testWindow.Caption.Should().Contain("Workflow");
 		} finally

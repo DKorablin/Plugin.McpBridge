@@ -3,10 +3,12 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting;
+using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Events;
 using Plugin.McpBridge.Tools;
+using Plugin.McpBridge.Workflows;
 using SAL.Flatbed;
 
 namespace Plugin.McpBridge.Agents;
@@ -19,14 +21,21 @@ internal class AssistantAgent : IDisposable
 	private readonly ToolsFactory _toolsFactory;
 	private readonly AgentFactory _agentFactory;
 	private AgentHandle? _handle;
+	private AIAgent? _activeAgent;
 	private AgentSession? _session;
 	private AgentSessionStore? _sessionStore;
 	private String? _conversationId;
+	private String _sessionScopeName = FileSystemAgentSessionStore.DefaultAgentName;
+	private String _targetName = FileSystemAgentSessionStore.DefaultAgentName;
 
 	public event EventHandler<AgentResponseEventArgs>? AiResponseReceived;
 	public event EventHandler<AgentConfirmationEventArgs>? ConfirmationRequired;
 
-	public String AgentName => this._handle?.Agent.Name ?? "assistant";
+	public String AgentName => this._activeAgent?.Name ?? FileSystemAgentSessionStore.DefaultAgentName;
+
+	public String SessionScopeName => this._sessionScopeName;
+
+	public String TargetName => this._targetName;
 
 	public AssistantAgent(
 		ITraceSource trace,
@@ -45,19 +54,46 @@ internal class AssistantAgent : IDisposable
 		_ = settings ?? throw new ArgumentNullException(nameof(settings));
 		_ = provider ?? throw new ArgumentNullException(nameof(provider));
 
-		this._session = null;
-		this._sessionStore = sessionStore;
-		this._conversationId = conversationId;
-		this._handle?.Dispose();
+		this.ResetState(sessionStore, conversationId);
 
 		var tools = this._toolsFactory.CreateTools(this._trace).ToArray();
 		var instructions = AgentFactory.BuildSystemInstructions(settings, settings.SelectedAgent, this._host);
 		this._handle = await this.CreateAgent(provider, tools, instructions, settings.SelectedAgent, settings.AiProviders);
+		this._activeAgent = this._handle.Agent;
+		this._sessionScopeName = this._activeAgent.Name;
+		this._targetName = this._activeAgent.Name;
 
-		if(sessionStore != null && conversationId != null)
-			this._session = await sessionStore.GetSessionAsync(this._handle.Agent, conversationId, CancellationToken.None);
+		if(this._sessionStore != null && this._conversationId != null)
+			this._session = await this._sessionStore.GetSessionAsync(this._activeAgent, this._conversationId, CancellationToken.None);
 
 		this._trace.TraceEvent(TraceEventType.Verbose, 0, $"Initialized AssistantAgent with instructions '{instructions}'.");
+	}
+
+	public async Task InitializeWorkflow(
+		Settings settings,
+		WorkflowFactoryItem workflow,
+		AgentSessionStore? sessionStore = null,
+		String? conversationId = null,
+		CancellationToken token = default)
+	{
+		_ = settings ?? throw new ArgumentNullException(nameof(settings));
+		_ = workflow ?? throw new ArgumentNullException(nameof(workflow));
+
+		this.ResetState(sessionStore, conversationId);
+
+		var tools = this._toolsFactory.CreateTools(this._trace).ToArray();
+		WorkflowLoader2 loader = new WorkflowLoader2(settings, workflow.WorkflowPath);
+		WorkflowHandle workflowHandle = await loader.BuildAsync(settings.AiProviders, tools, token);
+		this._activeAgent = workflowHandle.Workflow.AsAIAgent(name: workflow.Name);
+		this._handle = AgentHandle.FromWorkflow(this._activeAgent, null);
+
+		this._sessionScopeName = workflow.Name;
+		this._targetName = workflow.Name;
+
+		if(this._sessionStore != null && this._conversationId != null)
+			this._session = await this._sessionStore.GetSessionAsync(this._activeAgent, this._conversationId, token);
+
+		this._trace.TraceEvent(TraceEventType.Verbose, 0, $"Initialized workflow AssistantAgent for '{workflow.Name}'.");
 	}
 
 	protected virtual async Task<AgentHandle> CreateAgent(
@@ -70,21 +106,6 @@ internal class AssistantAgent : IDisposable
 			instructions,
 			token: token);
 
-	/// <summary>Asynchronously retrieves the current session state as a JSON string.</summary>
-	/// <param name="token">
-	/// A cancellation token that can be used to cancel the asynchronous operation.
-	/// The default value is <see cref="CancellationToken.None"/>.
-	/// </param>
-	/// <returns>A JSON string representing the current session state, or <see langword="null"/> if there is no active session.</returns>
-	public async Task<String?> GetSessionState(CancellationToken token = default)
-	{
-		if(this._handle == null || this._session == null)
-			return null;
-
-		var json = await this._handle.Agent.SerializeSessionAsync(this._session, cancellationToken: token);
-		return json.ToString();
-	}
-
 	public async Task InvokeMessageAsync(String message, DataContent[]? files = null, CancellationToken cancellationToken = default)
 	{
 		if(String.IsNullOrWhiteSpace(message))
@@ -95,19 +116,19 @@ internal class AssistantAgent : IDisposable
 
 		this._trace.TraceEvent(TraceEventType.Verbose, 0, "< " + message);
 
-		if(this._handle == null)
+		if(this._activeAgent == null)
 		{
 			this.OnAiResponseReceived(new AgentResponseEventArgs("AI is not configured. Add LLM configuration options in plugin settings.", true));
 			return;
 		}
 
 		if(this._session == null)
-			this._session = await this._handle.Agent.CreateSessionAsync(cancellationToken);
+			this._session = await this._activeAgent.CreateSessionAsync(cancellationToken);
 
 		try
 		{
 			ChatMessage chatMessage = AssistantAgent.BuildUserMessage(message, files);
-			await this.ProcessMessage(chatMessage, this._handle.Agent, cancellationToken);
+			await this.ProcessMessage(chatMessage, this._activeAgent, cancellationToken);
 
 			/*IAsyncEnumerable <AgentResponseUpdate> stream = this._agent.RunStreamingAsync(AssistantAgent.BuildUserMessage(message, images), this._session, null, cancellationToken);
 			await this.HandleStreamingResponseAsync(stream, cancellationToken);*/
@@ -136,6 +157,9 @@ internal class AssistantAgent : IDisposable
 
 	private async Task ProcessMessage(ChatMessage message, AIAgent agent, CancellationToken token)
 	{
+		if(this._session == null)
+			throw new InvalidOperationException("Session is not initialized.");
+
 		AgentResponse response = await agent.RunAsync(message, this._session, null, token);
 		while(response.FinishReason == ChatFinishReason.ToolCalls)
 		{
@@ -146,7 +170,8 @@ internal class AssistantAgent : IDisposable
 				ToolApprovalResponseContent approvalResponse = request.CreateResponse(approved);
 				ChatMessage approvalMessage = new ChatMessage(ChatRole.User, [approvalResponse]);
 				response = await agent.RunAsync(approvalMessage, this._session, null, token);
-			}
+			} else
+				break;
 		}
 
 		this._trace.TraceEvent(TraceEventType.Verbose, 0, "> " + response.ToString());
@@ -212,4 +237,16 @@ internal class AssistantAgent : IDisposable
 	/// <inheritdoc/>
 	public void Dispose()
 		=> this._handle?.Dispose();
+
+	private void ResetState(AgentSessionStore? sessionStore, String? conversationId)
+	{
+		this._session = null;
+		this._sessionStore = sessionStore;
+		this._conversationId = conversationId;
+		this._sessionScopeName = FileSystemAgentSessionStore.DefaultAgentName;
+		this._targetName = FileSystemAgentSessionStore.DefaultAgentName;
+		this._activeAgent = null;
+		this._handle?.Dispose();
+		this._handle = null;
+	}
 }
