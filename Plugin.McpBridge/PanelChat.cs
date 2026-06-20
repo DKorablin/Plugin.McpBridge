@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Diagnostics;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
@@ -114,9 +115,9 @@ public partial class PanelChat : UserControl
 		if(this._conversationId != conversationId)
 			return;
 
-		var store = new FileSystemAgentSessionStore(sessionStorageDir);
 		Task.Run(async () =>
 		{
+			var store = new FileSystemAgentSessionStore(sessionStorageDir);
 			await foreach(ChatMessage message in store.ReadSessionAsync(this.GetSessionScopeName(), conversationId))
 				mdResponse.AppendMessage(message);
 		});
@@ -272,7 +273,13 @@ public partial class PanelChat : UserControl
 		try
 		{
 			if(this.IsWorkflowSelected)
-				await this.InvokeWorkflowMessage(message, attachments, token);
+				try {
+					await this.InvokeWorkflowMessage(message, attachments, token);
+				}catch(Exception exc)
+				{//TODO: Centralize this catch inside AssistantAgent class
+					this.Plugin.Trace.TraceData(TraceEventType.Error, 0, exc);
+					throw;
+				}
 			else
 			{
 				AssistantAgent agent = await this.GetAgent();
