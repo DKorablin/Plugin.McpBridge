@@ -25,7 +25,7 @@ public class PanelChatTests
 		_mocker = new AutoMocker();
 	}
 
-	[Fact]
+	[Fact(Timeout = 5000)]
 	[Trait("Category", "Smoke")]
 	public void PanelChat_Should_ConstructSuccessfully()
 	{
@@ -44,7 +44,7 @@ public class PanelChatTests
 		}
 	}
 
-	[Fact]
+	[Fact(Timeout = 5000)]
 	[Trait("Category", "Smoke")]
 	public void PanelChat_SendMenu_Should_ShowWorkflows_WhenConfigured()
 	{
@@ -71,7 +71,7 @@ public class PanelChatTests
 		}
 	}
 
-	[Fact]
+	[Fact(Timeout = 5000)]
 	[Trait("Category", "Smoke")]
 	public async Task PanelChat_Should_ProcessMessage_UsingSelectedWorkflow()
 	{

@@ -25,27 +25,36 @@ internal class MarkdownTextBox : RichTextBox
 		}
 
 		if(message.Role == ChatRole.User)
-			this.AppendMessage(message.Text, MarkdownTextBox.MessageKind.User);
+		{
+			if(!String.IsNullOrWhiteSpace(message.AuthorName))
+				this.AppendMessage(message.Text, message.AuthorName + ": ", Color.FromArgb(0, 153, 102), FontStyle.Bold);
+			else
+				this.AppendMessage(message.Text, MarkdownTextBox.MessageKind.User);
+		}
 		else if(message.Role == ChatRole.Assistant)
 			this.AppendMarkdown(message.Text);
 	}
 
 	public void AppendMessage(String text, MessageKind kind)
 	{
-		if(this.InvokeRequired)
-		{
-			this.Invoke(new Action(() => this.AppendMessage(text, kind)));
-			return;
-		}
-
 		Color color = kind == MessageKind.User ? Color.FromArgb(0, 102, 204) : Color.FromArgb(185, 43, 39);
 		FontStyle style = kind == MessageKind.User ? FontStyle.Bold : FontStyle.Italic;
 		String prefix = kind == MessageKind.User ? "You: " : "Error: ";
 
+		this.AppendMessage(text, prefix, color, style);
+	}
+
+	private void AppendMessage(String text, String prefix, Color prefixColor, FontStyle prefixStyle)
+	{
+		if(this.InvokeRequired)
+		{
+			this.Invoke(new Action(() => this.AppendMessage(text, prefix, prefixColor, prefixStyle)));
+			return;
+		}
 		this.SelectionStart = this.TextLength;
 		this.SelectionLength = 0;
-		this.SelectionColor = color;
-		this.SelectionFont = new Font(this.Font, style);
+		this.SelectionColor = prefixColor;
+		this.SelectionFont = new Font(this.Font, prefixStyle);
 		this.AppendText(prefix);
 
 		this.SelectionStart = this.TextLength;

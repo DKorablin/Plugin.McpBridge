@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel;
-using System.Text.Json;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
@@ -18,13 +17,12 @@ public partial class PanelChat : UserControl
 	private AssistantAgent? _agent;
 	private AIAgent? _workflowAgent;
 	private AgentSession? _workflowSession;
-	private List<WorkflowListItem> _workflows = new List<WorkflowListItem>();
+	private WorkflowFactory? _workflowFactory;
 	private String? _selectedWorkflowName;
 	private Boolean _streamingActive;
 	private CancellationTokenSource? _cts;
 	private String _conversationId = String.Empty;
 	private Boolean _updatingSessionList;
-	private readonly Object _workflowsSyncRoot = new Object();
 
 	private sealed class SessionListItem
 	{
@@ -44,29 +42,25 @@ public partial class PanelChat : UserControl
 				: this.ConversationId + " (new)";
 	}
 
-	private sealed class WorkflowListItem
-	{
-		public String Name { get; }
-
-		public WorkflowHandle Handle { get; }
-
-		public WorkflowListItem(String name, WorkflowHandle handle)
-		{
-			this.Name = name;
-			this.Handle = handle;
-		}
-	}
-
 	private Plugin Plugin => (Plugin)this.Window.Plugin.Instance;
 
 	private IWindow Window => (IWindow)base.Parent!;
 
+	private WorkflowFactory WorkflowFactory => this._workflowFactory ??= new WorkflowFactory(this.Plugin.Host, this.Plugin.Settings, this.Plugin.Trace);
+
 	private Boolean IsWorkflowSelected => this._selectedWorkflowName != null;
 
-	private WorkflowListItem? SelectedWorkflow
-		=> this._selectedWorkflowName == null
-			? null
-			: this._workflows.FirstOrDefault(w => String.Equals(w.Name, this._selectedWorkflowName, StringComparison.Ordinal));
+	private WorkflowFactoryItem? SelectedWorkflow
+	{
+		get
+		{
+			String? selectedWorkflowName = this._selectedWorkflowName;
+			if(selectedWorkflowName == null)
+				return null;
+
+			return this.WorkflowFactory.GetWorkflow(selectedWorkflowName);
+		}
+	}
 
 	private AiProviderDto? CurrentProvider
 	{
@@ -237,49 +231,16 @@ public partial class PanelChat : UserControl
 
 	private void DisposeWorkflows()
 	{
-		lock(this._workflowsSyncRoot)
-		{
-			foreach(WorkflowListItem workflow in this._workflows)
-				workflow.Handle.Dispose();
-			this._workflows.Clear();
-		}
+		this._workflowFactory?.Dispose();
+		this._workflowFactory = null;
 	}
 
 	private void ReloadWorkflows()
 	{
-		List<WorkflowListItem> loadedWorkflows = new List<WorkflowListItem>();
-
-		String? workflowsDirectory = this.Plugin.Settings.WorkflowsDirectory;
-		if(workflowsDirectory != null)
-			try
-			{
-				ToolsFactory toolsFactory = new ToolsFactory(this.Plugin.Host, this.Plugin.Settings, this.Plugin.Settings.SelectedAgent);
-				AIFunction[] tools = toolsFactory.CreateTools(this.Plugin.Trace).ToArray();
-
-				foreach(String workflowFile in Directory.EnumerateFiles(workflowsDirectory, "*.json"))
-				{
-					WorkflowLoader2 loader = new WorkflowLoader2(this.Plugin.Settings, workflowFile);
-					WorkflowHandle handle = loader.BuildAsync(this.Plugin.Settings.AiProviders, tools).GetAwaiter().GetResult();
-					loadedWorkflows.Add(new WorkflowListItem(handle.Name, handle));
-				}
-			} catch(Exception exc)
-			{
-				foreach(WorkflowListItem workflow in loadedWorkflows)
-					workflow.Handle.Dispose();
-				loadedWorkflows.Clear();
-				this.Plugin.Trace.TraceData(System.Diagnostics.TraceEventType.Error, 0, exc);
-			}
-
-		lock(this._workflowsSyncRoot)
-		{
-			foreach(WorkflowListItem workflow in this._workflows)
-				workflow.Handle.Dispose();
-
-			this._workflows = loadedWorkflows;
-			if(this._selectedWorkflowName != null
-				&& !this._workflows.Any(w => String.Equals(w.Name, this._selectedWorkflowName, StringComparison.Ordinal)))
-				this._selectedWorkflowName = null;
-		}
+		this.WorkflowFactory.Reload();
+		if(this._selectedWorkflowName != null
+			&& this.WorkflowFactory.GetWorkflow(this._selectedWorkflowName) == null)
+			this._selectedWorkflowName = null;
 	}
 
 	private async Task<AssistantAgent> GetAgent()
@@ -331,12 +292,13 @@ public partial class PanelChat : UserControl
 
 	private async Task InvokeWorkflowMessage(String message, DataContent[] attachments, CancellationToken token)
 	{
-		WorkflowListItem workflow = this.SelectedWorkflow
+		WorkflowFactoryItem workflow = this.SelectedWorkflow
 			?? throw new InvalidOperationException("Selected workflow was not found.");
+		WorkflowHandle workflowHandle = await this.WorkflowFactory.GetHandleAsync(workflow, token);
 
 		if(this._workflowAgent == null || this._workflowAgent.Name != workflow.Name)
 		{
-			this._workflowAgent = workflow.Handle.Workflow.AsAIAgent(name: workflow.Name);
+			this._workflowAgent = workflowHandle.Workflow.AsAIAgent(name: workflow.Name);
 			this._workflowSession = null;
 		}
 
@@ -507,24 +469,6 @@ public partial class PanelChat : UserControl
 
 		tsbnSend.DropDownItems.Add(new ToolStripSeparator());
 
-		ToolStripMenuItem workflowsHeader = new ToolStripMenuItem("Workflows") { Enabled = false };
-		tsbnSend.DropDownItems.Add(workflowsHeader);
-		if(this._workflows.Count == 0)
-			tsbnSend.DropDownItems.Add(new ToolStripMenuItem("(none)") { Enabled = false });
-		else
-			foreach(WorkflowListItem workflow in this._workflows)
-			{
-				ToolStripMenuItem item = new ToolStripMenuItem(workflow.Name)
-				{
-					Tag = workflow.Name,
-					Checked = workflowSelected && String.Equals(this._selectedWorkflowName, workflow.Name, StringComparison.Ordinal),
-				};
-				item.Click += this.tsbnSend_WorkflowItem_Click;
-				tsbnSend.DropDownItems.Add(item);
-			}
-
-		tsbnSend.DropDownItems.Add(new ToolStripSeparator());
-
 		ToolStripMenuItem providersHeader = new ToolStripMenuItem("Providers") { Enabled = false };
 		tsbnSend.DropDownItems.Add(providersHeader);
 		Guid? selectedProviderId = settings.SelectedAgent.SelectedProviderId
@@ -540,6 +484,26 @@ public partial class PanelChat : UserControl
 			item.Click += this.tsbnSend_ProviderItem_Click;
 			tsbnSend.DropDownItems.Add(item);
 		}
+
+		tsbnSend.DropDownItems.Add(new ToolStripSeparator());
+
+		ToolStripMenuItem workflowsHeader = new ToolStripMenuItem("Workflows") { Enabled = false };
+		tsbnSend.DropDownItems.Add(workflowsHeader);
+		IReadOnlyList<WorkflowFactoryItem> workflows = this.WorkflowFactory.GetWorkflows();
+
+		if(workflows.Count == 0)
+			tsbnSend.DropDownItems.Add(new ToolStripMenuItem("(none)") { Enabled = false });
+		else
+			foreach(WorkflowFactoryItem workflow in workflows)
+			{
+				ToolStripMenuItem item = new ToolStripMenuItem(workflow.Name)
+				{
+					Tag = workflow.Name,
+					Checked = workflowSelected && String.Equals(this._selectedWorkflowName, workflow.Name, StringComparison.Ordinal),
+				};
+				item.Click += this.tsbnSend_WorkflowItem_Click;
+				tsbnSend.DropDownItems.Add(item);
+			}
 	}
 
 	private void tsbnSend_AgentItem_Click(Object? sender, EventArgs e)
@@ -650,7 +614,7 @@ public partial class PanelChat : UserControl
 		String providerInfo;
 		if(this.IsWorkflowSelected)
 		{
-			WorkflowListItem? workflow = this.SelectedWorkflow;
+			WorkflowFactoryItem? workflow = this.SelectedWorkflow;
 			agentInfo = workflow != null ? workflow.Name + " | " : String.Empty;
 			providerInfo = workflow != null ? "Workflow" : "Undefined";
 		} else

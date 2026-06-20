@@ -27,7 +27,6 @@
 		<PackageReference Include="Microsoft.Agents.AI.Hosting.AGUI.AspNetCore" />
 		<!--AI Extensions-->
 		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
-		<PackageReference Include="Microsoft.Extensions.AI.Evaluation.Reporting" />
 		<!--CoPilot-->
 		<PackageReference Include="Microsoft.Agents.AI.GitHub.Copilot" />
 		<!--RAG-->

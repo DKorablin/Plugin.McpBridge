@@ -42,7 +42,6 @@
 		<PackageReference Include="Microsoft.Agents.AI.Workflows" />
 		<!--AI Extensions-->
 		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
-		<PackageReference Include="Microsoft.Extensions.AI.Evaluation.Reporting" />
 		<!--CoPilot-->
 		<PackageReference Include="Microsoft.Agents.AI.GitHub.Copilot" />
 		<!--RAG-->
