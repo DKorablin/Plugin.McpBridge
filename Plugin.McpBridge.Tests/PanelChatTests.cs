@@ -105,12 +105,7 @@ public class PanelChatTests
 			Object? assistantAgent = panel.GetType().GetField("_agent", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(panel);
 			assistantAgent.Should().NotBeNull();
 
-			PropertyInfo? isWorkflowModeProperty = assistantAgent!.GetType().GetProperty("IsWorkflowMode", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-			isWorkflowModeProperty.Should().NotBeNull();
-			Boolean isWorkflowMode = (Boolean)isWorkflowModeProperty!.GetValue(assistantAgent)!;
-			isWorkflowMode.Should().BeTrue();
-
-			PropertyInfo? sessionScopeNameProperty = assistantAgent.GetType().GetProperty("SessionScopeName", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+			PropertyInfo? sessionScopeNameProperty = assistantAgent!.GetType().GetProperty("SessionScopeName", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 			sessionScopeNameProperty.Should().NotBeNull();
 			String sessionScopeName = (String)sessionScopeNameProperty!.GetValue(assistantAgent)!;
 			sessionScopeName.Should().Be("Workflow One");

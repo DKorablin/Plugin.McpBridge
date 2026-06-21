@@ -90,8 +90,11 @@ namespace Plugin.McpBridge
 		public IEnumerable<String> InvokeMessage(String message)
 		{
 			var responses = new List<String>();
-			EventHandler<AgentResponseEventArgs> responseHandler = (Object? sender, AgentResponseEventArgs e)
-				=> responses.Add(e.Response);
+			EventHandler<AgentResponseEventArgs> responseHandler = (Object? sender, AgentResponseEventArgs e) =>
+			{
+				if(e.Message != null)
+					responses.Add(e.Message.Text);
+			};
 
 			var provider = this.Settings.SelectedAgent.GetSelectedProvider(this.Settings.AiProviders);
 

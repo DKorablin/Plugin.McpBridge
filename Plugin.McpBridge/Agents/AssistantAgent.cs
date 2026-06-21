@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Text;
-using System.Text.Json;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.Agents.AI.Workflows;
@@ -106,44 +105,27 @@ internal class AssistantAgent : IDisposable
 			instructions,
 			token: token);
 
-	public async Task InvokeMessageAsync(String message, DataContent[]? files = null, CancellationToken cancellationToken = default)
+	public async Task InvokeMessageAsync(String message, DataContent[]? files = null, Boolean useStreaming = true, CancellationToken cancellationToken = default)
 	{
 		if(String.IsNullOrWhiteSpace(message))
-		{
-			this.OnAiResponseReceived(new AgentResponseEventArgs("Message is empty.", true));
-			return;
-		}
-
-		this._trace.TraceEvent(TraceEventType.Verbose, 0, "< " + message);
+			throw new ArgumentNullException(nameof(message), "Message cannot be null or whitespace. Provide a valid message to invoke the agent.");
 
 		if(this._activeAgent == null)
-		{
-			this.OnAiResponseReceived(new AgentResponseEventArgs("AI is not configured. Add LLM configuration options in plugin settings.", true));
-			return;
-		}
+			throw new InvalidOperationException("Agent is not initialized. Call Initialize or InitializeWorkflow before invoking messages.");
+
+		this._trace.TraceEvent(TraceEventType.Verbose, 0, "< " + message);
 
 		if(this._session == null)
 			this._session = await this._activeAgent.CreateSessionAsync(cancellationToken);
 
-		try
-		{
-			ChatMessage chatMessage = AssistantAgent.BuildUserMessage(message, files);
+		ChatMessage chatMessage = AssistantAgent.BuildUserMessage(message, files);
+		if(useStreaming)
+			await this.ProcessStreamingMessage(chatMessage, cancellationToken);
+		else
 			await this.ProcessMessage(chatMessage, this._activeAgent, cancellationToken);
 
-			/*IAsyncEnumerable <AgentResponseUpdate> stream = this._agent.RunStreamingAsync(AssistantAgent.BuildUserMessage(message, images), this._session, null, cancellationToken);
-			await this.HandleStreamingResponseAsync(stream, cancellationToken);*/
-		} catch(HttpRequestException exc)
-		{
-			this._trace.TraceData(TraceEventType.Error, 0, exc);
-			this.OnAiResponseReceived(new AgentResponseEventArgs($"AI request failed: {exc.Message}", true));
-		} catch(OperationCanceledException)
-		{
-			this.OnAiResponseReceived(new AgentResponseEventArgs("Operation was cancelled.", true));
-		} catch(Exception exc)
-		{
-			this._trace.TraceData(TraceEventType.Error, 0, exc);
-			throw;
-		}
+		if(this._sessionStore != null && this._conversationId != null && this._session != null)
+			await this._sessionStore.SaveSessionAsync(this._activeAgent, this._conversationId, this._session, cancellationToken);
 	}
 
 	private void OnAiResponseReceived(AgentResponseEventArgs e)
@@ -157,9 +139,6 @@ internal class AssistantAgent : IDisposable
 
 	private async Task ProcessMessage(ChatMessage message, AIAgent agent, CancellationToken token)
 	{
-		if(this._session == null)
-			throw new InvalidOperationException("Session is not initialized.");
-
 		AgentResponse response = await agent.RunAsync(message, this._session, null, token);
 		while(response.FinishReason == ChatFinishReason.ToolCalls)
 		{
@@ -175,26 +154,49 @@ internal class AssistantAgent : IDisposable
 		}
 
 		this._trace.TraceEvent(TraceEventType.Verbose, 0, "> " + response.ToString());
-		String aiResponse = response.Text;
 		if(response.Usage != null)
-			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"Tokens: {String.Join(Environment.NewLine, Utils.ParseTokenUsageCount(response.Usage))}");
+			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"AgentId: {response.AgentId} Tokens: {String.Join(Environment.NewLine, Utils.ParseTokenUsageCount(response.Usage))}");
 
-		if(this._sessionStore != null && this._conversationId != null && this._session != null)
-			await this._sessionStore.SaveSessionAsync(agent, this._conversationId, this._session, token);
-
-		this.OnAiResponseReceived(new AgentResponseEventArgs(aiResponse, true));
+		ChatMessage finalMessage = new ChatMessage(ChatRole.Assistant, response.Text) {AuthorName = response.AgentId, CreatedAt = response.CreatedAt};
+		this.OnAiResponseReceived(new AgentResponseEventArgs(finalMessage, true));
 	}
 
-	private async Task HandleStreamingResponseAsync(IAsyncEnumerable<AgentResponseUpdate> stream, CancellationToken cancellationToken)
+	private async Task ProcessStreamingMessage(ChatMessage message, CancellationToken cancellationToken)
 	{
-		StringBuilder textBuilder = new StringBuilder();
+		while(true)
+		{
+			IAsyncEnumerable<AgentResponseUpdate> stream = this._activeAgent.RunStreamingAsync(message, this._session, null, cancellationToken);
+			ToolApprovalResponseContent? approvalResponse = await this.HandleStreamingResponseAsync(stream, cancellationToken);
+
+			if(approvalResponse == null)
+			{
+				this.OnAiResponseReceived(new AgentResponseEventArgs(null, true));
+				break;
+			}
+
+			message = new ChatMessage(ChatRole.User, [approvalResponse]);
+		}
+	}
+
+	private async Task<ToolApprovalResponseContent?> HandleStreamingResponseAsync(IAsyncEnumerable<AgentResponseUpdate> stream, CancellationToken cancellationToken)
+	{
 		Boolean hasReasoning = false;
 		UsageDetails? usage = null;
+		StringBuilder responseCache = new StringBuilder();
+		ToolApprovalResponseContent? approvalResponse = null;
 
 		await foreach(AgentResponseUpdate update in stream.WithCancellation(cancellationToken))
 		{
 			if(update.Contents == null)
 				continue;
+			if(update.Contents.Count == 0 && update.FinishReason == ChatFinishReason.Stop)
+			{
+				ChatMessage message = new ChatMessage(ChatRole.Assistant, responseCache.ToString()) { AuthorName = update.AuthorName, CreatedAt = update.CreatedAt };
+				this._trace.TraceEvent(TraceEventType.Verbose, 0, "> " + message.Text);
+				this.OnAiResponseReceived(new AgentResponseEventArgs(message, false));
+				responseCache.Clear();
+				continue;
+			}
 			foreach(AIContent content in update.Contents)
 			{
 				if(content is TextReasoningContent reasoningContent && !String.IsNullOrEmpty(reasoningContent.Text))
@@ -202,34 +204,42 @@ internal class AssistantAgent : IDisposable
 					if(!hasReasoning)
 					{
 						hasReasoning = true;
-						this.OnAiResponseReceived(new AgentResponseEventArgs("> *Thinking...*\n\n", false));
+						ChatMessage thinkingMessage = new ChatMessage(ChatRole.Assistant, "> *Thinking...*\n\n") { AuthorName = update.AuthorName, CreatedAt = update.CreatedAt };
+						this.OnAiResponseReceived(new AgentResponseEventArgs(thinkingMessage, false));
 					}
-					this.OnAiResponseReceived(new AgentResponseEventArgs(reasoningContent.Text, false));
-				}
-				else if(content is TextContent textContent && !String.IsNullOrEmpty(textContent.Text))
-					textBuilder.Append(textContent.Text);
+					ChatMessage reasoningMessage = new ChatMessage(ChatRole.Assistant, reasoningContent.Text) { AuthorName = update.AuthorName, CreatedAt = update.CreatedAt };
+					this.OnAiResponseReceived(new AgentResponseEventArgs(reasoningMessage, false));
+				} else if(content is TextContent textContent && !String.IsNullOrEmpty(textContent.Text))
+					responseCache.Append(textContent.Text);
 				else if(content is UsageContent usageContent)
+				{
 					usage = usageContent.Details;
+					this._trace.TraceEvent(TraceEventType.Verbose, 0, $"AuthorName: {update.AuthorName} Tokens: {String.Join(Environment.NewLine, Utils.ParseTokenUsageCount(usage))}");
+				} else if(content is ToolApprovalRequestContent request)
+				{
+					if(request.ToolCall is FunctionCallContent function)
+					{
+						Boolean approved = await this.OnConfirmationRequiredAsync(new AgentConfirmationEventArgs(function));
+						approvalResponse = request.CreateResponse(approved);
+					} else
+						break;
+				}
 			}
 		}
 
-		String aiResponse = textBuilder.ToString();
-		this._trace.TraceEvent(TraceEventType.Verbose, 0, "> " + aiResponse);
-		if(usage != null)
-			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"Tokens: {String.Join(Environment.NewLine, Utils.ParseTokenUsageCount(usage))}");
+		if(responseCache.Length > 0)
+			throw new NotImplementedException("Final message with content in streaming response is not currently supported.");
 
-		if(hasReasoning)
-			this.OnAiResponseReceived(new AgentResponseEventArgs("\n\n---\n\n", false));
-		this.OnAiResponseReceived(new AgentResponseEventArgs(aiResponse, true));
+		return approvalResponse;
 	}
 
-	private static ChatMessage BuildUserMessage(String text, DataContent[]? images = null)
+	private static ChatMessage BuildUserMessage(String text, DataContent[]? files = null)
 	{
-		if(images == null || images.Length == 0)
+		if(files == null || files.Length == 0)
 			return new ChatMessage(ChatRole.User, text);
 
 		List<AIContent> contents = new List<AIContent> { new TextContent(text) };
-		foreach(DataContent image in images)
+		foreach(DataContent image in files)
 			contents.Add(image);
 		return new ChatMessage(ChatRole.User, contents);
 	}

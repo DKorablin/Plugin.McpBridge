@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Diagnostics;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
@@ -114,7 +115,7 @@ public partial class PanelChat : UserControl
 		{
 			var store = new FileSystemAgentSessionStore(sessionStorageDir);
 			await foreach(ChatMessage message in store.ReadSessionAsync(this.GetSessionScopeName(), conversationId))
-				mdResponse.AppendMessage(message);
+				mdResponse.AppendMarkdown(message);
 		});
 	}
 
@@ -274,10 +275,11 @@ public partial class PanelChat : UserControl
 		try
 		{
 			AssistantAgent agent = await this.GetAgent();
-			await agent.InvokeMessageAsync(message, attachments, token);
-		} catch(Exception ex)
+			await agent.InvokeMessageAsync(message, attachments, cancellationToken: token);
+		} catch(Exception exc)
 		{
-			mdResponse.AppendMessage(ex.Message, MarkdownTextBox.MessageKind.Error);
+			this.Plugin.Trace.TraceData(TraceEventType.Error, 0, exc);
+			mdResponse.AppendMessage(exc.Message, MarkdownTextBox.MessageKind.Error);
 		} finally
 		{
 			this._cts?.Dispose();
@@ -294,11 +296,12 @@ public partial class PanelChat : UserControl
 			if(!this._streamingActive)
 				this._streamingActive = true;
 
-			mdResponse.AppendMarkdown(e.Response);
-			mdResponse.ScrollToCaret();
+			if(e.Message!=null)
+				mdResponse.AppendMarkdown(e.Message);
 
 			if(e.IsFinal)
 			{
+				mdResponse.ScrollToCaret();
 				this._streamingActive = false;
 				this._cts?.Dispose();
 				this._cts = null;

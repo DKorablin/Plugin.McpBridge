@@ -24,15 +24,8 @@ internal class MarkdownTextBox : RichTextBox
 			return;
 		}
 
-		if(message.Role == ChatRole.User)
-		{
-			if(!String.IsNullOrWhiteSpace(message.AuthorName))
-				this.AppendMessage(message.Text, message.AuthorName + ": ", Color.FromArgb(0, 153, 102), FontStyle.Bold);
-			else
-				this.AppendMessage(message.Text, MarkdownTextBox.MessageKind.User);
-		}
-		else if(message.Role == ChatRole.Assistant)
-			this.AppendMarkdown(message.Text);
+		this.AppendAuthor(message);
+		this.AppendMarkdown(message);
 	}
 
 	public void AppendMessage(String text, MessageKind kind)
@@ -41,34 +34,66 @@ internal class MarkdownTextBox : RichTextBox
 		FontStyle style = kind == MessageKind.User ? FontStyle.Bold : FontStyle.Italic;
 		String prefix = kind == MessageKind.User ? "You: " : "Error: ";
 
-		this.AppendMessage(text, prefix, color, style);
+		this.AppendAuthor(prefix, color, style);
+		this.AppendMarkdown(text);
 	}
 
-	private void AppendMessage(String text, String prefix, Color prefixColor, FontStyle prefixStyle)
+	private void AppendAuthor(ChatMessage message)
+	{
+		String prefix;
+		Color prefixColor;
+		FontStyle prefixStyle;
+		if(message.Role == ChatRole.User)
+		{
+			prefix = (message.AuthorName ?? "You") + ": ";
+			prefixColor = Color.FromArgb(0, 102, 204);
+			prefixStyle = FontStyle.Bold;
+		} else {
+			prefix = (message.AuthorName ?? "Assistant") + ": ";
+			prefixColor = Color.FromArgb(185, 43, 39);
+			prefixStyle = FontStyle.Bold;
+		}
+
+		this.AppendAuthor(prefix, prefixColor, prefixStyle);
+	}
+
+	private void AppendAuthor(String prefix, Color prefixColor, FontStyle prefixStyle)
 	{
 		if(this.InvokeRequired)
 		{
-			this.Invoke(new Action(() => this.AppendMessage(text, prefix, prefixColor, prefixStyle)));
+			this.Invoke(new Action(() => this.AppendAuthor(prefix, prefixColor, prefixStyle)));
 			return;
 		}
 		this.SelectionStart = this.TextLength;
 		this.SelectionLength = 0;
 		this.SelectionColor = prefixColor;
 		this.SelectionFont = new Font(this.Font, prefixStyle);
-		this.AppendText(prefix);
-
-		this.SelectionStart = this.TextLength;
-		this.SelectionLength = 0;
-		this.SelectionColor = Color.FromArgb(33, 37, 41);
-		this.SelectionFont = this.Font;
-		this.AppendText(text + Environment.NewLine);
-		this.ScrollToCaret();
+		this.AppendText(prefix + Environment.NewLine);
 	}
 
-	public void AppendMarkdown(String markdown)
+	public void AppendMarkdown(ChatMessage message)
 	{
+		String markdown = message.Text ?? String.Empty;
 		if(String.IsNullOrEmpty(markdown))
 			return;
+
+		if(this.InvokeRequired)
+		{
+			this.Invoke(new Action(() => this.AppendMarkdown(message)));
+			return;
+		}
+
+		this.AppendAuthor(message);
+		this.AppendMarkdown(markdown);
+	}
+
+	private void AppendMarkdown(String markdown)
+	{
+		if(this.InvokeRequired)
+		{
+			this.Invoke(new Action(() => this.AppendMarkdown(markdown)));
+			return;
+		}
 
 		Boolean inCodeBlock = false;
 		Font baseFont = this.Font;
@@ -118,6 +143,8 @@ internal class MarkdownTextBox : RichTextBox
 				this.AppendInline((isList ? line.Substring(2) : line) + Environment.NewLine, baseFont, boldFont, italicFont, codeFont, defaultColor, codeColor);
 			}
 		}
+
+		this.ScrollToCaret();
 	}
 
 	private void AppendInline(String text, Font baseFont, Font boldFont, Font italicFont, Font codeFont, Color defaultColor, Color codeColor)
