@@ -16,5 +16,7 @@
 		<PackageReference Include="Microsoft.Extensions.Hosting" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Console" />
 		<PackageReference Include="Docker.DotNet" />
+		<!--AI Extensions-->
+		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
 	</ItemGroup>
 </Project>

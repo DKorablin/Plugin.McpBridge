@@ -26,15 +26,16 @@
 		<PackageReference Include="Microsoft.Agents.AI.Hosting" />
 		<PackageReference Include="Microsoft.Agents.AI.Hosting.AGUI.AspNetCore" />
 		<!--AI Extensions-->
-		<PackageReference Include="Microsoft.Extensions.Logging.Console" />
-		<PackageReference Include="Microsoft.DurableTask.Client.Grpc" />
-		<PackageReference Include="Microsoft.DurableTask.Worker.Grpc" />
 		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
 		<!--CoPilot-->
 		<PackageReference Include="Microsoft.Agents.AI.GitHub.Copilot" />
 		<!--RAG-->
 		<PackageReference Include="Microsoft.SemanticKernel.Connectors.InMemory" />
 		<PackageReference Include="Microsoft.SemanticKernel.Connectors.SqliteVec" />
+		<!--DurableTasks-->
+		<PackageReference Include="Microsoft.Agents.AI.DurableTask" />
+		<PackageReference Include="Microsoft.DurableTask.Client.Grpc" />
+		<PackageReference Include="Microsoft.DurableTask.Worker.Grpc" />
 	</ItemGroup>
 
 	<Target Name="NpmInstall" BeforeTargets="NpmBuild" Inputs="ClientApp\package.json" Outputs="ClientApp\node_modules\.package-lock.json">

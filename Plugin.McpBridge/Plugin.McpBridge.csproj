@@ -48,6 +48,10 @@
 		<!--RAG-->
 		<PackageReference Include="Microsoft.SemanticKernel.Connectors.InMemory" />
 		<PackageReference Include="Microsoft.SemanticKernel.Connectors.SqliteVec" />
+		<!--DurableTasks-->
+		<PackageReference Include="Microsoft.Agents.AI.DurableTask" />
+		<PackageReference Include="Microsoft.DurableTask.Client.Grpc" />
+		<PackageReference Include="Microsoft.DurableTask.Worker.Grpc" />
 	</ItemGroup>
 
 	<PropertyGroup Condition="'$(Configuration)'=='Release'">
