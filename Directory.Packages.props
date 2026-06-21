@@ -1,7 +1,7 @@
 ﻿<Project>
 	<PropertyGroup>
 		<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-		<AgentsAIVersion>1.6.2-preview.260521.1</AgentsAIVersion>
+		<MAIVersion>1.6.2-preview.260521.1</MAIVersion>
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageVersion Include="SAL.Windows" Version="1.2.12">
@@ -11,6 +11,11 @@
 		<PackageVersion Include="Microsoft.Agents.AI.Workflows" Version="1.6.2" />
 		<PackageVersion Include="Microsoft.Agents.AI.Workflows.Declarative" Version="1.6.2-rc1" />
 		<PackageVersion Include="Azure.AI.OpenAI" Version="2.9.0-beta.1" />
+		<PackageVersion Include="Microsoft.Agents.AI.DevUI" Version="$(MAIVersion)" />
+		<PackageVersion Include="Microsoft.Agents.AI.Hosting" Version="$(MAIVersion)" />
+		<PackageVersion Include="Microsoft.Agents.AI.Hosting.AGUI.AspNetCore" Version="$(MAIVersion)" />
+		<PackageVersion Include="Microsoft.Agents.AI.Hosting.OpenAI" Version="1.6.2-alpha.260521.1" />
+		<!--AI Extensions-->
 		<PackageVersion Include="Microsoft.Extensions.AI.OpenAI" Version="10.7.0" />
 		<PackageVersion Include="Microsoft.Agents.AI.DevUI" Version="$(AgentsAIVersion)" />
 		<PackageVersion Include="Microsoft.Agents.AI.DurableTask" Version="$(AgentsAIVersion)" />

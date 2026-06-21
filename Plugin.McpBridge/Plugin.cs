@@ -6,6 +6,7 @@ using Plugin.McpBridge.Events;
 using Plugin.McpBridge.Mcp;
 using Plugin.McpBridge.Tests;
 using Plugin.McpBridge.Tools;
+using Plugin.McpBridge.Workflows;
 using SAL.Flatbed;
 using SAL.Windows;
 
@@ -87,8 +88,11 @@ namespace Plugin.McpBridge
 		public IEnumerable<String> InvokeMessage(String message)
 		{
 			var responses = new List<String>();
-			EventHandler<AgentResponseEventArgs> responseHandler = (Object? sender, AgentResponseEventArgs e)
-				=> responses.Add(e.Response);
+			EventHandler<AgentResponseEventArgs> responseHandler = (Object? sender, AgentResponseEventArgs e) =>
+			{
+				if(e.Message != null)
+					responses.Add(e.Message.Text);
+			};
 
 			var provider = this.Settings.SelectedAgent.GetSelectedProvider(this.Settings.AiProviders);
 
@@ -120,13 +124,9 @@ namespace Plugin.McpBridge
 			{
 				ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings, this.Settings.SelectedAgent);
 				AgentFactory agentFactory = new AgentFactory();
-
-				FileSystemAgentSessionStore? sessionStore = this.Settings.SessionStorageDirectory != null
-					? new FileSystemAgentSessionStore(this.Settings.SessionStorageDirectory)
-					: null;
+				FileSystemAgentSessionStore? sessionStore = this.CreateSessionStore();
 
 				var result = new AssistantAgent(this.Trace, this.Host, toolsFactory, agentFactory);
-				//var result = new RAG.IronMindRagAgent(this.Trace, this.Host, toolsFactory, agentFactory);
 				await result.Initialize(this.Settings, provider, sessionStore, conversationId);
 				return result;
 			}catch(Exception exc)
@@ -135,6 +135,29 @@ namespace Plugin.McpBridge
 				throw;
 			}
 		}
+
+		internal async Task<AssistantAgent> InitializeWorkflowAgent(WorkflowFactoryItem workflow, String? conversationId = null, CancellationToken token = default)
+		{
+			try
+			{
+				ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings, this.Settings.SelectedAgent);
+				AgentFactory agentFactory = new AgentFactory();
+				FileSystemAgentSessionStore? sessionStore = this.CreateSessionStore();
+
+				var result = new AssistantAgent(this.Trace, this.Host, toolsFactory, agentFactory);
+				await result.InitializeWorkflow(this.Settings, workflow, sessionStore, conversationId, token);
+				return result;
+			} catch(Exception exc)
+			{
+				this.Trace.TraceData(System.Diagnostics.TraceEventType.Error, 10, exc);
+				throw;
+			}
+		}
+
+		private FileSystemAgentSessionStore? CreateSessionStore()
+			=> this.Settings.SessionStorageDirectory != null
+				? new FileSystemAgentSessionStore(this.Settings.SessionStorageDirectory)
+				: null;
 
 		Boolean IPlugin.OnConnection(ConnectMode mode)
 		{

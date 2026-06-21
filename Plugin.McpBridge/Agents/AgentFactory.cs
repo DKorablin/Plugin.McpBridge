@@ -74,7 +74,8 @@ internal class AgentFactory
 			var options1 = new ChatClientAgentOptions
 			{
 				//"For in-memory agents, this defaults to a randomly-generated ID" — and the base class generates it as {Name}_{randomHex} so it's human-readable while still unique.
-				//Id = agentRole ?? "assistant",
+				//But in case when randomly generated ID is used, workflow agents can't recover their sessions.
+				Id = agentRole ?? "assistant",
 				Name = agentRole ?? "assistant",
 				ChatOptions = new ChatOptions()
 				{

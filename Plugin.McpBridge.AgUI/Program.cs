@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using Azure;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.DurableTask;
 using Microsoft.Agents.AI.Hosting;
@@ -9,6 +10,7 @@ using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.AgUI.Agents;
 using Plugin.McpBridge.Tests;
+using Plugin.McpBridge.UI;
 using Plugin.McpBridge.Workflows;
 
 namespace Plugin.McpBridge.AgUI;
@@ -99,7 +101,7 @@ internal static class Program
 		MapEmbeddedResource(app, "/favicon.ico", "favicon.ico", "image/x-icon");
 
 		if(sessionStore != null)
-			Program.MapHistoryEndpoints(app, sessionStore, agent.Agent.Name);
+			Program.MapHistoryEndpoints(app, sessionStore, agent.Agent.Name ?? "assistant");
 		app.MapAGUI(agentBuilder, "/agui");
 		return app;
 	}
@@ -145,16 +147,14 @@ internal static class Program
 			if(!Guid.TryParse(conversationId, out _))
 				return Results.BadRequest();
 
-			JsonElement? root = await sessionStore.ReadSessionAsync(agentName, conversationId);
-			if(root == null)
-				return Results.NotFound();
+			List<ChatMessage> messages = new List<ChatMessage>();
+			await foreach(ChatMessage message in sessionStore.ReadSessionAsync(agentName, conversationId))
+				messages.Add(message);
 
-			if(!root.Value.TryGetProperty("stateBag", out JsonElement stateBag) ||
-				!stateBag.TryGetProperty("InMemoryChatHistoryProvider", out JsonElement historyState) ||
-				!historyState.TryGetProperty("messages", out JsonElement messagesElement))
-				return Results.BadRequest();
+			if(messages.Count == 0)
+				return Results.NoContent();
 
-			return Results.Json(messagesElement);
+			return Results.Json(messages);
 		});
 
 		app.MapDelete("/history/{conversationId}", (String conversationId) =>

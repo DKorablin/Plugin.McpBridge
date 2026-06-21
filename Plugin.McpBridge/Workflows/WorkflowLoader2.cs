@@ -11,8 +11,9 @@ namespace Plugin.McpBridge.Workflows;
 internal sealed class WorkflowLoader2
 {
 	private readonly Settings _settings;
-	private readonly WorkflowDto _config;
 	private readonly AgentFactory _agentFactory = new AgentFactory();
+
+	public WorkflowDto Config { get; }
 
 	internal WorkflowLoader2(Settings settings, String workflowPath)
 	{
@@ -22,9 +23,9 @@ internal sealed class WorkflowLoader2
 			throw new FileNotFoundException($"Workflow config file not found at '{workflowPath}'.", workflowPath);
 
 		this._settings = settings ?? throw new ArgumentNullException(nameof(settings));
-		this._config = WorkflowDto.Load(workflowPath);
+		this.Config = WorkflowDto.Load(workflowPath);
 
-		if(this._config.Nodes.Count == 0)
+		if(this.Config.Nodes.Count == 0)
 			throw new InvalidOperationException("WorkflowConfig must contain at least one node.");
 	}
 
@@ -34,12 +35,12 @@ internal sealed class WorkflowLoader2
 		_ = providers ?? throw new ArgumentNullException(nameof(providers));
 
 		(Workflow workflow, List<IDisposable> resources) = await this.BuildCoreAsync(
-			this._config,
+			this.Config,
 			providers.ToArray(),
 			tools,
 			cancellationToken);
 
-		return new WorkflowHandle(workflow, this._config.Name, resources);
+		return new WorkflowHandle(workflow, this.Config.Name, resources);
 	}
 
 	private async Task<(Workflow Workflow, List<IDisposable> Resources)> BuildCoreAsync(
