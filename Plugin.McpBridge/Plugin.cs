@@ -166,7 +166,7 @@ namespace Plugin.McpBridge
 				this._mcpServer.Start();
 			}
 
-			foreach(ProcessHost.ExeType exeType in Enum.GetValues(typeof(ProcessHost.ExeType)))
+			foreach(ProcessHost.ExeType exeType in this.Settings.EnabledProcesses)
 			{
 				var process = this._processHosts[exeType] = new ProcessHost(this.Host, exeType);
 				Task.Run(() => process.StartAsync(this.Settings));

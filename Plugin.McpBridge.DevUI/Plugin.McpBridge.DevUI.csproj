@@ -19,6 +19,8 @@
 		<PackageReference Include="Microsoft.Agents.AI.Workflows.Declarative" />
 		<PackageReference Include="Microsoft.Agents.AI.Hosting.OpenAI" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Console" />
+		<PackageReference Include="Microsoft.DurableTask.Client.Grpc" />
+		<PackageReference Include="Microsoft.DurableTask.Worker.Grpc" />
 		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
 		<!--CoPilot-->
 		<PackageReference Include="Microsoft.Agents.AI.GitHub.Copilot" />

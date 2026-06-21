@@ -1,7 +1,10 @@
 ﻿using System.Text.Json;
 using Microsoft.Agents.AI;
+using Microsoft.Agents.AI.DurableTask;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+using Microsoft.DurableTask.Client;
+using Microsoft.DurableTask.Worker;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.AgUI.Agents;
@@ -60,6 +63,14 @@ internal static class Program
 		builder.Services.Configure<ConsoleLifetimeOptions>(options => options.SuppressStatusMessages = true);
 		Program.ConfigureLogging(builder.Logging);
 
+		List<WorkflowHandle> workflowList = workflows.ToList();
+		Boolean useDurableWorkflowScheduler = config.DtsEmulatorProcessEnabled && workflowList.Count > 0;
+		if(useDurableWorkflowScheduler)
+			builder.Services.ConfigureDurableWorkflows(
+				options => options.AddWorkflows(workflowList.Select(w => w.Workflow).ToArray()),
+				workerBuilder: worker => worker.UseGrpc(config.DtsEmulatorEndpoint),
+				clientBuilder: client => client.UseGrpc(config.DtsEmulatorEndpoint));
+
 		var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 
 		var agentBuilder = builder
@@ -72,9 +83,12 @@ internal static class Program
 			agentBuilder.WithSessionStore(sessionStore);
 		}
 
-		foreach(var workflow in workflows)
-			builder.AddWorkflow(workflow.Workflow.Name!, (sp, key) => workflow.Workflow)
-				.AddAsAIAgent();
+		foreach(var workflow in workflowList)
+			if(useDurableWorkflowScheduler)
+				builder.AddAIAgent(workflow.Workflow.Name!, (sp, name) => sp.GetDurableAgentProxy(workflow.Workflow.Name!));
+			else
+				builder.AddWorkflow(workflow.Workflow.Name!, (sp, key) => workflow.Workflow)
+					.AddAsAIAgent();
 
 		builder.Services.AddAGUI();
 

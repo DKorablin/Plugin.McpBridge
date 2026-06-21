@@ -24,6 +24,8 @@
 		<PackageReference Include="Microsoft.Agents.AI.Hosting" />
 		<PackageReference Include="Microsoft.Agents.AI.Hosting.AGUI.AspNetCore" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Console" />
+		<PackageReference Include="Microsoft.DurableTask.Client.Grpc" />
+		<PackageReference Include="Microsoft.DurableTask.Worker.Grpc" />
 		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
 		<!--CoPilot-->
 		<PackageReference Include="Microsoft.Agents.AI.GitHub.Copilot" />

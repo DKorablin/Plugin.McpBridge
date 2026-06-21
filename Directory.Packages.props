@@ -13,9 +13,12 @@
 		<PackageVersion Include="Azure.AI.OpenAI" Version="2.9.0-beta.1" />
 		<PackageVersion Include="Microsoft.Extensions.AI.OpenAI" Version="10.7.0" />
 		<PackageVersion Include="Microsoft.Agents.AI.DevUI" Version="$(AgentsAIVersion)" />
+		<PackageVersion Include="Microsoft.Agents.AI.DurableTask" Version="$(AgentsAIVersion)" />
 		<PackageVersion Include="Microsoft.Agents.AI.Hosting" Version="$(AgentsAIVersion)" />
 		<PackageVersion Include="Microsoft.Agents.AI.Hosting.AGUI.AspNetCore" Version="$(AgentsAIVersion)" />
 		<PackageVersion Include="Microsoft.Agents.AI.Hosting.OpenAI" Version="1.6.2-alpha.260521.1" />
+		<PackageVersion Include="Microsoft.DurableTask.Client.Grpc" Version="1.18.0" />
+		<PackageVersion Include="Microsoft.DurableTask.Worker.Grpc" Version="1.18.0" />
 		<!--CoPilot-->
 		<PackageVersion Include="Microsoft.Agents.AI.GitHub.Copilot" Version="1.10.0-rc1" />
 		<!--DependencyInjection-->
