@@ -52,9 +52,8 @@ namespace Plugin.McpBridge
 			this._agent = null;
 
 			foreach(var process in this._processHosts.Values)
-			{
 				Task.Run(() => process.StopAsync());
-			}
+
 			this._processHosts.Clear();
 
 			this._mcpServer?.Dispose();
