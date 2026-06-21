@@ -201,6 +201,8 @@ namespace Plugin.McpBridge
 
 			foreach(var process in this._processHosts.Values)
 				process.Dispose();
+			this._processHosts.Clear();
+
 			this._mcpServer?.Dispose();
 			return true;
 		}
