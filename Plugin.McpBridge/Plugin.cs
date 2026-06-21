@@ -17,9 +17,7 @@ namespace Plugin.McpBridge
 		internal static Plugin? StaticInstance { get; private set; }
 		private AssistantAgent? _agent;
 
-		private ProcessHost? _devUIHost;
-		private ProcessHost? _agUIHost;
-		private ProcessHost? _ragHost;
+		private readonly Dictionary<ProcessHost.ExeType, ProcessHost> _processHosts = new Dictionary<ProcessHost.ExeType, ProcessHost>();
 		private McpServer? _mcpServer;
 
 		private IMenuItem? _menuChat;
@@ -52,12 +50,12 @@ namespace Plugin.McpBridge
 
 			this._agent = null;
 
-			this._devUIHost?.StopAsync().GetAwaiter().GetResult();
-			this._devUIHost = null;
-			this._agUIHost?.StopAsync().GetAwaiter().GetResult();
-			this._agUIHost = null;
-			this._ragHost?.StopAsync().GetAwaiter().GetResult();
-			this._ragHost = null;
+			foreach(var process in this._processHosts.Values)
+			{
+				Task.Run(() => process.StopAsync());
+			}
+			this._processHosts.Clear();
+
 			this._mcpServer?.Dispose();
 			this._mcpServer = null;
 
@@ -168,20 +166,10 @@ namespace Plugin.McpBridge
 				this._mcpServer.Start();
 			}
 
-			if(this.Settings.DevUIEnabled)
+			foreach(ProcessHost.ExeType exeType in Enum.GetValues(typeof(ProcessHost.ExeType)))
 			{
-				this._devUIHost = new ProcessHost(this.Host, ProcessHost.ExeType.DevUI);
-				Task.Run(() => this._devUIHost.StartAsync(this.Settings));
-			}
-			if(this.Settings.AgUIEnabled)
-			{
-				this._agUIHost = new ProcessHost(this.Host, ProcessHost.ExeType.AgUI);
-				Task.Run(() => this._agUIHost.StartAsync(this.Settings));
-			}
-			if(this.Settings.RagProcessEnabled)
-			{
-				this._ragHost = new ProcessHost(this.Host, ProcessHost.ExeType.RAG);
-				Task.Run(() => this._ragHost.StartAsync(this.Settings));
+				var process = this._processHosts[exeType] = new ProcessHost(this.Host, exeType);
+				Task.Run(() => process.StartAsync(this.Settings));
 			}
 		}
 
@@ -189,9 +177,9 @@ namespace Plugin.McpBridge
 		{
 			if(this._menuChat != null)
 				this.HostWindows.MainMenu.Items.Remove(this._menuChat);
-			this._devUIHost?.Dispose();
-			this._agUIHost?.Dispose();
-			this._ragHost?.Dispose();
+
+			foreach(var process in this._processHosts.Values)
+				process.Dispose();
 			this._mcpServer?.Dispose();
 			return true;
 		}

@@ -22,6 +22,7 @@ internal sealed class ProcessHost : IDisposable
 		DevUI,
 		AgUI,
 		RAG,
+		DTS,
 	}
 
 	public ProcessHost(IHost host, ExeType type)
@@ -129,6 +130,7 @@ internal sealed class ProcessHost : IDisposable
 			ExeType.DevUI => settings.DevUIServerUrl,
 			ExeType.AgUI => settings.AgUIServerUrl,
 			ExeType.RAG => String.Empty,
+			ExeType.DTS => settings.DtsEmulatorEndpoint,
 			_ => throw new InvalidOperationException($"Unsupported executable: {this._exeType}"),
 		};
 

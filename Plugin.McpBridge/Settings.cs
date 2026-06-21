@@ -14,6 +14,8 @@ namespace Plugin.McpBridge
 			public const String McpServerUrl = "http://localhost:5050";
 			public const String DevUIServerUrl = "http://localhost:5051";
 			public const String AgUIServerUrl = "http://localhost:5052";
+			public const String DtsEmulatorEndpoint = "http://localhost:4001";
+			public const String DtsEmulatorDashboard = "http://localhost:4002";
 		}
 
 		private static DataContractJsonSerializer ProvidersSerializer = new DataContractJsonSerializer(typeof(AiProviderDto[]));
@@ -38,6 +40,9 @@ namespace Plugin.McpBridge
 		private Boolean _ragProcessEnabled = false;
 		private Boolean _mcpServerEnabled = false;
 		private String? _mcpServerUrl = null;
+		private Boolean _dtsEmulatorProcessEnabled = false;
+		private String? _dtsEmulatorEndpoint = null;
+		private String? _dtsEmulatorDashboard = null;
 
 		[Browsable(false)]
 		public String? AiProvidersJson
@@ -268,6 +273,69 @@ namespace Plugin.McpBridge
 					value = null!;
 
 				this.SetField(ref this._mcpServerUrl, value, nameof(this.McpServerUrl));
+			}
+		}
+
+		[Category("DTS")]
+		[DisplayName("DTS Emulator Enabled")]
+		[Description("When enabled, starts the Plugin.McpBridge.DTS process to provide durable task scheduling support via Docker container.")]
+		[DefaultValue(false)]
+		public Boolean DtsEmulatorProcessEnabled
+		{
+			get => this._dtsEmulatorProcessEnabled && ProcessHost.GetExePath(ProcessHost.ExeType.DTS, false) != null;
+			set
+			{
+				if(value)
+					_ = ProcessHost.GetExePath(ProcessHost.ExeType.DTS, true);
+
+				this.SetField(ref this._dtsEmulatorProcessEnabled, value, nameof(this.DtsEmulatorProcessEnabled));
+			}
+		}
+
+		[Category("DTS")]
+		[DisplayName("DTS Emulator Endpoint")]
+		[Description("The endpoint URL of the DTS Emulator used for durable task scheduling. Must be a valid absolute URL. If empty, defaults to " + Defaults.DtsEmulatorEndpoint)]
+		[DefaultValue(Defaults.DtsEmulatorEndpoint)]
+		public String DtsEmulatorEndpoint
+		{
+			get => this._dtsEmulatorEndpoint ?? Defaults.DtsEmulatorEndpoint;
+			set
+			{
+				if(String.IsNullOrWhiteSpace(value) || !Uri.IsWellFormedUriString(value, UriKind.Absolute))
+					value = null!;
+
+				this.SetField(ref this._dtsEmulatorEndpoint, value, nameof(this.DtsEmulatorEndpoint));
+			}
+		}
+
+		[Category("DTS")]
+		[DisplayName("DTS Emulator Dashboard")]
+		[Description("The optional URL to the DTS Emulator dashboard UI for monitoring and diagnostics. If empty, defaults to " + Defaults.DtsEmulatorDashboard)]
+		[DefaultValue(Defaults.DtsEmulatorDashboard)]
+		public String DtsEmulatorDashboard
+		{
+			get => this._dtsEmulatorDashboard ?? Defaults.DtsEmulatorDashboard;
+			set
+			{
+				if(String.IsNullOrWhiteSpace(value) || !Uri.IsWellFormedUriString(value, UriKind.Absolute))
+					value = null!;
+
+				this.SetField(ref this._dtsEmulatorDashboard, value, nameof(this.DtsEmulatorDashboard));
+			}
+		}
+
+		internal IEnumerable<ProcessHost.ExeType> EnabledProcesses
+		{
+			get
+			{
+				if(this.DevUIEnabled)
+					yield return ProcessHost.ExeType.DevUI;
+				if(this.AgUIEnabled)
+					yield return ProcessHost.ExeType.AgUI;
+				if(this.RagProcessEnabled)
+					yield return ProcessHost.ExeType.RAG;
+				if(this.DtsEmulatorProcessEnabled)
+					yield return ProcessHost.ExeType.DTS;
 			}
 		}
 	}
