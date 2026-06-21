@@ -37,10 +37,11 @@
 		</PackageReference>
 		
 		<PackageReference Include="Azure.AI.OpenAI" />
-		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
 		<PackageReference Include="Microsoft.Agents.AI" />
 		<PackageReference Include="Microsoft.Agents.AI.Hosting" />
 		<PackageReference Include="Microsoft.Agents.AI.Workflows" />
+		<!--AI Extensions-->
+		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
 		<!--CoPilot-->
 		<PackageReference Include="Microsoft.Agents.AI.GitHub.Copilot" />
 		<!--RAG-->

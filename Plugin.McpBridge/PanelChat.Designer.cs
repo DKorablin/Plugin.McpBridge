@@ -91,7 +91,7 @@ partial class PanelChat
 		this.tsbnSend.Size = new Size(23, 22);
 		this.tsbnSend.Text = "&Send";
 		this.tsbnSend.ToolTipText = "Send message to LLM";
-		this.tsbnSend.Click += this.tsbnSend_Click;
+		this.tsbnSend.ButtonClick += this.tsbnSend_Click;
 		this.tsbnSend.DropDownOpening += this.tsbnSend_DropDownOpening;
 		// 
 		// txtRequest

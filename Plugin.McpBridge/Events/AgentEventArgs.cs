@@ -1,18 +1,17 @@
-﻿using Azure.Core;
-using Microsoft.Extensions.AI;
+﻿using Microsoft.Extensions.AI;
 
 namespace Plugin.McpBridge.Events
 {
 	/// <summary>Arguments for the AiResponseReceived event.</summary>
 	internal sealed class AgentResponseEventArgs : EventArgs
 	{
-		public String Response { get; }
-
 		public Boolean IsFinal { get; }
 
-		public AgentResponseEventArgs(String response, Boolean isFinal)
+		public ChatMessage? Message { get; }
+
+		public AgentResponseEventArgs(ChatMessage? message, Boolean isFinal)
 		{
-			this.Response = response;
+			this.Message = message;
 			this.IsFinal = isFinal;
 		}
 	}

@@ -6,15 +6,20 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 		<GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+		<SelfContained>false</SelfContained>
+		<ApplicationIcon>..\Images.Shared\SAL.ico</ApplicationIcon>
 	</PropertyGroup>
 
 	<ItemGroup>
 		<ProjectReference Include="..\Plugin.McpBridge\Plugin.McpBridge.csproj" ExcludeAssets="runtime" />
-		<PackageReference Include="Azure.AI.OpenAI" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
 		<PackageReference Include="Microsoft.Extensions.Hosting" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Console" />
+		
+		<PackageReference Include="Azure.AI.OpenAI" />
+		<!--AI Extensions-->
 		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
+	
 		<PackageReference Include="Microsoft.SemanticKernel.Connectors.SqliteVec" />
 	</ItemGroup>
 </Project>

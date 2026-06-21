@@ -1,10 +1,12 @@
 ﻿using System.ComponentModel;
-using System.Text.Json;
+using System.Diagnostics;
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Events;
 using Plugin.McpBridge.UI;
+using Plugin.McpBridge.Workflows;
 using SAL.Windows;
 
 namespace Plugin.McpBridge;
@@ -12,9 +14,11 @@ namespace Plugin.McpBridge;
 public partial class PanelChat : UserControl
 {
 	private AssistantAgent? _agent;
+	private WorkflowFactory? _workflowFactory;
+	private String? _selectedWorkflowName;
 	private Boolean _streamingActive;
 	private CancellationTokenSource? _cts;
-	private String _conversationId;
+	private String _conversationId = String.Empty;
 	private Boolean _updatingSessionList;
 
 	private sealed class SessionListItem
@@ -37,7 +41,23 @@ public partial class PanelChat : UserControl
 
 	private Plugin Plugin => (Plugin)this.Window.Plugin.Instance;
 
-	private IWindow Window => (IWindow)base.Parent;
+	private IWindow Window => (IWindow)base.Parent!;
+
+	private WorkflowFactory WorkflowFactory => this._workflowFactory ??= new WorkflowFactory(this.Plugin.Host, this.Plugin.Settings, this.Plugin.Trace);
+
+	private Boolean IsWorkflowSelected => this._selectedWorkflowName != null;
+
+	private WorkflowFactoryItem? SelectedWorkflow
+	{
+		get
+		{
+			String? selectedWorkflowName = this._selectedWorkflowName;
+			if(selectedWorkflowName == null)
+				return null;
+
+			return this.WorkflowFactory.GetWorkflow(selectedWorkflowName);
+		}
+	}
 
 	private AiProviderDto? CurrentProvider
 	{
@@ -60,7 +80,8 @@ public partial class PanelChat : UserControl
 		this.Plugin.Settings.PropertyChanged += this.Settings_PropertyChanged;
 		base.OnCreateControl();
 
-		this._conversationId = this.Plugin.Settings.LastConversationId;
+		this._conversationId = this.Plugin.Settings.LastConversationId ?? Guid.NewGuid().ToString();
+		this.ReloadWorkflows();
 		this.UpdateSessionComboWidth();
 		this.RefreshSessionList();
 		this.LoadConversationHistory(this._conversationId);
@@ -87,13 +108,14 @@ public partial class PanelChat : UserControl
 		String? sessionStorageDir = this.Plugin.Settings.SessionStorageDirectory;
 		if(sessionStorageDir == null)
 			return;
+		if(this._conversationId != conversationId)
+			return;
 
 		Task.Run(async () =>
 		{
 			var store = new FileSystemAgentSessionStore(sessionStorageDir);
-			JsonElement? json = await store.ReadSessionAsync(this._agent?.AgentName ?? FileSystemAgentSessionStore.DefaultAgentName, conversationId);
-			if(json != null && this._conversationId == conversationId)
-				this.LoadSessionHistory(json.Value);
+			await foreach(ChatMessage message in store.ReadSessionAsync(this.GetSessionScopeName(), conversationId))
+				mdResponse.AppendMarkdown(message);
 		});
 	}
 
@@ -115,7 +137,7 @@ public partial class PanelChat : UserControl
 			if(sessionStorageDir != null && Directory.Exists(sessionStorageDir))
 			{
 				var store = new FileSystemAgentSessionStore(sessionStorageDir);
-				String agentName = this._agent?.AgentName ?? FileSystemAgentSessionStore.DefaultAgentName;
+				String agentName = this.GetSessionScopeName();
 				String agentDirectoryPath = Path.Combine(sessionStorageDir, agentName);
 				foreach(String sessionId in store.ListSessions(agentName))
 				{
@@ -152,41 +174,27 @@ public partial class PanelChat : UserControl
 		this.RefreshSessionList();
 	}
 
-	private void LoadSessionHistory(JsonElement root)
-	{
-		if(!root.TryGetProperty("stateBag", out JsonElement stateBag) ||
-			!stateBag.TryGetProperty("InMemoryChatHistoryProvider", out JsonElement historyState) ||
-			!historyState.TryGetProperty("messages", out JsonElement messagesElement))
-		{
-			this.Plugin.Trace.TraceEvent(System.Diagnostics.TraceEventType.Warning, 0, "Failed to load session history: invalid format.");
-			return;
-		}
-
-		ChatMessage[]? messages = JsonSerializer.Deserialize<ChatMessage[]>(messagesElement, AIJsonUtilities.DefaultOptions);
-		if(messages?.Length > 0)
-			this.Invoke(() =>
-			{
-				foreach(ChatMessage msg in messages)
-				{
-					if(msg.Role == ChatRole.User)
-						mdResponse.AppendMessage(msg.Text, MarkdownTextBox.MessageKind.User);
-					else if(msg.Role == ChatRole.Assistant)
-						mdResponse.AppendMarkdown(msg.Text);
-				}
-			});
-	}
-
 	private void Window_Closed(Object? sender, EventArgs e)
 	{
 		pnlConfirmation.Dismiss();
 		this.Plugin.Settings.PropertyChanged -= this.Settings_PropertyChanged;
+		this.DisposeWorkflows();
 	}
 
 	private void PnlConfirmation_ConfirmationHandled(Object sender, EventArgs e)
 		=> this.Invoke(this.UpdateUiState);
 
 	private void Settings_PropertyChanged(Object? sender, PropertyChangedEventArgs e)
-		=> this.ResetAgent();
+	{
+		if(e.PropertyName == nameof(this.Plugin.Settings.LastConversationId))
+			return;
+
+		this.ResetAgent();
+		this.ReloadWorkflows();
+		this.LoadConversationHistory(this._conversationId);
+		this.RefreshSessionList();
+		this.UpdateUiState();
+	}
 
 	private void ResetAgent()
 	{
@@ -208,14 +216,44 @@ public partial class PanelChat : UserControl
 		this.UpdateUiState();
 	}
 
+	private String GetSessionScopeName()
+	{
+		if(this._selectedWorkflowName != null)
+			return this._selectedWorkflowName;
+
+		return this._agent?.SessionScopeName ?? FileSystemAgentSessionStore.DefaultAgentName;
+	}
+
+	private void DisposeWorkflows()
+	{
+		this._workflowFactory?.Dispose();
+		this._workflowFactory = null;
+	}
+
+	private void ReloadWorkflows()
+	{
+		this.WorkflowFactory.Reload();
+		if(this._selectedWorkflowName != null
+			&& this.WorkflowFactory.GetWorkflow(this._selectedWorkflowName) == null)
+			this._selectedWorkflowName = null;
+	}
+
 	private async Task<AssistantAgent> GetAgent()
 	{
 		if(this._agent == null)
 		{
-			if(this.CurrentProvider == null)
-				throw new InvalidOperationException("No AI provider configured.");
+			if(this.IsWorkflowSelected)
+			{
+				WorkflowFactoryItem workflow = this.SelectedWorkflow
+					?? throw new InvalidOperationException("Selected workflow was not found.");
+				this._agent = await this.Plugin.InitializeWorkflowAgent(workflow, this._conversationId.ToString());
+			} else
+			{
+				AiProviderDto provider = this.CurrentProvider
+					?? throw new InvalidOperationException("No AI provider configured.");
+				this._agent = await this.Plugin.InitializeAgent(provider, this._conversationId.ToString());
+			}
 
-			this._agent = await this.Plugin.InitializeAgent(this.CurrentProvider, this._conversationId.ToString());
 			this._agent.AiResponseReceived += this.Agent_AiResponseReceived;
 			this._agent.ConfirmationRequired += this.Agent_ConfirmationRequired;
 			this.UpdateUiState();
@@ -237,10 +275,11 @@ public partial class PanelChat : UserControl
 		try
 		{
 			AssistantAgent agent = await this.GetAgent();
-			await agent.InvokeMessageAsync(message, attachments, token);
-		} catch(Exception ex)
+			await agent.InvokeMessageAsync(message, attachments, cancellationToken: token);
+		} catch(Exception exc)
 		{
-			this.Invoke(() => mdResponse.AppendMessage(ex.Message, MarkdownTextBox.MessageKind.Error));
+			this.Plugin.Trace.TraceData(TraceEventType.Error, 0, exc);
+			mdResponse.AppendMessage(exc.Message, MarkdownTextBox.MessageKind.Error);
 		} finally
 		{
 			this._cts?.Dispose();
@@ -252,16 +291,17 @@ public partial class PanelChat : UserControl
 
 	private void Agent_AiResponseReceived(Object? sender, AgentResponseEventArgs e)
 	{
-		this.Invoke(() =>
+		this.BeginInvoke(() =>
 		{
 			if(!this._streamingActive)
 				this._streamingActive = true;
 
-			mdResponse.AppendMarkdown(e.Response);
-			mdResponse.ScrollToCaret();
+			if(e.Message!=null)
+				mdResponse.AppendMarkdown(e.Message);
 
 			if(e.IsFinal)
 			{
+				mdResponse.ScrollToCaret();
 				this._streamingActive = false;
 				this._cts?.Dispose();
 				this._cts = null;
@@ -318,7 +358,7 @@ public partial class PanelChat : UserControl
 		if(sessionStorageDir != null)
 		{
 			var store = new FileSystemAgentSessionStore(sessionStorageDir);
-			String agentName = this._agent?.AgentName ?? FileSystemAgentSessionStore.DefaultAgentName;
+			String agentName = this.GetSessionScopeName();
 			store.DeleteSession(agentName, selected.ConversationId);
 		}
 
@@ -337,6 +377,7 @@ public partial class PanelChat : UserControl
 
 		Settings settings = this.Plugin.Settings;
 		Guid selectedAgentId = settings.SelectedAgent.Id;
+		Boolean workflowSelected = this.IsWorkflowSelected;
 
 		ToolStripMenuItem agentsHeader = new ToolStripMenuItem("Agents") { Enabled = false };
 		tsbnSend.DropDownItems.Add(agentsHeader);
@@ -346,7 +387,7 @@ public partial class PanelChat : UserControl
 			ToolStripMenuItem item = new ToolStripMenuItem(agentDto.Description ?? $"Agent {i + 1}")
 			{
 				Tag = agentDto.Id,
-				Checked = agentDto.Id == selectedAgentId,
+				Checked = !workflowSelected && agentDto.Id == selectedAgentId,
 			};
 			item.Click += this.tsbnSend_AgentItem_Click;
 			tsbnSend.DropDownItems.Add(item);
@@ -363,23 +404,59 @@ public partial class PanelChat : UserControl
 			ToolStripMenuItem item = new ToolStripMenuItem(provider.ToString())
 			{
 				Tag = provider.Id,
-				Checked = provider.Id == selectedProviderId,
+				Checked = !workflowSelected && provider.Id == selectedProviderId,
+				Enabled = !workflowSelected,
 			};
 			item.Click += this.tsbnSend_ProviderItem_Click;
 			tsbnSend.DropDownItems.Add(item);
 		}
+
+		tsbnSend.DropDownItems.Add(new ToolStripSeparator());
+
+		ToolStripMenuItem workflowsHeader = new ToolStripMenuItem("Workflows") { Enabled = false };
+		tsbnSend.DropDownItems.Add(workflowsHeader);
+		IReadOnlyList<WorkflowFactoryItem> workflows = this.WorkflowFactory.GetWorkflows();
+
+		if(workflows.Count == 0)
+			tsbnSend.DropDownItems.Add(new ToolStripMenuItem("(none)") { Enabled = false });
+		else
+			foreach(WorkflowFactoryItem workflow in workflows)
+			{
+				ToolStripMenuItem item = new ToolStripMenuItem(workflow.Name)
+				{
+					Tag = workflow.Name,
+					Checked = workflowSelected && String.Equals(this._selectedWorkflowName, workflow.Name, StringComparison.Ordinal),
+				};
+				item.Click += this.tsbnSend_WorkflowItem_Click;
+				tsbnSend.DropDownItems.Add(item);
+			}
 	}
 
 	private void tsbnSend_AgentItem_Click(Object? sender, EventArgs e)
 	{
 		ToolStripMenuItem item = (ToolStripMenuItem)sender!;
-		this.Plugin.Settings.SelectedAgentId = (Guid)item.Tag;
+		this._selectedWorkflowName = null;
+		this.Plugin.Settings.SelectedAgentId = (Guid)item.Tag!;
+		this.ResetAgent();
+		this.LoadConversationHistory(this._conversationId);
+		this.RefreshSessionList();
+		this.UpdateUiState();
+	}
+
+	private void tsbnSend_WorkflowItem_Click(Object? sender, EventArgs e)
+	{
+		ToolStripMenuItem item = (ToolStripMenuItem)sender!;
+		this._selectedWorkflowName = (String)item.Tag!;
+		this.ResetAgent();
+		this.LoadConversationHistory(this._conversationId);
+		this.RefreshSessionList();
+		this.UpdateUiState();
 	}
 
 	private void tsbnSend_ProviderItem_Click(Object? sender, EventArgs e)
 	{
 		ToolStripMenuItem item = (ToolStripMenuItem)sender!;
-		this.Plugin.Settings.SelectedAgent.SelectedProviderId = (Guid)item.Tag;
+		this.Plugin.Settings.SelectedAgent.SelectedProviderId = (Guid)item.Tag!;
 	}
 
 	private void tsbnSend_Click(Object sender, EventArgs e)
@@ -449,29 +526,40 @@ public partial class PanelChat : UserControl
 
 		Boolean isProcessing = _cts != null;
 		Boolean needsConfirmation = pnlConfirmation.Visible; // Assuming a property exists
-		Boolean hasProvider = this.CurrentProvider != null;
+		Boolean hasTarget = this.IsWorkflowSelected
+			? this.SelectedWorkflow != null
+			: this.CurrentProvider != null;
 
 		// tsbnSend Logic
-		tsbnSend.Enabled = !needsConfirmation && hasProvider;
+		tsbnSend.Enabled = !needsConfirmation && hasTarget;
 		tsbnSend.Text = isProcessing ? "&Cancel" : "&Send";
 		tsbnSend.Image = isProcessing ? _imgCancel : _imgSend;
 
 		// Window Caption Logic
-		Int32 agentIndex = this.Plugin.Settings.AiAgents.IndexOf(this.Plugin.Settings.SelectedAgent);
 		String agentInfo;
-		if(this.Plugin.Settings.SelectedAgent.Description != null)
-			agentInfo = $"{this.Plugin.Settings.SelectedAgent.Description} | ";
-		else if(this.Plugin.Settings.AiAgents.Count > 1)
-			agentInfo = $"Agent {agentIndex + 1} | ";
-		else
-			agentInfo = String.Empty;
+		String providerInfo;
+		if(this.IsWorkflowSelected)
+		{
+			WorkflowFactoryItem? workflow = this.SelectedWorkflow;
+			agentInfo = workflow != null ? workflow.Name + " | " : String.Empty;
+			providerInfo = workflow != null ? "Workflow" : "Undefined";
+		} else
+		{
+			Int32 agentIndex = this.Plugin.Settings.AiAgents.IndexOf(this.Plugin.Settings.SelectedAgent);
+			if(this.Plugin.Settings.SelectedAgent.Description != null)
+				agentInfo = $"{this.Plugin.Settings.SelectedAgent.Description} | ";
+			else if(this.Plugin.Settings.AiAgents.Count > 1)
+				agentInfo = $"Agent {agentIndex + 1} | ";
+			else
+				agentInfo = String.Empty;
 
-		String providerInfo = this.CurrentProvider?.ToString() ?? "Undefined";
+			providerInfo = this.CurrentProvider?.ToString() ?? "Undefined";
+		}
 		String statusIcon = needsConfirmation ? " (!)" : String.Empty;
 		this.Window.Caption = agentInfo + providerInfo + statusIcon;
 
 		// Input Logic
-		if(!isProcessing && !needsConfirmation && hasProvider)
+		if(!isProcessing && !needsConfirmation && hasTarget)
 			txtRequest.Focus();
 
 		this.bnRemoveSession.Enabled = this.cbSessions.SelectedItem != null && !isProcessing;

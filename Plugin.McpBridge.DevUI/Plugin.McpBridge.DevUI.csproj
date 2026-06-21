@@ -12,13 +12,15 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\Plugin.McpBridge\Plugin.McpBridge.csproj" ExcludeAssets="runtime" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Console" />
+		
 		<PackageReference Include="Azure.AI.OpenAI" />
 		<PackageReference Include="Microsoft.Agents.AI.DevUI" />
 		<PackageReference Include="Microsoft.Agents.AI.Hosting" />
+		<PackageReference Include="Microsoft.Agents.AI.Hosting.OpenAI" />
 		<PackageReference Include="Microsoft.Agents.AI.Workflows" />
 		<PackageReference Include="Microsoft.Agents.AI.Workflows.Declarative" />
-		<PackageReference Include="Microsoft.Agents.AI.Hosting.OpenAI" />
-		<PackageReference Include="Microsoft.Extensions.Logging.Console" />
+		<!--AI Extensions-->
 		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
 		<!--CoPilot-->
 		<PackageReference Include="Microsoft.Agents.AI.GitHub.Copilot" />
