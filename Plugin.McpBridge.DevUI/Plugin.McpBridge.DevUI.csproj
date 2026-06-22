@@ -17,7 +17,6 @@
 		<PackageReference Include="Azure.AI.OpenAI" />
 		<PackageReference Include="Microsoft.Agents.AI.DevUI" />
 		<PackageReference Include="Microsoft.Agents.AI.Hosting" />
-		<PackageReference Include="Microsoft.Agents.AI.Hosting.OpenAI" />
 		<PackageReference Include="Microsoft.Agents.AI.Workflows" />
 		<PackageReference Include="Microsoft.Agents.AI.Workflows.Declarative" />
 		<!--AI Extensions-->
@@ -27,5 +26,9 @@
 		<!--RAG-->
 		<PackageReference Include="Microsoft.SemanticKernel.Connectors.InMemory" />
 		<PackageReference Include="Microsoft.SemanticKernel.Connectors.SqliteVec" />
+		<!--DurableTasks-->
+		<PackageReference Include="Microsoft.Agents.AI.DurableTask" />
+		<PackageReference Include="Microsoft.DurableTask.Client.Grpc" />
+		<PackageReference Include="Microsoft.DurableTask.Worker.Grpc" />
 	</ItemGroup>
 </Project>

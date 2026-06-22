@@ -14,6 +14,8 @@ namespace Plugin.McpBridge
 			public const String McpServerUrl = "http://localhost:5050";
 			public const String DevUIServerUrl = "http://localhost:5051";
 			public const String AgUIServerUrl = "http://localhost:5052";
+			public const Int32 DtsEmulatorPort = 8080;
+			public const Int32 DtsEmulatorDashboardPort = 8082;
 		}
 
 		private static DataContractJsonSerializer ProvidersSerializer = new DataContractJsonSerializer(typeof(AiProviderDto[]));
@@ -38,6 +40,9 @@ namespace Plugin.McpBridge
 		private Boolean _ragProcessEnabled = false;
 		private Boolean _mcpServerEnabled = false;
 		private String? _mcpServerUrl = null;
+		private Boolean _dtsEmulatorProcessEnabled = false;
+		private Int32? _dtsEmulatorPort = null;
+		private Int32? _dtsEmulatorDashboardPort = null;
 
 		[Browsable(false)]
 		public String? AiProvidersJson
@@ -268,6 +273,113 @@ namespace Plugin.McpBridge
 					value = null!;
 
 				this.SetField(ref this._mcpServerUrl, value, nameof(this.McpServerUrl));
+			}
+		}
+
+		[Category("DTS")]
+		[DisplayName("DTS Emulator Enabled")]
+		[Description("When enabled, starts the Plugin.McpBridge.DTS process to provide durable task scheduling support via Docker container.")]
+		[DefaultValue(false)]
+		public Boolean DtsEmulatorProcessEnabled
+		{
+			get => this._dtsEmulatorProcessEnabled && ProcessHost.GetExePath(ProcessHost.ExeType.DTS, false) != null;
+			set
+			{
+				if(value)
+					_ = ProcessHost.GetExePath(ProcessHost.ExeType.DTS, true);
+
+				this.SetField(ref this._dtsEmulatorProcessEnabled, value, nameof(this.DtsEmulatorProcessEnabled));
+			}
+		}
+
+		[Category("DTS")]
+		[DisplayName("DTS Emulator gRPC Port")]
+		[Description("Port used for DTS emulator gRPC endpoint. If invalid, defaults to " + nameof(Defaults.DtsEmulatorPort))]
+		[DefaultValue(Defaults.DtsEmulatorPort)]
+		public Int32 DtsEmulatorPort
+		{
+			get => this._dtsEmulatorPort ?? Defaults.DtsEmulatorPort;
+			set
+			{
+				if(value < 1 || value > 65535)
+					value = Defaults.DtsEmulatorPort;
+
+				this.SetField(ref this._dtsEmulatorPort, value, nameof(this.DtsEmulatorPort));
+				this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.DtsEmulatorEndpoint)));
+			}
+		}
+
+		[Category("DTS")]
+		[DisplayName("DTS Emulator Dashboard Port")]
+		[Description("Port used for DTS emulator dashboard endpoint. If invalid, defaults to " + nameof(Defaults.DtsEmulatorDashboardPort))]
+		[DefaultValue(Defaults.DtsEmulatorDashboardPort)]
+		public Int32 DtsEmulatorDashboardPort
+		{
+			get => this._dtsEmulatorDashboardPort ?? Defaults.DtsEmulatorDashboardPort;
+			set
+			{
+				if(value < 1 || value > 65535)
+					value = Defaults.DtsEmulatorDashboardPort;
+
+				this.SetField(ref this._dtsEmulatorDashboardPort, value, nameof(this.DtsEmulatorDashboardPort));
+				this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.DtsEmulatorDashboard)));
+			}
+		}
+
+		[Browsable(false)]
+		[Category("DTS")]
+		[DisplayName("DTS Emulator Endpoint")]
+		[Description("Derived gRPC endpoint URL for DTS Emulator.")]
+		public String DtsEmulatorEndpoint
+		{
+			get => $"http://localhost:{this.DtsEmulatorPort}";
+			set => _ = value;
+		}
+
+		[Browsable(false)]
+		[Category("DTS")]
+		[DisplayName("DTS Emulator Dashboard")]
+		[Description("Derived dashboard URL for DTS Emulator.")]
+		public String DtsEmulatorDashboard
+		{
+			get => $"http://localhost:{this.DtsEmulatorDashboardPort}";
+			set => _ = value;
+		}
+
+		internal IEnumerable<ProcessHost.ExeType> EnabledProcesses
+		{
+			get
+			{
+				if(this.DevUIEnabled)
+					yield return ProcessHost.ExeType.DevUI;
+				if(this.AgUIEnabled)
+					yield return ProcessHost.ExeType.AgUI;
+				if(this.RagProcessEnabled)
+					yield return ProcessHost.ExeType.RAG;
+				if(this.DtsEmulatorProcessEnabled)
+					yield return ProcessHost.ExeType.DTS;
+			}
+		}
+
+		/// <summary>Disables a process type due to failure.</summary>
+		internal void DisableProcess(ProcessHost.ExeType exeType)
+		{
+			switch(exeType)
+			{
+			case ProcessHost.ExeType.DevUI:
+				this.DevUIEnabled = false;
+				break;
+			case ProcessHost.ExeType.AgUI:
+				this.AgUIEnabled = false;
+				break;
+			case ProcessHost.ExeType.RAG:
+				this.RagProcessEnabled = false;
+				break;
+			case ProcessHost.ExeType.DTS:
+				this.DtsEmulatorProcessEnabled = false;
+				break;
+			default:
+				throw new InvalidOperationException($"Unknown process type: {exeType}");
 			}
 		}
 	}

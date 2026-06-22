@@ -181,7 +181,7 @@ internal class AssistantAgent : IDisposable
 	private async Task<ToolApprovalResponseContent?> HandleStreamingResponseAsync(IAsyncEnumerable<AgentResponseUpdate> stream, CancellationToken cancellationToken)
 	{
 		Boolean hasReasoning = false;
-		UsageDetails? usage = null;
+
 		StringBuilder responseCache = new StringBuilder();
 		ToolApprovalResponseContent? approvalResponse = null;
 
@@ -212,10 +212,8 @@ internal class AssistantAgent : IDisposable
 				} else if(content is TextContent textContent && !String.IsNullOrEmpty(textContent.Text))
 					responseCache.Append(textContent.Text);
 				else if(content is UsageContent usageContent)
-				{
-					usage = usageContent.Details;
-					this._trace.TraceEvent(TraceEventType.Verbose, 0, $"AuthorName: {update.AuthorName} Tokens: {String.Join(Environment.NewLine, Utils.ParseTokenUsageCount(usage))}");
-				} else if(content is ToolApprovalRequestContent request)
+					this._trace.TraceEvent(TraceEventType.Verbose, 0, $"AuthorName: {update.AuthorName} Tokens: {String.Join(Environment.NewLine, Utils.ParseTokenUsageCount(usageContent.Details))}");
+				else if(content is ToolApprovalRequestContent request)
 				{
 					if(request.ToolCall is FunctionCallContent function)
 					{
@@ -223,12 +221,19 @@ internal class AssistantAgent : IDisposable
 						approvalResponse = request.CreateResponse(approved);
 					} else
 						break;
-				}
+				} else if(content.RawRepresentation is GitHub.Copilot.SessionModelChangeEvent newModel && newModel.Data.NewModel != null)
+					this._trace.TraceEvent(TraceEventType.Verbose, 0, $"GitHub -> Model used: {newModel.Data.NewModel}");
+				else if(content.RawRepresentation is GitHub.Copilot.SystemMessageEvent systemMessage)
+					this._trace.TraceEvent(TraceEventType.Verbose, 0, $"GitHub -> Content: {systemMessage.Data.Content}");
 			}
 		}
 
 		if(responseCache.Length > 0)
-			throw new NotImplementedException("Final message with content in streaming response is not currently supported.");
+		{
+			ChatMessage message = new ChatMessage(ChatRole.Assistant, responseCache.ToString()) { AuthorName = this._activeAgent?.Name, CreatedAt = DateTimeOffset.UtcNow };
+			this._trace.TraceEvent(TraceEventType.Verbose, 0, "> " + message.Text);
+			this.OnAiResponseReceived(new AgentResponseEventArgs(message, false));
+		}
 
 		return approvalResponse;
 	}

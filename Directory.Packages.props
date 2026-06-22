@@ -14,18 +14,23 @@
 		<PackageVersion Include="Microsoft.Agents.AI.DevUI" Version="$(MAIVersion)" />
 		<PackageVersion Include="Microsoft.Agents.AI.Hosting" Version="$(MAIVersion)" />
 		<PackageVersion Include="Microsoft.Agents.AI.Hosting.AGUI.AspNetCore" Version="$(MAIVersion)" />
-		<PackageVersion Include="Microsoft.Agents.AI.Hosting.OpenAI" Version="1.6.2-alpha.260521.1" />
-		<!--AI Extensions-->
-		<PackageVersion Include="Microsoft.Extensions.AI.OpenAI" Version="10.7.0" />
+		<PackageVersion Include="Microsoft.Agents.AI.Hosting.OpenAI" Version="$(MAIVersion)" />
 		<!--CoPilot-->
 		<PackageVersion Include="Microsoft.Agents.AI.GitHub.Copilot" Version="1.10.0-rc1" />
+		<!--AI Extensions-->
+		<PackageVersion Include="Microsoft.Extensions.AI.OpenAI" Version="10.7.0" />
+		<!--RAG-->
+		<PackageVersion Include="Microsoft.SemanticKernel.Connectors.InMemory" Version="1.74.0-preview" />
+		<PackageVersion Include="Microsoft.SemanticKernel.Connectors.SqliteVec" Version="1.74.0-preview" />
+		<!--DurableTask + DTEmulator-->
+		<PackageVersion Include="Microsoft.Agents.AI.DurableTask" Version="$(MAIVersion)" />
+		<PackageVersion Include="Microsoft.DurableTask.Client.Grpc" Version="1.18.0" />
+		<PackageVersion Include="Microsoft.DurableTask.Worker.Grpc" Version="1.18.0" />
+		<PackageVersion Include="Docker.DotNet" Version="3.125.15" />
 		<!--DependencyInjection-->
 		<PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
 		<PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
 		<PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="10.0.9" />
-		<!--RAG-->
-		<PackageVersion Include="Microsoft.SemanticKernel.Connectors.InMemory" Version="1.74.0-preview" />
-		<PackageVersion Include="Microsoft.SemanticKernel.Connectors.SqliteVec" Version="1.74.0-preview" />
 		<!--Tests-->
 		<PackageVersion Include="Moq" Version="4.20.72" />
 		<PackageVersion Include="Moq.AutoMock" Version="4.0.2" />
