@@ -14,8 +14,8 @@ namespace Plugin.McpBridge
 			public const String McpServerUrl = "http://localhost:5050";
 			public const String DevUIServerUrl = "http://localhost:5051";
 			public const String AgUIServerUrl = "http://localhost:5052";
-			public const String DtsEmulatorEndpoint = "http://localhost:4001";
-			public const String DtsEmulatorDashboard = "http://localhost:4002";
+			public const Int32 DtsEmulatorPort = 8080;
+			public const Int32 DtsEmulatorDashboardPort = 8082;
 		}
 
 		private static DataContractJsonSerializer ProvidersSerializer = new DataContractJsonSerializer(typeof(AiProviderDto[]));
@@ -41,8 +41,8 @@ namespace Plugin.McpBridge
 		private Boolean _mcpServerEnabled = false;
 		private String? _mcpServerUrl = null;
 		private Boolean _dtsEmulatorProcessEnabled = false;
-		private String? _dtsEmulatorEndpoint = null;
-		private String? _dtsEmulatorDashboard = null;
+		private Int32? _dtsEmulatorPort = null;
+		private Int32? _dtsEmulatorDashboardPort = null;
 
 		[Browsable(false)]
 		public String? AiProvidersJson
@@ -293,35 +293,57 @@ namespace Plugin.McpBridge
 		}
 
 		[Category("DTS")]
-		[DisplayName("DTS Emulator Endpoint")]
-		[Description("The endpoint URL of the DTS Emulator used for durable task scheduling. Must be a valid absolute URL. If empty, defaults to " + Defaults.DtsEmulatorEndpoint)]
-		[DefaultValue(Defaults.DtsEmulatorEndpoint)]
-		public String DtsEmulatorEndpoint
+		[DisplayName("DTS Emulator gRPC Port")]
+		[Description("Port used for DTS emulator gRPC endpoint. If invalid, defaults to " + nameof(Defaults.DtsEmulatorPort))]
+		[DefaultValue(Defaults.DtsEmulatorPort)]
+		public Int32 DtsEmulatorPort
 		{
-			get => this._dtsEmulatorEndpoint ?? Defaults.DtsEmulatorEndpoint;
+			get => this._dtsEmulatorPort ?? Defaults.DtsEmulatorPort;
 			set
 			{
-				if(String.IsNullOrWhiteSpace(value) || !Uri.IsWellFormedUriString(value, UriKind.Absolute))
-					value = null!;
+				if(value < 1 || value > 65535)
+					value = Defaults.DtsEmulatorPort;
 
-				this.SetField(ref this._dtsEmulatorEndpoint, value, nameof(this.DtsEmulatorEndpoint));
+				this.SetField(ref this._dtsEmulatorPort, value, nameof(this.DtsEmulatorPort));
+				this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.DtsEmulatorEndpoint)));
 			}
 		}
 
 		[Category("DTS")]
-		[DisplayName("DTS Emulator Dashboard")]
-		[Description("The optional URL to the DTS Emulator dashboard UI for monitoring and diagnostics. If empty, defaults to " + Defaults.DtsEmulatorDashboard)]
-		[DefaultValue(Defaults.DtsEmulatorDashboard)]
-		public String DtsEmulatorDashboard
+		[DisplayName("DTS Emulator Dashboard Port")]
+		[Description("Port used for DTS emulator dashboard endpoint. If invalid, defaults to " + nameof(Defaults.DtsEmulatorDashboardPort))]
+		[DefaultValue(Defaults.DtsEmulatorDashboardPort)]
+		public Int32 DtsEmulatorDashboardPort
 		{
-			get => this._dtsEmulatorDashboard ?? Defaults.DtsEmulatorDashboard;
+			get => this._dtsEmulatorDashboardPort ?? Defaults.DtsEmulatorDashboardPort;
 			set
 			{
-				if(String.IsNullOrWhiteSpace(value) || !Uri.IsWellFormedUriString(value, UriKind.Absolute))
-					value = null!;
+				if(value < 1 || value > 65535)
+					value = Defaults.DtsEmulatorDashboardPort;
 
-				this.SetField(ref this._dtsEmulatorDashboard, value, nameof(this.DtsEmulatorDashboard));
+				this.SetField(ref this._dtsEmulatorDashboardPort, value, nameof(this.DtsEmulatorDashboardPort));
+				this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(this.DtsEmulatorDashboard)));
 			}
+		}
+
+		[Browsable(false)]
+		[Category("DTS")]
+		[DisplayName("DTS Emulator Endpoint")]
+		[Description("Derived gRPC endpoint URL for DTS Emulator.")]
+		public String DtsEmulatorEndpoint
+		{
+			get => $"http://localhost:{this.DtsEmulatorPort}";
+			set => _ = value;
+		}
+
+		[Browsable(false)]
+		[Category("DTS")]
+		[DisplayName("DTS Emulator Dashboard")]
+		[Description("Derived dashboard URL for DTS Emulator.")]
+		public String DtsEmulatorDashboard
+		{
+			get => $"http://localhost:{this.DtsEmulatorDashboardPort}";
+			set => _ = value;
 		}
 
 		internal IEnumerable<ProcessHost.ExeType> EnabledProcesses
@@ -336,6 +358,28 @@ namespace Plugin.McpBridge
 					yield return ProcessHost.ExeType.RAG;
 				if(this.DtsEmulatorProcessEnabled)
 					yield return ProcessHost.ExeType.DTS;
+			}
+		}
+
+		/// <summary>Disables a process type due to failure.</summary>
+		internal void DisableProcess(ProcessHost.ExeType exeType)
+		{
+			switch(exeType)
+			{
+			case ProcessHost.ExeType.DevUI:
+				this.DevUIEnabled = false;
+				break;
+			case ProcessHost.ExeType.AgUI:
+				this.AgUIEnabled = false;
+				break;
+			case ProcessHost.ExeType.RAG:
+				this.RagProcessEnabled = false;
+				break;
+			case ProcessHost.ExeType.DTS:
+				this.DtsEmulatorProcessEnabled = false;
+				break;
+			default:
+				throw new InvalidOperationException($"Unknown process type: {exeType}");
 			}
 		}
 	}

@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Diagnostics;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Data;
@@ -189,7 +190,7 @@ namespace Plugin.McpBridge
 
 			foreach(ProcessHost.ExeType exeType in this.Settings.EnabledProcesses)
 			{
-				var process = this._processHosts[exeType] = new ProcessHost(this.Host, exeType);
+				var process = this._processHosts[exeType] = new ProcessHost(this.Host, exeType, this.OnProcessFailed);
 				Task.Run(() => process.StartAsync(this.Settings));
 			}
 		}
@@ -205,6 +206,21 @@ namespace Plugin.McpBridge
 
 			this._mcpServer?.Dispose();
 			return true;
+		}
+
+		private void OnProcessFailed(ProcessHost.ExeType exeType, Int32 exitCode)
+		{
+			switch(exeType)
+			{
+			case ProcessHost.ExeType.DTS:
+			case ProcessHost.ExeType.RAG:
+				this.Trace.TraceEvent(TraceEventType.Warning, 0, $"Process {exeType} failed with exit code {exitCode}. Disabling...");
+				this.Settings.DisableProcess(exeType);
+				break;
+			default:
+				this.Trace.TraceEvent(TraceEventType.Warning, 0, $"Process {exeType} failed with exit code {exitCode}.");
+				break;
+			}
 		}
 
 		private IWindow? CreateWindow(String typeName, Boolean searchForOpened, Object? args = null)

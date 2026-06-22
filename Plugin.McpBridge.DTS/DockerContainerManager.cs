@@ -1,19 +1,21 @@
 using Docker.DotNet;
 using Docker.DotNet.Models;
 using Microsoft.Extensions.Logging;
+using System.Runtime.InteropServices;
 
 namespace Plugin.McpBridge.DTS;
 
 /// <summary>Manages Docker container lifecycle for DTS Emulator.</summary>
 internal sealed class DockerContainerManager
 {
-	private const String DtsImageName = "mcpbridge/dts-emulator";
+	private const String DtsImageName = "mcr.microsoft.com/dts/dts-emulator";
 	private const String DtsImageTag = "latest";
 	private const String DtsContainerName = "mcpbridge-dts-emulator";
 
 	private readonly ILogger<DockerContainerManager> _logger;
 	private DockerClient? _dockerClient;
 	private String? _containerId;
+	private Uri? _dockerEndpoint;
 
 	public DockerContainerManager(ILogger<DockerContainerManager> logger)
 	{
@@ -21,9 +23,9 @@ internal sealed class DockerContainerManager
 	}
 
 	/// <summary>Ensures Docker is available and image is present, then starts the container.</summary>
-	public async Task<Boolean> StartContainerAsync(String dtsEndpoint, CancellationToken cancellationToken = default)
+	public async Task<Boolean> StartContainerAsync(Int32 dtsEmulatorPort, Int32 dtsEmulatorDashboardPort, CancellationToken cancellationToken = default)
 	{
-		if(!this.TryInitializeDockerClient())
+		if(!await this.TryInitializeDockerClientAsync(cancellationToken))
 			return false;
 
 		if(!await this.EnsureImageAvailableAsync(cancellationToken))
@@ -32,10 +34,10 @@ internal sealed class DockerContainerManager
 		if(!await this.StopExistingContainerAsync(cancellationToken))
 			this._logger.LogWarning("Failed to stop existing container, continuing anyway.");
 
-		if(!await this.CreateAndStartContainerAsync(dtsEndpoint, cancellationToken))
+		if(!await this.CreateAndStartContainerAsync(dtsEmulatorPort, dtsEmulatorDashboardPort, cancellationToken))
 			return false;
 
-		this._logger.LogInformation("DTS Emulator container started successfully");
+		this._logger.LogInformation("DTS Emulator container started successfully ({Image}:{Tag})", DtsImageName, DtsImageTag);
 		return true;
 	}
 
@@ -54,13 +56,46 @@ internal sealed class DockerContainerManager
 		this._logger.LogInformation("DTS Emulator container stopped and removed");
 	}
 
-	private Boolean TryInitializeDockerClient()
+	private async Task<Boolean> TryInitializeDockerClientAsync(CancellationToken cancellationToken)
 	{
-		DockerClientConfiguration config = new DockerClientConfiguration();
+		System.Diagnostics.Debugger.Launch();
+		if(this._dockerClient != null)
+			return true;
+
+		this._dockerEndpoint = this.ResolveDockerEndpoint();
+
+		DockerClientConfiguration config = this._dockerEndpoint == null
+			? new DockerClientConfiguration()
+			: new DockerClientConfiguration(this._dockerEndpoint);
+
 		this._dockerClient = config.CreateClient();
 
-		this._logger.LogInformation("Docker client initialized successfully");
+		using CancellationTokenSource connectTimeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+		connectTimeoutCts.CancelAfter(TimeSpan.FromSeconds(8));
+		try
+		{
+			await this._dockerClient.System.PingAsync(connectTimeoutCts.Token);
+		} catch(TimeoutException exc)
+		{
+			this._logger.LogError(exc, "Failed to connect to Docker daemon at {Endpoint} within timeout. Ensure Docker is running and accessible.", this._dockerEndpoint);
+			throw;
+		}
+
+		this._logger.LogInformation("Docker client initialized successfully. Endpoint: {Endpoint}",
+			this._dockerEndpoint?.ToString() ?? "default endpoint");
 		return true;
+	}
+
+	private Uri? ResolveDockerEndpoint()
+	{
+		String? dockerHost = Environment.GetEnvironmentVariable("DOCKER_HOST");
+		if(!String.IsNullOrWhiteSpace(dockerHost) && Uri.TryCreate(dockerHost, UriKind.Absolute, out Uri? dockerHostUri) && dockerHostUri != null)
+			return dockerHostUri;
+
+		if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+			return new Uri("npipe://./pipe/docker_engine");
+
+		return null;
 	}
 
 	private async Task<Boolean> EnsureImageAvailableAsync(CancellationToken cancellationToken)
@@ -132,13 +167,23 @@ internal sealed class DockerContainerManager
 		return true;
 	}
 
-	private async Task<Boolean> CreateAndStartContainerAsync(String dtsEndpoint, CancellationToken cancellationToken)
+	private async Task<Boolean> CreateAndStartContainerAsync(Int32 dtsEmulatorPort, Int32 dtsEmulatorDashboardPort, CancellationToken cancellationToken)
 	{
 		if(this._dockerClient == null)
 			return false;
 
-		Int32 port = this.ExtractPort(dtsEndpoint);
+		this._logger.LogInformation("Starting DTS emulator container for ports gRPC={GrpcPort}, Dashboard={DashboardPort}", dtsEmulatorPort, dtsEmulatorDashboardPort);
 		String imageName = $"{DtsImageName}:{DtsImageTag}";
+		Int32[] dtsPorts = [dtsEmulatorPort, dtsEmulatorDashboardPort];
+
+		Dictionary<String, EmptyStruct> exposedPorts = new Dictionary<String, EmptyStruct>();
+		Dictionary<String, IList<PortBinding>> portBindings = new Dictionary<String, IList<PortBinding>>();
+		foreach(Int32 port in dtsPorts)
+		{
+			String containerPort = $"{port}/tcp";
+			exposedPorts[containerPort] = default;
+			portBindings[containerPort] = [new PortBinding { HostPort = port.ToString() }];
+		}
 
 		CreateContainerResponse container = await this._dockerClient.Containers.CreateContainerAsync(
 			new CreateContainerParameters
@@ -146,16 +191,10 @@ internal sealed class DockerContainerManager
 				Image = imageName,
 				Name = DtsContainerName,
 				Hostname = "dts-emulator",
-				ExposedPorts = new Dictionary<String, EmptyStruct>
-				{
-						{ $"{port}/tcp", default }
-				},
+				ExposedPorts = exposedPorts,
 				HostConfig = new HostConfig
 				{
-					PortBindings = new Dictionary<String, IList<PortBinding>>
-					{
-						{ $"{port}/tcp", new List<PortBinding> { new PortBinding { HostPort = port.ToString() } } }
-					}
+					PortBindings = portBindings
 				}
 			}, cancellationToken);
 
@@ -165,15 +204,7 @@ internal sealed class DockerContainerManager
 		await this._dockerClient.Containers.StartContainerAsync(this._containerId,
 			new ContainerStartParameters(), cancellationToken);
 
-		this._logger.LogInformation("Container started on port {Port}", port);
+		this._logger.LogInformation("Container started with ports gRPC={GrpcPort}, Dashboard={DashboardPort}", dtsEmulatorPort, dtsEmulatorDashboardPort);
 		return true;
-	}
-
-	private Int32 ExtractPort(String dtsEndpoint)
-	{
-		if(Uri.TryCreate(dtsEndpoint, UriKind.Absolute, out Uri? uri) && uri != null)
-			return uri.Port > 0 ? uri.Port : 4001;
-		
-		return Int32.TryParse(dtsEndpoint, out Int32 port) ? port : 4001;
 	}
 }

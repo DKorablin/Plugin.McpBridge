@@ -15,6 +15,7 @@ internal sealed class ProcessHost : IDisposable
 	private readonly IHost _host;
 	private readonly ExeType _exeType;
 	private readonly ITraceSource _trace;
+	private readonly Action<ExeType, Int32>? _onProcessFailed;
 	private Process? _process;
 
 	public enum ExeType
@@ -25,11 +26,12 @@ internal sealed class ProcessHost : IDisposable
 		DTS,
 	}
 
-	public ProcessHost(IHost host, ExeType type)
+	public ProcessHost(IHost host, ExeType type, Action<ExeType, Int32>? onProcessFailed = null)
 	{
 		this._host = host ?? throw new ArgumentNullException(nameof(host));
 		this._exeType = type;
 		this._trace = host.Plugins.CreateTraceSource(this.TraceName);
+		this._onProcessFailed = onProcessFailed;
 	}
 
 	/// <summary>Serializes the current settings into a temp config file and launches the DevUI process.</summary>
@@ -61,6 +63,7 @@ internal sealed class ProcessHost : IDisposable
 			this._process.ErrorDataReceived += this.OnProcessErrorReceived;
 			this._process.BeginOutputReadLine();
 			this._process.BeginErrorReadLine();
+			Task.Run(() => this.WaitForProcessExitAsync(cancellationToken));
 		}
 		return Task.CompletedTask;
 	}
@@ -70,6 +73,33 @@ internal sealed class ProcessHost : IDisposable
 	{
 		this.Stop();
 		return Task.CompletedTask;
+	}
+
+	/// <summary>Waits for the process to exit and invokes the failure callback if it exits with non-zero code.</summary>
+	private async Task WaitForProcessExitAsync(CancellationToken cancellationToken)
+	{
+		if(this._process == null)
+			return;
+
+		try
+		{
+			await this._process.WaitForExitAsync(cancellationToken);
+			Int32 exitCode = this._process.ExitCode;
+
+			if(exitCode != 0)
+			{
+				this._trace.TraceEvent(TraceEventType.Warning, 0, $"Process {this._exeType} exited with code {exitCode}");
+				this._onProcessFailed?.Invoke(this._exeType, exitCode);
+			}
+		}
+		catch(OperationCanceledException)
+		{
+			// Process was cancelled, not a failure
+		}
+		catch(Exception ex)
+		{
+			this._trace.TraceEvent(TraceEventType.Error, 0, $"Error monitoring process {this._exeType}: {ex.Message}");
+		}
 	}
 
 	public void Dispose()
