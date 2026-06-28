@@ -340,6 +340,7 @@ public record AiProviderDto : INotifyPropertyChanged
 		String providerLabel = this.ProviderType.ToString();
 
 		List<String> details = new List<String>();
+		details.Add($"id: {this.Id}");
 		if(this.SupportsCapability(ProviderCapabilities.Chat) && !String.IsNullOrWhiteSpace(this.Chat?.ModelId))
 			details.Add($"chat: {this.Chat.ModelId}");
 		if(this.SupportsCapability(ProviderCapabilities.Embeddings) && !String.IsNullOrWhiteSpace(this.Embeddings?.ModelId))
