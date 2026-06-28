@@ -1,4 +1,4 @@
-﻿using Microsoft.Agents.AI.DevUI;
+using Microsoft.Agents.AI.DevUI;
 using Microsoft.Agents.AI.DurableTask;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.DurableTask.Client;
@@ -16,39 +16,43 @@ internal static class Program
 	private static async Task<Int32> Main(String[] args)
 	{
 		using(CancellationTokenSource lifetimeCts = new CancellationTokenSource())
-		{
-			SettingsDto settings = SettingsDto.CreateSettingsFromArgs(ref args, lifetimeCts);
-			using ILoggerFactory loggerFactory = LoggerFactory.Create(Program.ConfigureLogging);
-			ILogger logger = loggerFactory.CreateLogger(typeof(Program));
-
-			var bridgeTools = await settings.FetchBridgeToolsAsync();
-			logger.LogInformation("Bridge connected: {Count:N0} tools loaded from {McpServerUrl}", bridgeTools.Length, settings.McpServerUrl);
-
-			var agentDto = settings.SelectedAgent;
-			AgentHandle agent = await _agentFactory.CreateAgent(
-				agentDto,
-				agentDto.GetSelectedProvider(settings.AiProviders),
-				settings.AiProviders,
-				bridgeTools,
-				settings.Instructions ?? String.Empty,
-				token: lifetimeCts.Token);
-
-			List<WorkflowHandle> workflows = new List<WorkflowHandle>();
-			if(settings.WorkflowsDirectory is not null)
+			try
 			{
-				foreach(String workflowFile in Directory.EnumerateFiles(settings.WorkflowsDirectory, "*.json"))
-				{
-					logger.LogInformation("Loading workflow from {WorkflowFile}", workflowFile);
-					WorkflowLoader2 loader = new WorkflowLoader2(settings, workflowFile);
-					WorkflowHandle workflowHandle = await loader.BuildAsync(settings.AiProviders, bridgeTools);
-					workflows.Add(workflowHandle);
-				}
-			}
+				SettingsDto settings = SettingsDto.CreateSettingsFromArgs(ref args, lifetimeCts);
+				using ILoggerFactory loggerFactory = LoggerFactory.Create(Program.ConfigureLogging);
+				ILogger logger = loggerFactory.CreateLogger(typeof(Program));
 
-			WebApplication app = await BuildWebApp(args, settings, agent, workflows);
-			logger.LogInformation("DevUI running at {DevUiUrl}", $"{settings.UiServerUrl}/devui");
-			await app.RunAsync(lifetimeCts.Token);
-		}
+				var bridgeTools = await settings.FetchBridgeToolsAsync();
+				logger.LogInformation("Bridge connected: {Count:N0} tools loaded from {McpServerUrl}", bridgeTools.Length, settings.McpServerUrl);
+
+				var agentDto = settings.SelectedAgent;
+				AgentHandle agent = await _agentFactory.CreateAgent(
+					agentDto,
+					agentDto.GetSelectedProvider(settings.AiProviders),
+					settings.AiProviders,
+					bridgeTools,
+					settings.Instructions ?? String.Empty,
+					token: lifetimeCts.Token);
+
+				List<WorkflowHandle> workflows = new List<WorkflowHandle>();
+				if(settings.WorkflowsDirectory is not null)
+				{
+					foreach(String workflowFile in Directory.EnumerateFiles(settings.WorkflowsDirectory, "*.json"))
+					{
+						logger.LogInformation("Loading workflow from {WorkflowFile}", workflowFile);
+						WorkflowLoader2 loader = new WorkflowLoader2(settings, workflowFile);
+						WorkflowHandle workflowHandle = await loader.BuildAsync(settings.AiProviders, bridgeTools);
+						workflows.Add(workflowHandle);
+					}
+				}
+
+				WebApplication app = await BuildWebApp(args, settings, agent, workflows);
+				logger.LogInformation("DevUI running at {DevUiUrl}", $"{settings.UiServerUrl}/devui");
+				await app.RunAsync(lifetimeCts.Token);
+			} catch(OperationCanceledException) when(lifetimeCts.IsCancellationRequested)
+			{
+				return 0;
+			}
 		return 0;
 	}
 

@@ -15,6 +15,7 @@ internal sealed class ProcessHost : IDisposable
 	private readonly IHost _host;
 	private readonly ExeType _exeType;
 	private readonly ITraceSource _trace;
+	private Boolean _isStopping = false;
 	private readonly Action<ExeType, Int32>? _onProcessFailed;
 	private Process? _process;
 
@@ -71,6 +72,7 @@ internal sealed class ProcessHost : IDisposable
 	/// <summary>Kills the DevUI child process if it is still running.</summary>
 	public Task StopAsync(CancellationToken cancellationToken = default)
 	{
+		_isStopping = true;
 		this.Stop();
 		return Task.CompletedTask;
 	}
@@ -88,8 +90,9 @@ internal sealed class ProcessHost : IDisposable
 
 			if(exitCode != 0)
 			{
-				this._trace.TraceEvent(TraceEventType.Warning, 0, $"Process {this._exeType} exited with code {exitCode}");
-				this._onProcessFailed?.Invoke(this._exeType, exitCode);
+				this._trace.TraceEvent(TraceEventType.Warning, 0, $"Process {this._exeType} exited with code {exitCode:X8}");
+				if(!this._isStopping)
+					this._onProcessFailed?.Invoke(this._exeType, exitCode);
 			}
 		}
 		catch(OperationCanceledException)
@@ -99,6 +102,7 @@ internal sealed class ProcessHost : IDisposable
 		catch(Exception ex)
 		{
 			this._trace.TraceEvent(TraceEventType.Error, 0, $"Error monitoring process {this._exeType}: {ex.Message}");
+			this._onProcessFailed?.Invoke(this._exeType, -1);
 		}
 	}
 
@@ -133,7 +137,7 @@ internal sealed class ProcessHost : IDisposable
 		}
 		finally
 		{
-			this._process.Dispose();
+			this._process?.Dispose();
 			this._process = null;
 		}
 	}

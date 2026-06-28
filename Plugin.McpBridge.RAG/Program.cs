@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Plugin.McpBridge.Tests;
@@ -10,29 +10,33 @@ internal static class Program
 	private static async Task<Int32> Main(String[] args)
 	{
 		using(CancellationTokenSource lifetimeCts = new CancellationTokenSource())
-		{
-			SettingsDto settings = SettingsDto.CreateSettingsFromArgs(ref args, lifetimeCts);
-
-			HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
-			builder.Services.Configure<ConsoleLifetimeOptions>(options => options.SuppressStatusMessages = true);
-			builder.Logging.ClearProviders();
-			builder.Logging.AddSimpleConsole(options =>
+			try
 			{
-				options.SingleLine = true;
-				options.TimestampFormat = "HH:mm:ss ";
-			});
+				SettingsDto settings = SettingsDto.CreateSettingsFromArgs(ref args, lifetimeCts);
 
-			builder.Services.AddSingleton(settings);
-			builder.Services.AddSingleton(new RagSyncOptions { DebounceInterval = TimeSpan.FromSeconds(1), });
-			builder.Services.AddSingleton<RagFileFingerprintService>();
-			builder.Services.AddSingleton<RagSyncMetadataStoreFactory>();
-			builder.Services.AddSingleton<RagIndexSyncService>();
-			builder.Services.AddSingleton<RagFileSyncCoordinator>();
-			builder.Services.AddHostedService<RagSyncHostedService>();
+				HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
+				builder.Services.Configure<ConsoleLifetimeOptions>(options => options.SuppressStatusMessages = true);
+				builder.Logging.ClearProviders();
+				builder.Logging.AddSimpleConsole(options =>
+				{
+					options.SingleLine = true;
+					options.TimestampFormat = "HH:mm:ss ";
+				});
 
-			using IHost host = builder.Build();
-			await host.RunAsync(lifetimeCts.Token);
-		}
+				builder.Services.AddSingleton(settings);
+				builder.Services.AddSingleton(new RagSyncOptions { DebounceInterval = TimeSpan.FromSeconds(1), });
+				builder.Services.AddSingleton<RagFileFingerprintService>();
+				builder.Services.AddSingleton<RagSyncMetadataStoreFactory>();
+				builder.Services.AddSingleton<RagIndexSyncService>();
+				builder.Services.AddSingleton<RagFileSyncCoordinator>();
+				builder.Services.AddHostedService<RagSyncHostedService>();
+
+				using IHost host = builder.Build();
+				await host.RunAsync(lifetimeCts.Token);
+			} catch(OperationCanceledException) when(lifetimeCts.IsCancellationRequested)
+			{
+				return 0;
+			}
 		return 0;
 	}
 }
