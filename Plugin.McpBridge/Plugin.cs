@@ -76,6 +76,7 @@ namespace Plugin.McpBridge
 
 		public Plugin(IHost host, ITraceSource trace)
 		{
+			PropertyGridMetadata.Register();
 			Plugin.StaticInstance = this;
 			this.Host = host ?? throw new ArgumentNullException(nameof(host));
 			this.Trace = trace ?? throw new ArgumentNullException(nameof(trace));
@@ -123,10 +124,13 @@ namespace Plugin.McpBridge
 			{
 				ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings, this.Settings.SelectedAgent);
 				AgentFactory agentFactory = new AgentFactory();
-				FileSystemAgentSessionStore? sessionStore = this.CreateSessionStore();
+				String? sessionStoreDir = this.Settings.GetSessionStorageDirectory();
+				FileSystemAgentSessionStore? sessionStore = sessionStoreDir == null
+					? null
+					: new FileSystemAgentSessionStore(sessionStoreDir);
 
 				var result = new AssistantAgent(this.Trace, this.Host, toolsFactory, agentFactory);
-				await result.Initialize(this.Settings, provider, sessionStore, conversationId);
+				await result.Initialize(this.Settings, sessionStore, conversationId);
 				return result;
 			}catch(Exception exc)
 			{
@@ -154,8 +158,8 @@ namespace Plugin.McpBridge
 		}
 
 		private FileSystemAgentSessionStore? CreateSessionStore()
-			=> this.Settings.SessionStorageDirectory != null
-				? new FileSystemAgentSessionStore(this.Settings.SessionStorageDirectory)
+			=> this.Settings.EnableSessionStorage && this.Settings.SessionStorageDirectory != null
+				? new FileSystemAgentSessionStore(this.Settings.GetSessionStorageDirectory())
 				: null;
 
 		Boolean IPlugin.OnConnection(ConnectMode mode)
@@ -177,6 +181,19 @@ namespace Plugin.McpBridge
 			return true;
 		}
 
+		Boolean IPlugin.OnDisconnection(DisconnectMode mode)
+		{
+			if(this._menuChat != null)
+				this.HostWindows.MainMenu.Items.Remove(this._menuChat);
+
+			foreach(var process in this._processHosts.Values)
+				process.Dispose();
+			this._processHosts.Clear();
+
+			this._mcpServer?.Dispose();
+			return true;
+		}
+
 		private void Plugins_PluginsLoaded(Object? sender, EventArgs e)
 		{
 			ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings, this.Settings.SelectedAgent);
@@ -193,19 +210,6 @@ namespace Plugin.McpBridge
 				var process = this._processHosts[exeType] = new ProcessHost(this.Host, exeType, this.OnProcessFailed);
 				Task.Run(() => process.StartAsync(this.Settings));
 			}
-		}
-
-		Boolean IPlugin.OnDisconnection(DisconnectMode mode)
-		{
-			if(this._menuChat != null)
-				this.HostWindows.MainMenu.Items.Remove(this._menuChat);
-
-			foreach(var process in this._processHosts.Values)
-				process.Dispose();
-			this._processHosts.Clear();
-
-			this._mcpServer?.Dispose();
-			return true;
 		}
 
 		private void OnProcessFailed(ProcessHost.ExeType exeType, Int32 exitCode)

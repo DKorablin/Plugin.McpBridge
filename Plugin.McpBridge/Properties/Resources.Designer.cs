@@ -63,6 +63,16 @@ namespace Plugin.McpBridge.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap Icon1 {
+            get {
+                object obj = ResourceManager.GetObject("Icon1", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap iconDelete {
             get {
                 object obj = ResourceManager.GetObject("iconDelete", resourceCulture);
@@ -71,12 +81,22 @@ namespace Plugin.McpBridge.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        ///   Looks up a localized resource of type System.Windows.Forms.ImageListStreamer.
         /// </summary>
-        internal static System.Drawing.Bitmap iconNew {
+        internal static System.Windows.Forms.ImageListStreamer imageList_ImageStream {
             get {
-                object obj = ResourceManager.GetObject("iconNew", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
+                object obj = ResourceManager.GetObject("imageList_ImageStream", resourceCulture);
+                return ((System.Windows.Forms.ImageListStreamer)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] winfinder {
+            get {
+                object obj = ResourceManager.GetObject("winfinder", resourceCulture);
+                return ((byte[])(obj));
             }
         }
     }

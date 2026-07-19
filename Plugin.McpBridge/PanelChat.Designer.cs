@@ -37,14 +37,16 @@ partial class PanelChat
 	{
 		this.mdResponse = new MarkdownTextBox();
 		this.tsBottom = new ToolStrip();
+		this.bnAttachFile = new ToolStripButton();
+		this.ctlTargetWindow = new TargetWindowCtrl();
 		this.tsbnSend = new ToolStripSplitButton();
 		this.txtRequest = new TextBox();
 		this.tsTop = new ToolStrip();
-		this.bnNewConversation = new ToolStripButton();
 		this.cbSessions = new ToolStripComboBox();
 		this.bnRemoveSession = new ToolStripButton();
 		this.splitMain = new SplitContainer();
 		this.pnlConfirmation = new ConfirmationPanel();
+		this.pnlEvaluationCacheWarning = new EvaluationCacheWarningPanel();
 		this.pnlInput = new Panel();
 		this.pnlAttachments = new AttachmentsPanel();
 		this.tsBottom.SuspendLayout();
@@ -73,12 +75,22 @@ partial class PanelChat
 		// 
 		this.tsBottom.Dock = DockStyle.Bottom;
 		this.tsBottom.GripStyle = ToolStripGripStyle.Hidden;
-		this.tsBottom.Items.AddRange(new ToolStripItem[] { this.tsbnSend });
+		this.tsBottom.Items.AddRange(new ToolStripItem[] { this.bnAttachFile, this.ctlTargetWindow, this.tsbnSend });
 		this.tsBottom.Location = new Point(0, 49);
 		this.tsBottom.Name = "tsBottom";
 		this.tsBottom.Size = new Size(175, 25);
 		this.tsBottom.TabIndex = 2;
-		// 
+		//
+		// bnAttachFile
+		//
+		this.bnAttachFile.Alignment = ToolStripItemAlignment.Left;
+		this.bnAttachFile.DisplayStyle = ToolStripItemDisplayStyle.Text;
+		this.bnAttachFile.Name = "bnAttachFile";
+		this.bnAttachFile.Size = new Size(23, 22);
+		this.bnAttachFile.Text = "\U0001F4CE";
+		this.bnAttachFile.ToolTipText = "Attach file from disk";
+		this.bnAttachFile.Click += this.bnAttachFile_Click;
+		//
 		// tsbnSend
 		// 
 		this.tsbnSend.Alignment = ToolStripItemAlignment.Right;
@@ -117,22 +129,11 @@ partial class PanelChat
 		// tsTop
 		// 
 		this.tsTop.GripStyle = ToolStripGripStyle.Hidden;
-		this.tsTop.Items.AddRange(new ToolStripItem[] { this.bnNewConversation, this.cbSessions, this.bnRemoveSession });
+		this.tsTop.Items.AddRange(new ToolStripItem[] { this.cbSessions, this.bnRemoveSession });
 		this.tsTop.Location = new Point(0, 0);
 		this.tsTop.Name = "tsTop";
 		this.tsTop.Size = new Size(175, 25);
 		this.tsTop.TabIndex = 4;
-		// 
-		// bnNewConversation
-		// 
-		this.bnNewConversation.DisplayStyle = ToolStripItemDisplayStyle.Image;
-		this.bnNewConversation.Image = global::Plugin.McpBridge.Properties.Resources.iconNew;
-		this.bnNewConversation.ImageTransparentColor = System.Drawing.Color.Magenta;
-		this.bnNewConversation.Name = "bnNewConversation";
-		this.bnNewConversation.Size = new Size(35, 22);
-		this.bnNewConversation.Text = "New";
-		this.bnNewConversation.ToolTipText = "Start a new conversation";
-		this.bnNewConversation.Click += this.bnNewConversation_Click;
 		// 
 		// bnRemoveSession
 		// 
@@ -171,6 +172,7 @@ partial class PanelChat
 		// 
 		this.splitMain.Panel1.Controls.Add(this.mdResponse);
 		this.splitMain.Panel1.Controls.Add(this.pnlConfirmation);
+		this.splitMain.Panel1.Controls.Add(this.pnlEvaluationCacheWarning);
 		// 
 		// splitMain.Panel2
 		// 
@@ -209,14 +211,16 @@ partial class PanelChat
 
 	private SplitContainer splitMain;
 	private ToolStrip tsTop;
-	private ToolStripButton bnNewConversation;
 	private ToolStripComboBox cbSessions;
 	private ToolStripButton bnRemoveSession;
 	private TextBox txtRequest;
 	private MarkdownTextBox mdResponse;
 	private ToolStrip tsBottom;
+	private ToolStripButton bnAttachFile;
+	private TargetWindowCtrl ctlTargetWindow;
 	private ToolStripSplitButton tsbnSend;
 	private ConfirmationPanel pnlConfirmation;
+	private EvaluationCacheWarningPanel pnlEvaluationCacheWarning;
 	private Panel pnlInput;
 	private AttachmentsPanel pnlAttachments;
 	private Image _imgSend;

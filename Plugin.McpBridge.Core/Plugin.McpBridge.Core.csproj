@@ -1,0 +1,48 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<LangVersion>latest</LangVersion>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<GenerateAssemblyInfo>False</GenerateAssemblyInfo>
+		<GeneratePackageOnBuild>False</GeneratePackageOnBuild>
+		<GenerateDocumentationFile>False</GenerateDocumentationFile>
+		<NoWarn>CA1416;IDE0032;MAAI001;MAAIW001</NoWarn>
+	</PropertyGroup>
+
+	<!--nuspec-->
+	<PropertyGroup>
+		<PackageId>McpBridge.Core</PackageId>
+		<Version>$(Version)</Version>
+		<Title>MCP Bridge Core</Title>
+		<Description>The core library for the SAL MCP Bridge Plugin, providing essential functionality for bridging the Model Context Protocol (MCP) with AI assistants powered by Microsoft Semantic Kernel.</Description>
+		<Authors>Danila Korablin</Authors>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageReadmeFile>docs\README.md</PackageReadmeFile>
+		<PackageIcon>docs\SAL.100.png</PackageIcon>
+		<RepositoryUrl>https://github.com/DKorablin/Plugin.McpBridge</RepositoryUrl>
+		<PackageTags>SAL plugin mcp model-context-protocol semantic-kernel openai azure-openai ai chat assistant</PackageTags>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="SAL.Windows">
+			<ExcludeAssets>runtime</ExcludeAssets>
+		</PackageReference>
+		<PackageReference Include="Azure.AI.OpenAI" />
+		<PackageReference Include="Microsoft.Agents.AI" />
+		<PackageReference Include="Microsoft.Agents.AI.DurableTask" />
+		<PackageReference Include="Microsoft.Agents.AI.Hosting" />
+		<PackageReference Include="Microsoft.Agents.AI.Workflows" />
+		<!--AI Extensions-->
+		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
+		<PackageReference Include="Microsoft.Extensions.AI.Evaluation.Reporting" />
+		<!--Copilot-->
+		<PackageReference Include="Microsoft.Agents.AI.GitHub.Copilot" />
+		<!--RAG-->
+		<PackageReference Include="Microsoft.SemanticKernel.Connectors.InMemory" />
+		<PackageReference Include="Microsoft.SemanticKernel.Connectors.SqliteVec" />
+		<!--DurableTasks-->
+		<PackageReference Include="Microsoft.DurableTask.Client.Grpc" />
+		<PackageReference Include="Microsoft.DurableTask.Worker.Grpc" />
+	</ItemGroup>
+</Project>

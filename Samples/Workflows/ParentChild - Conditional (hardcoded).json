@@ -1,6 +1,6 @@
 {
-	"name": "SocialWorkflowConditionalGraph",
-	"description": "A self-sufficient workflow for testing interactions between agents",
+	"name": "ParentChild - Conditional (hardcoded)",
+	"description": "A self-sufficient workflow for testing interactions between agents with hardcoded condition",
 	"pattern": "ConditionalGraph",
 	"entrypoint": "Parent1",
 	"maxRounds": 10,

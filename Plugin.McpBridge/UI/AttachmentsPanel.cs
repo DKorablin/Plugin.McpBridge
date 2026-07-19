@@ -1,5 +1,6 @@
 ﻿using System.Drawing.Imaging;
 using Microsoft.Extensions.AI;
+using Plugin.McpBridge.Native;
 
 namespace Plugin.McpBridge.UI;
 
@@ -19,16 +20,9 @@ internal sealed class AttachmentsPanel : FlowLayoutPanel
 		this.WrapContents = false;
 	}
 
-	/// <summary>Adds an image as a thumbnail attachment with an inline remove button.</summary>
+	/// <summary>Adds an image or file as a thumbnail attachment with an inline remove button.</summary>
 	public void AddAttachment(Object data)
 	{
-		Panel attachPanel = new Panel()
-		{
-			Size = new Size(56, 56),
-			BorderStyle = BorderStyle.FixedSingle,
-			Margin = new Padding(2),
-		};
-
 		Control ctrl;
 
 		if(data is Image img)
@@ -52,6 +46,35 @@ internal sealed class AttachmentsPanel : FlowLayoutPanel
 		} else
 			throw new NotImplementedException($"Unknown attachment type {data}");
 
+		this.AddAttachmentPanel(data, ctrl, null);
+	}
+
+	/// <summary>Adds a target window as a persistent attachment; a fresh screenshot is taken each time <see cref="GetAttachments"/> is called.</summary>
+	/// <remarks>Unlike file/image attachments, window attachments are not removed by <see cref="GetAttachments"/> — only the "✕" button removes them.</remarks>
+	public void AddWindowAttachment(WindowInfo window)
+	{
+		if(this._attachments.Any(a => a.Data is WindowInfo w && w.HandleId == window.HandleId))
+			return;
+
+		PictureBox ctrl = new PictureBox()
+		{
+			Image = window.GetWindowBitmap(),
+			SizeMode = PictureBoxSizeMode.Zoom,
+			Dock = DockStyle.Fill,
+		};
+
+		this.AddAttachmentPanel(window, ctrl, window.GetWindowText());
+	}
+
+	private void AddAttachmentPanel(Object data, Control content, String? tooltip)
+	{
+		Panel attachPanel = new Panel()
+		{
+			Size = new Size(56, 56),
+			BorderStyle = BorderStyle.FixedSingle,
+			Margin = new Padding(2),
+		};
+
 		Button btnRemove = new Button()
 		{
 			Text = "✕",
@@ -66,8 +89,10 @@ internal sealed class AttachmentsPanel : FlowLayoutPanel
 		};
 		btnRemove.Click += (Object? s, EventArgs e) => this.RemoveAttachment(attachPanel, data);
 		this._toolTip.SetToolTip(btnRemove, "Remove attachment");
+		if(!String.IsNullOrEmpty(tooltip))
+			this._toolTip.SetToolTip(content, tooltip);
 
-		attachPanel.Controls.Add(ctrl);
+		attachPanel.Controls.Add(content);
 		attachPanel.Controls.Add(btnRemove);
 		btnRemove.BringToFront();
 		this.Controls.Add(attachPanel);
@@ -105,9 +130,16 @@ internal sealed class AttachmentsPanel : FlowLayoutPanel
 		this.Visible = false;
 	}
 
+	/// <summary>Removes and disposes only the non-persistent (file/image) attachments, leaving window attachments in place.</summary>
+	private void ClearFileAttachments()
+	{
+		foreach((Object data, Panel panel) in this._attachments.Where(a => a.Data is not WindowInfo).ToArray())
+			this.RemoveAttachment(panel, data);
+	}
+
 	public IEnumerable<DataContent> GetAttachments()
 	{
-		foreach(var attachment in this._attachments)
+		foreach(var attachment in this._attachments.ToArray())
 		{
 			if(attachment.Data is Image img)
 				yield return ImageToDataContent(img);
@@ -118,11 +150,20 @@ internal sealed class AttachmentsPanel : FlowLayoutPanel
 				{
 					Name = Path.GetFileName(str)
 				};
+			} else if(attachment.Data is WindowInfo window)
+			{
+				if(!window.Exists)
+				{
+					this.RemoveAttachment(attachment.AttachPanel, window);
+					continue;
+				}
+				using(Bitmap bitmap = window.GetWindowBitmap())
+					yield return ImageToDataContent(bitmap);
 			} else
 				throw new NotImplementedException($"Unknown attachment type {attachment.Data}");
 		}
 
-		this.ClearAttachments();
+		this.ClearFileAttachments();
 
 		DataContent ImageToDataContent(Image image)
 		{

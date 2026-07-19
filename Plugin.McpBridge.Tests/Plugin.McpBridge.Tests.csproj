@@ -13,6 +13,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\Plugin.McpBridge\Plugin.McpBridge.csproj" />
+		<ProjectReference Include="..\Plugin.McpBridge.Core\Plugin.McpBridge.Core.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

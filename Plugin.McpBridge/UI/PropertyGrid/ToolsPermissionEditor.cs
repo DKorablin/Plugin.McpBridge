@@ -1,21 +1,10 @@
 ﻿using System.ComponentModel;
 using System.Drawing.Design;
-using System.Globalization;
 using System.Windows.Forms.Design;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Tools;
 
 namespace Plugin.McpBridge.UI.PropertyGrid;
-
-internal sealed class ToolsPermissionConverter : ArrayConverter
-{
-	public override Object? ConvertTo(ITypeDescriptorContext? context, CultureInfo? culture, Object? value, Type destinationType)
-	{
-		if(destinationType == typeof(String))
-			return value is null ? "(All)" : value is String[] arr && arr.Length == 0 ? "(None)" : base.ConvertTo(context, culture, value, destinationType);
-		return base.ConvertTo(context, culture, value, destinationType);
-	}
-}
 
 /// <summary>Drop-down property-grid editor that renders each discovered tool method as a named, described checkbox.</summary>
 internal sealed class ToolsPermissionEditor : UITypeEditor
@@ -34,7 +23,7 @@ internal sealed class ToolsPermissionEditor : UITypeEditor
 
 	private sealed class ToolPermissionControl : UserControl
 	{
-		private readonly CheckedListBox _list = new CheckedListBox();
+		private readonly CheckedListBox _list = new MultiCheckListBox();
 		private readonly List<String> _methodNames = new List<String>();
 
 		/// <summary>Returns the unchecked method names (blocked tools), or an empty array when all items are checked (meaning all tools are allowed).</summary>
