@@ -1,13 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace Plugin.McpBridge.Native;
 
@@ -56,7 +52,7 @@ public class WindowInfo
 	}
 
 	/// <summary>Gets or sets the window caption text (uses WM_SETTEXT).</summary>
-	public String Caption
+	public String? Caption
 	{
 		get => this.IsEmpty ? null : Native.Window.GetWindowText(this.Handle);
 		set
