@@ -9,7 +9,6 @@
 		<GeneratePackageOnBuild>False</GeneratePackageOnBuild>
 		<GenerateDocumentationFile>False</GenerateDocumentationFile>
 		<CopyLocalLockFileAssemblies>True</CopyLocalLockFileAssemblies>
-		<GenerateDocumentationFile>False</GenerateDocumentationFile>
 		<NoWarn>CA1416;IDE0032;MAAI001;MAAIW001</NoWarn>
 	</PropertyGroup>
 
