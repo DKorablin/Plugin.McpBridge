@@ -5,6 +5,7 @@ using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Events;
+using Plugin.McpBridge.Native;
 using Plugin.McpBridge.UI;
 using Plugin.McpBridge.Workflows;
 using SAL.Windows;
@@ -20,6 +21,7 @@ public partial class PanelChat : UserControl
 	private CancellationTokenSource? _cts;
 	private String _conversationId = String.Empty;
 	private Boolean _updatingSessionList;
+	private WindowInfo _lastTargetWindow = new WindowInfo(IntPtr.Zero);
 
 	private sealed class SessionListItem
 	{
@@ -86,6 +88,11 @@ public partial class PanelChat : UserControl
 		this.RefreshSessionList();
 		this.LoadConversationHistory(this._conversationId);
 		this.UpdateUiState();
+
+		ctlTargetWindow.Searching += this.CtlTargetWindow_Searching;
+		ctlTargetWindow.SearchCancelled += this.CtlTargetWindow_SearchCancelled;
+		ctlTargetWindow.SearchFinished += this.CtlTargetWindow_SearchFinished;
+		ctlTargetWindow.DropDownOpening += this.CtlTargetWindow_DropDownOpening;
 	}
 
 	protected override void OnSizeChanged(EventArgs e)
@@ -185,6 +192,47 @@ public partial class PanelChat : UserControl
 
 	private void PnlConfirmation_ConfirmationHandled(Object sender, EventArgs e)
 		=> this.Invoke(this.UpdateUiState);
+
+	private void CtlTargetWindow_Searching(Object? sender, MouseEventArgs e)
+	{
+		WindowInfo foundWindow = new WindowInfo(Cursor.Position);
+		if(foundWindow != this._lastTargetWindow)
+		{
+			this._lastTargetWindow.ToggleBorder();
+			this._lastTargetWindow = foundWindow;
+			this._lastTargetWindow.ToggleBorder();
+		}
+	}
+
+	private void CtlTargetWindow_SearchCancelled(Object? sender, MouseEventArgs e)
+		=> this.ClearTargetWindowSelection();
+
+	private void CtlTargetWindow_SearchFinished(Object? sender, MouseEventArgs e)
+	{
+		WindowInfo window = this._lastTargetWindow;
+		this.ClearTargetWindowSelection();
+
+		if(!window.IsEmpty && window.IsVisible)
+			pnlAttachments.AddWindowAttachment(window);
+	}
+
+	private void ClearTargetWindowSelection()
+	{
+		this._lastTargetWindow.ToggleBorder();
+		this._lastTargetWindow = new WindowInfo(IntPtr.Zero);
+	}
+
+	private void CtlTargetWindow_DropDownOpening(Object? sender, EventArgs e)
+	{
+		ctlTargetWindow.DropDownItems.Clear();
+
+		foreach(WindowInfo window in WindowInfo.GetOpenedWindows())
+		{
+			ToolStripMenuItem item = new ToolStripMenuItem(window.GetWindowText()) { Tag = window };
+			item.Click += (s, args) => pnlAttachments.AddWindowAttachment((WindowInfo)((ToolStripMenuItem)s!).Tag!);
+			ctlTargetWindow.DropDownItems.Add(item);
+		}
+	}
 
 	private void Settings_PropertyChanged(Object? sender, PropertyChangedEventArgs e)
 	{
@@ -485,6 +533,20 @@ public partial class PanelChat : UserControl
 		Task.Run(async () => await this.InvokeMessage(request, attachments));
 	}
 
+	private void bnAttachFile_Click(Object? sender, EventArgs e)
+	{
+		using OpenFileDialog dlg = new OpenFileDialog()
+		{
+			Title = "Attach file",
+			Multiselect = true,
+			CheckFileExists = true,
+		};
+
+		if(dlg.ShowDialog(this) == DialogResult.OK)
+			foreach(String path in dlg.FileNames)
+				pnlAttachments.AddAttachment(path);
+	}
+
 	private void txtRequest_KeyDown(Object sender, KeyEventArgs e)
 	{
 		if(e.KeyCode == Keys.V && e.Control && Clipboard.ContainsImage())
@@ -517,9 +579,28 @@ public partial class PanelChat : UserControl
 	}
 
 	private void PnlAttachments_VisibleChanged(Object? sender, EventArgs e)
-		=> splitMain.SplitterDistance = pnlAttachments.Visible
-			? Math.Max(splitMain.Panel1MinSize, splitMain.SplitterDistance - pnlAttachments.Height)
-			: Math.Min(splitMain.Height - splitMain.Panel2MinSize - splitMain.SplitterWidth, splitMain.SplitterDistance + pnlAttachments.Height);
+	{
+		if(!splitMain.IsHandleCreated)
+			return;
+
+		// Deferred: while a mouse operation elsewhere (e.g. the window-target drag) still holds capture,
+		// splitMain reports a stale/zero Height, so any SplitterDistance computed here would be invalid.
+		Boolean makingVisible = pnlAttachments.Visible;
+		this.BeginInvoke(() => this.ApplyAttachmentsPanelSplit(makingVisible));
+	}
+
+	private void ApplyAttachmentsPanelSplit(Boolean attachmentsVisible)
+	{
+		Int32 minDistance = splitMain.Panel1MinSize;
+		Int32 maxDistance = splitMain.Height - splitMain.Panel2MinSize - splitMain.SplitterWidth;
+		if(maxDistance < minDistance)
+			return;
+
+		Int32 target = attachmentsVisible
+			? splitMain.SplitterDistance - pnlAttachments.Height
+			: splitMain.SplitterDistance + pnlAttachments.Height;
+		splitMain.SplitterDistance = Math.Min(maxDistance, Math.Max(minDistance, target));
+	}
 
 	private void UpdateUiState()
 	{

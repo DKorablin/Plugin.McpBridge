@@ -32,7 +32,7 @@ internal sealed class AgentHandle : IAsyncDisposable, IDisposable
 		this._asyncDisposable = asyncDisposable;
 	}
 
-	private AgentHandle(AIAgent agent, IReadOnlyList<IDisposable> ownedResources, Boolean isEvaluationCacheEnabled)
+	private AgentHandle(AIAgent agent, IReadOnlyList<IDisposable>? ownedResources, Boolean isEvaluationCacheEnabled)
 	{
 		this.Agent = agent;
 		this._ownedResources = ownedResources;
@@ -48,7 +48,7 @@ internal sealed class AgentHandle : IAsyncDisposable, IDisposable
 		=> new AgentHandle(agent, copilotClient);
 
 	/// <summary>Creates a handle that owns multiple disposable resources (e.g. one <see cref="HttpClient"/> per workflow agent).</summary>
-	internal static AgentHandle FromWorkflow(AIAgent agent, IReadOnlyList<IDisposable> ownedResources, Boolean isEvaluationCacheEnabled)
+	internal static AgentHandle FromWorkflow(AIAgent agent, IReadOnlyList<IDisposable>? ownedResources, Boolean isEvaluationCacheEnabled)
 		=> new AgentHandle(agent, ownedResources, isEvaluationCacheEnabled);
 
 	/// <inheritdoc/>

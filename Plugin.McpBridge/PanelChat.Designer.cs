@@ -37,6 +37,8 @@ partial class PanelChat
 	{
 		this.mdResponse = new MarkdownTextBox();
 		this.tsBottom = new ToolStrip();
+		this.bnAttachFile = new ToolStripButton();
+		this.ctlTargetWindow = new TargetWindowCtrl();
 		this.tsbnSend = new ToolStripSplitButton();
 		this.txtRequest = new TextBox();
 		this.tsTop = new ToolStrip();
@@ -73,12 +75,22 @@ partial class PanelChat
 		// 
 		this.tsBottom.Dock = DockStyle.Bottom;
 		this.tsBottom.GripStyle = ToolStripGripStyle.Hidden;
-		this.tsBottom.Items.AddRange(new ToolStripItem[] { this.tsbnSend });
+		this.tsBottom.Items.AddRange(new ToolStripItem[] { this.bnAttachFile, this.ctlTargetWindow, this.tsbnSend });
 		this.tsBottom.Location = new Point(0, 49);
 		this.tsBottom.Name = "tsBottom";
 		this.tsBottom.Size = new Size(175, 25);
 		this.tsBottom.TabIndex = 2;
-		// 
+		//
+		// bnAttachFile
+		//
+		this.bnAttachFile.Alignment = ToolStripItemAlignment.Left;
+		this.bnAttachFile.DisplayStyle = ToolStripItemDisplayStyle.Text;
+		this.bnAttachFile.Name = "bnAttachFile";
+		this.bnAttachFile.Size = new Size(23, 22);
+		this.bnAttachFile.Text = "\U0001F4CE";
+		this.bnAttachFile.ToolTipText = "Attach file from disk";
+		this.bnAttachFile.Click += this.bnAttachFile_Click;
+		//
 		// tsbnSend
 		// 
 		this.tsbnSend.Alignment = ToolStripItemAlignment.Right;
@@ -204,6 +216,8 @@ partial class PanelChat
 	private TextBox txtRequest;
 	private MarkdownTextBox mdResponse;
 	private ToolStrip tsBottom;
+	private ToolStripButton bnAttachFile;
+	private TargetWindowCtrl ctlTargetWindow;
 	private ToolStripSplitButton tsbnSend;
 	private ConfirmationPanel pnlConfirmation;
 	private EvaluationCacheWarningPanel pnlEvaluationCacheWarning;
