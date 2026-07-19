@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Azure;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.DurableTask;
 using Microsoft.Agents.AI.Hosting;
@@ -10,7 +9,6 @@ using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.AgUI.Agents;
 using Plugin.McpBridge.Tests;
-using Plugin.McpBridge.UI;
 using Plugin.McpBridge.Workflows;
 
 namespace Plugin.McpBridge.AgUI;
@@ -34,7 +32,6 @@ internal static class Program
 				var agentDto = settings.SelectedAgent;
 				AgentHandle agent = await _agentFactory.CreateAgent(
 					agentDto,
-					agentDto.GetSelectedProvider(settings.AiProviders),
 					settings.AiProviders,
 					bridgeTools,
 					settings.Instructions ?? String.Empty,
@@ -62,20 +59,20 @@ internal static class Program
 		return 0;
 	}
 
-	private static WebApplication BuildWebApp(String[] args, SettingsDto config, AgentHandle agent, IEnumerable<WorkflowHandle> workflows)
+	private static WebApplication BuildWebApp(String[] args, SettingsDto settings, AgentHandle agent, IEnumerable<WorkflowHandle> workflows)
 	{
 		var builder = WebApplication.CreateBuilder(args);
-		((IWebHostBuilder)builder.WebHost).UseUrls(config.UiServerUrl);
+		((IWebHostBuilder)builder.WebHost).UseUrls(settings.UiServerUrl);
 		builder.Services.Configure<ConsoleLifetimeOptions>(options => options.SuppressStatusMessages = true);
 		Program.ConfigureLogging(builder.Logging);
 
 		List<WorkflowHandle> workflowList = workflows.ToList();
-		Boolean useDurableWorkflowScheduler = config.DtsEmulatorProcessEnabled && workflowList.Count > 0;
+		Boolean useDurableWorkflowScheduler = settings.DtsEmulatorProcessEnabled && workflowList.Count > 0;
 		if(useDurableWorkflowScheduler)
 			builder.Services.ConfigureDurableWorkflows(
 				options => options.AddWorkflows(workflowList.Select(w => w.Workflow).ToArray()),
-				workerBuilder: worker => worker.UseGrpc(config.DtsEmulatorEndpoint),
-				clientBuilder: client => client.UseGrpc(config.DtsEmulatorEndpoint));
+				workerBuilder: worker => worker.UseGrpc(settings.DtsEmulatorEndpoint),
+				clientBuilder: client => client.UseGrpc(settings.DtsEmulatorEndpoint));
 
 		var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 
@@ -83,9 +80,9 @@ internal static class Program
 			.AddAIAgent(agent.Agent.Name!, (sp, name) => agent.Agent.AsBuilder().UseApproval(jsonOptions).Build(sp));
 
 		FileSystemAgentSessionStore? sessionStore = null;
-		if(config.SessionStorageDirectory != null)
+		if(settings.EnableSessionStorage && !agent.IsEvaluationCacheEnabled)
 		{// Persist sessions to disk so they survive server restarts
-			sessionStore = new FileSystemAgentSessionStore(config.SessionStorageDirectory);
+			sessionStore = new FileSystemAgentSessionStore(settings.GetSessionStorageDirectory());
 			agentBuilder.WithSessionStore(sessionStore);
 		}
 

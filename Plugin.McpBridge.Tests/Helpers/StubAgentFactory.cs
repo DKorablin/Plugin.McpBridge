@@ -25,5 +25,5 @@ internal sealed class StubAgentFactory : AgentFactory
 		CancellationToken token = default)
 		=> Task.FromResult(AgentHandle.FromChatClient(
 			this._client.AsAIAgent(instructions: systemInstructions, tools: tools, name: "stub"),
-			this._client));
+			this._client, true));
 }

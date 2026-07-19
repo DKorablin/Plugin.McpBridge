@@ -56,13 +56,15 @@ internal static class ApprovalMiddleware
 
 	/// <summary>
 	/// Converts approval request and response messages in the specified sequence to function approval messages, replacing
-	/// the original approval tool call and result with a single approval response message.
+	/// each original approval tool call and result pair with a single approval response message.
 	/// </summary>
 	/// <remarks>
-	/// This method identifies and processes messages containing a 'request_approval' tool call and its corresponding result.
-	/// Both the tool call and result are removed from the message history and replaced with a single approval response message.
-	/// If the approval response or its required data cannot be deserialized, the original message sequence is returned.
-	/// This transformation is useful for workflows that require approval steps to be represented as function approvals rather than tool calls.
+	/// This method identifies and processes messages containing one or more 'request_approval' tool calls and their
+	/// corresponding results. Each matched tool call/result pair is removed from the message history and replaced with
+	/// a single approval response message. <see cref="Microsoft.Extensions.AI.FunctionInvokingChatClient"/> throws if
+	/// any <see cref="ToolApprovalRequestContent"/> in the conversation is left without a matching
+	/// <see cref="ToolApprovalResponseContent"/>, so when several tool calls require approval in the same turn every
+	/// response present in <paramref name="messages"/> must be converted, not just the first (or last) one found.
 	/// </remarks>
 	/// <param name="messages">The sequence of chat messages to process for approval requests and responses.</param>
 	/// <param name="jsonOptions">The JSON serializer options to use when deserializing approval request and response payloads.</param>
@@ -73,75 +75,84 @@ internal static class ApprovalMiddleware
 	private static IEnumerable<ChatMessage> ConvertApprovalResponsesToFunctionApprovals(
 		IEnumerable<ChatMessage> messages, JsonSerializerOptions jsonOptions)
 	{
-		Dictionary<String, FunctionCallContent> approvalToolCalls = new Dictionary<String, FunctionCallContent>();
-		FunctionResultContent? approvalResult = null;
+		List<ChatMessage> messageList = messages as List<ChatMessage> ?? messages.ToList();
 
-		foreach(ChatMessage message in messages)
+		Dictionary<String, FunctionCallContent> approvalToolCalls = new Dictionary<String, FunctionCallContent>();
+		Dictionary<String, FunctionResultContent> approvalResults = new Dictionary<String, FunctionResultContent>();
+
+		foreach(ChatMessage message in messageList)
 			foreach(AIContent content in message.Contents)
 			{
 				if(content is FunctionCallContent { Name: "request_approval" } call)
 					approvalToolCalls[call.CallId] = call;
 				else if(content is FunctionResultContent result && approvalToolCalls.ContainsKey(result.CallId))
-					approvalResult = result;
+					approvalResults[result.CallId] = result;
 			}
 
-		if(approvalResult is null)
-			return messages;
+		if(approvalResults.Count == 0)
+			return messageList;
 
-		ApprovalResponse? response = approvalResult.Result switch
+		Dictionary<String, ToolApprovalResponseContent> responseContents = new Dictionary<String, ToolApprovalResponseContent>();
+		foreach(FunctionResultContent approvalResult in approvalResults.Values)
 		{
-			JsonElement je => je.Deserialize<ApprovalResponse>(jsonOptions),
-			String s => JsonSerializer.Deserialize<ApprovalResponse>(s, jsonOptions),
-			_ => null,
-		};
-		if(response is null)
-			return messages;
+			ApprovalResponse? response = approvalResult.Result switch
+			{
+				JsonElement je => je.Deserialize<ApprovalResponse>(jsonOptions),
+				String s => JsonSerializer.Deserialize<ApprovalResponse>(s, jsonOptions),
+				_ => null,
+			};
+			if(response is null)
+				continue;
 
-		FunctionCallContent originalToolCall = approvalToolCalls[approvalResult.CallId];
-		if(originalToolCall.Arguments?.TryGetValue("request", out Object? reqObj) != true)
-			return messages;
+			FunctionCallContent originalToolCall = approvalToolCalls[approvalResult.CallId];
+			if(originalToolCall.Arguments?.TryGetValue("request", out Object? reqObj) != true)
+				continue;
 
-		String? reqJson = reqObj switch
-		{
-			String s => s,
-			JsonElement je when je.ValueKind == JsonValueKind.String => je.GetString(),
-			_ => null,
-		};
-		if(reqJson is null || JsonSerializer.Deserialize<ApprovalRequest>(reqJson, jsonOptions) is not ApprovalRequest approvalRequest)
-			return messages;
+			String? reqJson = reqObj switch
+			{
+				String s => s,
+				JsonElement je when je.ValueKind == JsonValueKind.String => je.GetString(),
+				_ => null,
+			};
+			if(reqJson is null || JsonSerializer.Deserialize<ApprovalRequest>(reqJson, jsonOptions) is not ApprovalRequest approvalRequest)
+				continue;
 
-		Dictionary<String, Object?>? functionArguments = approvalRequest.FunctionArguments is { } args
-			? args.Deserialize<Dictionary<String, Object?>>(jsonOptions)
-			: null;
+			Dictionary<String, Object?>? functionArguments = approvalRequest.FunctionArguments is { } args
+				? args.Deserialize<Dictionary<String, Object?>>(jsonOptions)
+				: null;
 
-		FunctionCallContent originalFunctionCall = new FunctionCallContent(
-			callId: response.ApprovalId,
-			name: approvalRequest.FunctionName,
-			arguments: functionArguments);
+			FunctionCallContent originalFunctionCall = new FunctionCallContent(
+				callId: response.ApprovalId,
+				name: approvalRequest.FunctionName,
+				arguments: functionArguments);
 
-		ToolApprovalResponseContent responseContent = new ToolApprovalResponseContent(response.ApprovalId, response.Approved, originalFunctionCall);
+			responseContents[approvalResult.CallId] = new ToolApprovalResponseContent(response.ApprovalId, response.Approved, originalFunctionCall);
+		}
+
+		if(responseContents.Count == 0)
+			return messageList;
 
 		List<ChatMessage> newMessages = new List<ChatMessage>();
-		foreach(ChatMessage message in messages)
+		foreach(ChatMessage message in messageList)
 		{
-			Boolean hasApprovalResult = false;
+			ToolApprovalResponseContent? matchedResponse = null;
 			Boolean hasApprovalRequest = false;
 			foreach(AIContent content in message.Contents)
 			{
-				if(content is FunctionResultContent { CallId: var rId } && rId == approvalResult.CallId)
+				if(content is FunctionResultContent { CallId: var rId } && responseContents.TryGetValue(rId, out ToolApprovalResponseContent? rc))
 				{
-					hasApprovalResult = true;
+					matchedResponse = rc;
 					break;
 				}
-				if(content is FunctionCallContent { Name: "request_approval", CallId: var qId } && qId == approvalResult.CallId)
+				if(content is FunctionCallContent { Name: "request_approval", CallId: var qId } && responseContents.ContainsKey(qId))
 				{
 					hasApprovalRequest = true;
 					break;
 				}
 			}
 
-			if(hasApprovalResult)
-				newMessages.Add(new ChatMessage(ChatRole.User, [responseContent]));
+			if(matchedResponse is not null)
+				newMessages.Add(new ChatMessage(ChatRole.User, [matchedResponse]));
 			else if(!hasApprovalRequest)
 				newMessages.Add(message);
 			// else: skip the "request_approval" tool call — consumed, must not reach the LLM

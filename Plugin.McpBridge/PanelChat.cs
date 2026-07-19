@@ -105,7 +105,7 @@ public partial class PanelChat : UserControl
 
 	private void LoadConversationHistory(String conversationId)
 	{
-		String? sessionStorageDir = this.Plugin.Settings.SessionStorageDirectory;
+		String? sessionStorageDir = this.Plugin.Settings.GetSessionStorageDirectory();
 		if(sessionStorageDir == null)
 			return;
 		if(this._conversationId != conversationId)
@@ -131,9 +131,10 @@ public partial class PanelChat : UserControl
 		try
 		{
 			this.cbSessions.Items.Clear();
+			this.cbSessions.Items.Add("(New)");
 
 			List<SessionListItem> sessions = new List<SessionListItem>();
-			String? sessionStorageDir = this.Plugin.Settings.SessionStorageDirectory;
+			String? sessionStorageDir = this.Plugin.Settings.GetSessionStorageDirectory();
 			if(sessionStorageDir != null && Directory.Exists(sessionStorageDir))
 			{
 				var store = new FileSystemAgentSessionStore(sessionStorageDir);
@@ -156,8 +157,9 @@ public partial class PanelChat : UserControl
 			if(selected != null)
 				this.cbSessions.SelectedItem = selected;
 
-			this.cbSessions.Enabled = this.cbSessions.Items.Count > 0;
-			this.bnRemoveSession.Enabled = this.cbSessions.Enabled && this.cbSessions.SelectedItem != null;
+			Boolean evaluationCacheEnabled = this._agent?.IsEvaluationCacheEnabled ?? false;
+			this.cbSessions.Enabled = !evaluationCacheEnabled;
+			this.bnRemoveSession.Enabled = this.cbSessions.SelectedItem is SessionListItem && !evaluationCacheEnabled;
 		} finally
 		{
 			this._updatingSessionList = false;
@@ -319,15 +321,18 @@ public partial class PanelChat : UserControl
 		});
 	}
 
-	private void bnNewConversation_Click(Object sender, EventArgs e)
-		=> this.SetConversation(Guid.NewGuid().ToString(), loadHistory: false);
-
 	private void cbSessions_SelectedIndexChanged(Object? sender, EventArgs e)
 	{
-		this.bnRemoveSession.Enabled = this.cbSessions.SelectedItem != null;
+		this.bnRemoveSession.Enabled = this.cbSessions.SelectedItem is SessionListItem;
 
 		if(this._updatingSessionList)
 			return;
+
+		if(this.cbSessions.SelectedItem is String)
+		{
+			this.SetConversation(Guid.NewGuid().ToString(), loadHistory: false);
+			return;
+		}
 
 		SessionListItem? selected = this.cbSessions.SelectedItem as SessionListItem;
 		if(selected == null || selected.ConversationId == this._conversationId)
@@ -345,7 +350,7 @@ public partial class PanelChat : UserControl
 		if(MessageBox.Show("Are you sure you want to delete this session?", this.Window.Caption, MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
 			return;
 
-		SessionListItem[] currentItems = this.cbSessions.Items.Cast<SessionListItem>().ToArray();
+		SessionListItem[] currentItems = this.cbSessions.Items.OfType<SessionListItem>().ToArray();
 		Int32 selectedIndex = this.cbSessions.SelectedIndex;
 		SessionListItem? nextItem = selectedIndex switch
 		{
@@ -354,7 +359,7 @@ public partial class PanelChat : UserControl
 			_ => null
 		};
 
-		String? sessionStorageDir = this.Plugin.Settings.SessionStorageDirectory;
+		String? sessionStorageDir = this.Plugin.Settings.GetSessionStorageDirectory();
 		if(sessionStorageDir != null)
 		{
 			var store = new FileSystemAgentSessionStore(sessionStorageDir);
@@ -562,6 +567,10 @@ public partial class PanelChat : UserControl
 		if(!isProcessing && !needsConfirmation && hasTarget)
 			txtRequest.Focus();
 
-		this.bnRemoveSession.Enabled = this.cbSessions.SelectedItem != null && !isProcessing;
+		Boolean evaluationCacheEnabled = this._agent?.IsEvaluationCacheEnabled ?? false;
+		this.pnlEvaluationCacheWarning.Visible = evaluationCacheEnabled;
+		if(evaluationCacheEnabled)
+			this.cbSessions.Enabled = false;
+		this.bnRemoveSession.Enabled = this.cbSessions.SelectedItem != null && !isProcessing && !evaluationCacheEnabled;
 	}
 }

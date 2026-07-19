@@ -40,11 +40,11 @@ partial class PanelChat
 		this.tsbnSend = new ToolStripSplitButton();
 		this.txtRequest = new TextBox();
 		this.tsTop = new ToolStrip();
-		this.bnNewConversation = new ToolStripButton();
 		this.cbSessions = new ToolStripComboBox();
 		this.bnRemoveSession = new ToolStripButton();
 		this.splitMain = new SplitContainer();
 		this.pnlConfirmation = new ConfirmationPanel();
+		this.pnlEvaluationCacheWarning = new EvaluationCacheWarningPanel();
 		this.pnlInput = new Panel();
 		this.pnlAttachments = new AttachmentsPanel();
 		this.tsBottom.SuspendLayout();
@@ -117,22 +117,11 @@ partial class PanelChat
 		// tsTop
 		// 
 		this.tsTop.GripStyle = ToolStripGripStyle.Hidden;
-		this.tsTop.Items.AddRange(new ToolStripItem[] { this.bnNewConversation, this.cbSessions, this.bnRemoveSession });
+		this.tsTop.Items.AddRange(new ToolStripItem[] { this.cbSessions, this.bnRemoveSession });
 		this.tsTop.Location = new Point(0, 0);
 		this.tsTop.Name = "tsTop";
 		this.tsTop.Size = new Size(175, 25);
 		this.tsTop.TabIndex = 4;
-		// 
-		// bnNewConversation
-		// 
-		this.bnNewConversation.DisplayStyle = ToolStripItemDisplayStyle.Image;
-		this.bnNewConversation.Image = global::Plugin.McpBridge.Properties.Resources.iconNew;
-		this.bnNewConversation.ImageTransparentColor = System.Drawing.Color.Magenta;
-		this.bnNewConversation.Name = "bnNewConversation";
-		this.bnNewConversation.Size = new Size(35, 22);
-		this.bnNewConversation.Text = "New";
-		this.bnNewConversation.ToolTipText = "Start a new conversation";
-		this.bnNewConversation.Click += this.bnNewConversation_Click;
 		// 
 		// bnRemoveSession
 		// 
@@ -171,6 +160,7 @@ partial class PanelChat
 		// 
 		this.splitMain.Panel1.Controls.Add(this.mdResponse);
 		this.splitMain.Panel1.Controls.Add(this.pnlConfirmation);
+		this.splitMain.Panel1.Controls.Add(this.pnlEvaluationCacheWarning);
 		// 
 		// splitMain.Panel2
 		// 
@@ -209,7 +199,6 @@ partial class PanelChat
 
 	private SplitContainer splitMain;
 	private ToolStrip tsTop;
-	private ToolStripButton bnNewConversation;
 	private ToolStripComboBox cbSessions;
 	private ToolStripButton bnRemoveSession;
 	private TextBox txtRequest;
@@ -217,6 +206,7 @@ partial class PanelChat
 	private ToolStrip tsBottom;
 	private ToolStripSplitButton tsbnSend;
 	private ConfirmationPanel pnlConfirmation;
+	private EvaluationCacheWarningPanel pnlEvaluationCacheWarning;
 	private Panel pnlInput;
 	private AttachmentsPanel pnlAttachments;
 	private Image _imgSend;

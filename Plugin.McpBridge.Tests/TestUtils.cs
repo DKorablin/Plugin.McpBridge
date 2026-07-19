@@ -60,9 +60,10 @@ internal static class TestUtils
 		mockChatClient ??= new Mock<IChatClient>();
 
 		AiProviderDto provider = new AiProviderDto { ProviderType = AiProviderType.Local };
+		settings.AiProviders.Add(provider);
 
 		AssistantAgent assistant = new AssistantAgent(Trace, host, toolFactory, new StubAgentFactory(mockChatClient.Object));
-		await assistant.Initialize(settings, provider);
+		await assistant.Initialize(settings);
 		return assistant;
 	}
 

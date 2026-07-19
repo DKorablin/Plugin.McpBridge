@@ -28,7 +28,6 @@ internal static class Program
 				var agentDto = settings.SelectedAgent;
 				AgentHandle agent = await _agentFactory.CreateAgent(
 					agentDto,
-					agentDto.GetSelectedProvider(settings.AiProviders),
 					settings.AiProviders,
 					bridgeTools,
 					settings.Instructions ?? String.Empty,

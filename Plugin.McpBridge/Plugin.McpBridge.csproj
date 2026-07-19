@@ -32,6 +32,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<ProjectReference Include="..\Plugin.McpBridge.Core\Plugin.McpBridge.Core.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<PackageReference Include="SAL.Windows">
 			<ExcludeAssets>runtime</ExcludeAssets>
 		</PackageReference>
@@ -43,15 +47,12 @@
 		<PackageReference Include="Microsoft.Agents.AI.Workflows" />
 		<!--AI Extensions-->
 		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
-		<!--CoPilot-->
+		<PackageReference Include="Microsoft.Extensions.AI.Evaluation.Reporting" />
+		<!--Copilot-->
 		<PackageReference Include="Microsoft.Agents.AI.GitHub.Copilot" />
 		<!--RAG-->
 		<PackageReference Include="Microsoft.SemanticKernel.Connectors.InMemory" />
 		<PackageReference Include="Microsoft.SemanticKernel.Connectors.SqliteVec" />
-		<!--DurableTasks-->
-		<PackageReference Include="Microsoft.Agents.AI.DurableTask" />
-		<PackageReference Include="Microsoft.DurableTask.Client.Grpc" />
-		<PackageReference Include="Microsoft.DurableTask.Worker.Grpc" />
 	</ItemGroup>
 
 	<PropertyGroup Condition="'$(Configuration)'=='Release'">

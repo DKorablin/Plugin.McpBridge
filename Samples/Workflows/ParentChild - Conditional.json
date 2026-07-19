@@ -1,6 +1,6 @@
 {
-	"name": "RandomGuessingConditionalGraph",
-	"description": "Attempt to make a random guessing game with conditional responses",
+	"name": "ParentChild - Conditional",
+	"description": "A self-sufficient workflow for testing interactions between agents",
 	"pattern": "ConditionalGraph",
 	"entrypoint": "Parent1",
 	"maxRounds": 10,
