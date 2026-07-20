@@ -18,8 +18,6 @@
 		<Description>The core library for the SAL MCP Bridge Plugin, providing essential functionality for bridging the Model Context Protocol (MCP) with AI assistants powered by Microsoft Semantic Kernel.</Description>
 		<Authors>Danila Korablin</Authors>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
-		<PackageReadmeFile>docs\README.md</PackageReadmeFile>
-		<PackageIcon>docs\SAL.100.png</PackageIcon>
 		<RepositoryUrl>https://github.com/DKorablin/Plugin.McpBridge</RepositoryUrl>
 		<PackageTags>SAL plugin mcp model-context-protocol semantic-kernel openai azure-openai ai chat assistant</PackageTags>
 	</PropertyGroup>
