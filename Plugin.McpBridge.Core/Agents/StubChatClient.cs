@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Microsoft.Extensions.AI;
-using Plugin.McpBridge.Tools;
 
 namespace Plugin.McpBridge.Agents
 {
@@ -93,7 +92,7 @@ Result:
 				switch(lower)
 				{
 				case "invoke":
-					return Task.FromResult(BuildToolCall(nameof(PluginMethodsTools.MethodsInvoke), new Dictionary<String, Object?>
+					return Task.FromResult(BuildToolCall("MethodsInvoke", new Dictionary<String, Object?>
 					{
 						{ "pluginId", "stub-plugin" },
 						{ "methodName", "StubMethod" },
@@ -110,26 +109,26 @@ Result:
 						{ "eventLogEntryTypes", JsonSerializer.SerializeToElement(new[] { "Error", "Warning", "Information" }) },
 					}));
 				case "plugin.windowautomation methods":
-					return Task.FromResult(BuildApprovalRequest(nameof(PluginMethodsTools.MethodsList), new Dictionary<String, Object?>
+					return Task.FromResult(BuildApprovalRequest("MethodsList", new Dictionary<String, Object?>
 					{
 						{ "pluginId", "e8d66370-032d-453a-8bbd-7dbea49feb54" },
 					}));
 				case "plugin.windowautomation.getopenedwindows":
-					return Task.FromResult(BuildApprovalRequest(nameof(PluginMethodsTools.MethodsInvoke), new Dictionary<String, Object?>
+					return Task.FromResult(BuildApprovalRequest("MethodsInvoke", new Dictionary<String, Object?>
 					{
 						{ "pluginId", "e8d66370-032d-453a-8bbd-7dbea49feb54" },
 						{ "methodName", "GetOpenedWindows" },
 						{ "argumentsJson", "{}" },
 					}));
 				case "plugin.windowautomation.getwindowbitmap":
-					return Task.FromResult(BuildApprovalRequest(nameof(PluginMethodsTools.MethodsInvoke), new Dictionary<String, Object?>
+					return Task.FromResult(BuildApprovalRequest("MethodsInvoke", new Dictionary<String, Object?>
 					{
 						{ "pluginId", "e8d66370-032d-453a-8bbd-7dbea49feb54" },
 						{ "methodName", "GetWindowBitmap" },
 						{ "argumentsJson", "{\"handleId\":1}" },
 					}));
 				case "settings":
-					return Task.FromResult(BuildApprovalRequest(nameof(PluginSettingsTools.SettingsSet), new Dictionary<String, Object?>
+					return Task.FromResult(BuildApprovalRequest("SettingsSet", new Dictionary<String, Object?>
 					{
 						{ "pluginId", "stub-plugin" },
 						{ "settingName", "StubSetting" },

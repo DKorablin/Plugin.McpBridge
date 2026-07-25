@@ -1,18 +1,18 @@
 ﻿using System.Diagnostics;
 using Microsoft.Extensions.AI;
-using SAL.Flatbed;
+using Plugin.McpBridge.Core;
 
 namespace Plugin.McpBridge.Tools;
 
 /// <summary>Catches tool exceptions and returns the message as a string so the LLM receives a result rather than a broken conversation.</summary>
-internal sealed class ToolFacade : DelegatingAIFunction
+internal class ToolFacade : DelegatingAIFunction
 {
-	private readonly ITraceSource _trace;
+	private readonly IMcpTrace _trace;
 	private readonly Dictionary<String, Object?> _additionalProperties;
 
 	public override IReadOnlyDictionary<String, Object?> AdditionalProperties => this._additionalProperties;
 
-	public ToolFacade(ITraceSource trace, AIFunction function, Boolean confirmationRequired = false)
+	public ToolFacade(IMcpTrace trace, AIFunction function, Boolean confirmationRequired = false)
 		: base(function)
 	{
 		this._additionalProperties = new Dictionary<String, Object?>(function.AdditionalProperties);
@@ -22,7 +22,7 @@ internal sealed class ToolFacade : DelegatingAIFunction
 		this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
 	}
 
-	public ToolFacade(ITraceSource trace, Delegate method, Boolean confirmationRequired = false)
+	public ToolFacade(IMcpTrace trace, Delegate method, Boolean confirmationRequired = false)
 		: this(trace, AIFunctionFactory.Create(method), confirmationRequired)
 	{
 	}

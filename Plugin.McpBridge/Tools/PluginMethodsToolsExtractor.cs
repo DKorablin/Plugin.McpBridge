@@ -7,14 +7,12 @@ namespace Plugin.McpBridge.Tools;
 internal class PluginMethodsToolsExtractor : ToolsDiscoveryBase
 {
 	private readonly IHost _host;
-	private readonly Settings _settings;
 	private readonly AiAgentDto _agent;
 	private readonly XmlReflectionReader _xmlReader;
 
-	public PluginMethodsToolsExtractor(IHost host, Settings settings, AiAgentDto agent)
+	public PluginMethodsToolsExtractor(IHost host, AiAgentDto agent)
 	{
 		this._host = host ?? throw new ArgumentNullException(nameof(host));
-		this._settings = settings ?? throw new ArgumentNullException(nameof(settings));
 		this._agent = agent ?? throw new ArgumentNullException(nameof(agent));
 		this._xmlReader = new XmlReflectionReader();
 	}

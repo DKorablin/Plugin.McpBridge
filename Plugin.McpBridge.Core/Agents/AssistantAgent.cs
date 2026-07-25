@@ -1,101 +1,61 @@
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using System.Text;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting;
-using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
+using Plugin.McpBridge.Core;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Events;
 using Plugin.McpBridge.Tools;
-using Plugin.McpBridge.Workflows;
-using SAL.Flatbed;
 
 namespace Plugin.McpBridge.Agents;
 
 /// <summary>Manages the MAF AIAgent instance and drives the multi-turn agent loop.</summary>
-internal class AssistantAgent : IDisposable
+public class AssistantAgent : IDisposable
 {
-	private readonly ITraceSource _trace;
-	private readonly IHost _host;
-	private readonly ToolsFactory _toolsFactory;
 	private readonly AgentFactory _agentFactory;
-	private AgentHandle? _handle;
-	private AgentSession? _session;
-	private AgentSessionStore? _sessionStore;
-	private String? _conversationId;
-
-	private String _sessionScopeName = FileSystemAgentSessionStore.DefaultAgentName;
-	private String _targetName = FileSystemAgentSessionStore.DefaultAgentName;
 
 	public event EventHandler<AgentResponseEventArgs>? AiResponseReceived;
 	public event EventHandler<AgentConfirmationEventArgs>? ConfirmationRequired;
 
-	public String AgentName => this._handle?.Agent.Name ?? FileSystemAgentSessionStore.DefaultAgentName;
+	public String AgentName => this.Handle?.Agent.Name ?? FileSystemAgentSessionStore.DefaultAgentName;
 
-	public String SessionScopeName => this._sessionScopeName;
+	public String SessionScopeName { get; protected set; } = FileSystemAgentSessionStore.DefaultAgentName;
 
-	public String TargetName => this._targetName;
+	public Boolean IsEvaluationCacheEnabled => this.Handle?.IsEvaluationCacheEnabled ?? false;
 
-	public Boolean IsEvaluationCacheEnabled => this._handle?.IsEvaluationCacheEnabled ?? false;
+	protected IMcpTrace Trace { get; }
+	protected AIFunction[] Tools { get; }
+	protected AgentHandle? Handle { get; set; }
+	protected AgentSession? Session { get; set; }
+	protected AgentSessionStore? SessionStore { get; set; }
+	protected String? ConversationId { get; set; }
 
-	public AssistantAgent(
-		ITraceSource trace,
-		IHost host,
-		ToolsFactory toolsFactory,
-		AgentFactory? agentFactory)
+	public AssistantAgent(IMcpTrace trace, ToolsFactory toolsFactory, AgentFactory agentFactory)
 	{
-		this._host = host ?? throw new ArgumentNullException(nameof(host));
-		this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
-		this._toolsFactory = toolsFactory ?? throw new ArgumentNullException(nameof(toolsFactory));
+		this.Trace = trace ?? throw new ArgumentNullException(nameof(trace));
+		_ = toolsFactory ?? throw new ArgumentNullException(nameof(toolsFactory));
+
+		this.Tools = toolsFactory.CreateTools(this.Trace).ToArray();
 		this._agentFactory = agentFactory ?? throw new ArgumentNullException(nameof(agentFactory));
 	}
 
-	public virtual async Task Initialize(Settings settings, AgentSessionStore? sessionStore = null, String? conversationId = null)
+	public virtual async Task Initialize(Settings settings, String instructions, AgentSessionStore? sessionStore = null, String? conversationId = null)
 	{
 		_ = settings ?? throw new ArgumentNullException(nameof(settings));
+		_ = instructions ?? throw new ArgumentNullException(nameof(instructions));
 
-		this.ResetState(sessionStore, conversationId);
+		this.SessionStore = sessionStore;
+		this.ConversationId = conversationId;
+		this.ResetState();
 
-		var tools = this._toolsFactory.CreateTools(this._trace).ToArray();
-		var instructions = AgentFactory.BuildSystemInstructions(settings, settings.SelectedAgent, this._host);
-		var provider = settings.SelectedAgent.GetSelectedProvider(settings.AiProviders) as NetworkProviderDto;
+		this.Handle = await this.CreateAgent(this.Tools, instructions, settings.SelectedAgent, settings.AiProviders);
+		this.SessionScopeName = this.Handle.Agent.Name;
 
-		this._handle = await this.CreateAgent(tools, instructions, settings.SelectedAgent, settings.AiProviders);
-		this._sessionScopeName = this._handle.Agent.Name;
-		this._targetName = this._handle.Agent.Name;
+		if(!this.Handle.IsEvaluationCacheEnabled && this.SessionStore != null && this.ConversationId != null)
+			this.Session = await this.SessionStore.GetSessionAsync(this.Handle.Agent, this.ConversationId, CancellationToken.None);
 
-		if(!this._handle.IsEvaluationCacheEnabled && this._sessionStore != null && this._conversationId != null)
-			this._session = await this._sessionStore.GetSessionAsync(this._handle.Agent, this._conversationId, CancellationToken.None);
-
-		this._trace.TraceEvent(TraceEventType.Verbose, 0, $"Initialized AssistantAgent with instructions '{instructions}'.");
-	}
-
-	public async Task InitializeWorkflow(
-		Settings settings,
-		WorkflowFactoryItem workflow,
-		AgentSessionStore? sessionStore = null,
-		String? conversationId = null,
-		CancellationToken token = default)
-	{
-		_ = settings ?? throw new ArgumentNullException(nameof(settings));
-		_ = workflow ?? throw new ArgumentNullException(nameof(workflow));
-
-		this.ResetState(sessionStore, conversationId);
-
-		var tools = this._toolsFactory.CreateTools(this._trace).ToArray();
-		WorkflowLoader2 loader = new WorkflowLoader2(settings, workflow.WorkflowPath);
-		WorkflowHandle workflowHandle = await loader.BuildAsync(settings.AiProviders, tools, token);
-		var agent = workflowHandle.Workflow.AsAIAgent(name: workflow.Name);
-		this._handle = AgentHandle.FromWorkflow(agent, null, workflowHandle.IsEvaluationCacheEnabled);
-
-		this._sessionScopeName = workflow.Name;
-		this._targetName = workflow.Name;
-
-		if(!this._handle.IsEvaluationCacheEnabled && this._sessionStore != null && this._conversationId != null)
-			this._session = await this._sessionStore.GetSessionAsync(this._handle.Agent, this._conversationId, token);
-
-		this._trace.TraceEvent(TraceEventType.Verbose, 0, $"Initialized workflow AssistantAgent for '{workflow.Name}'.");
+		this.Trace.TraceEvent(TraceEventType.Verbose, 0, $"Initialized AssistantAgent with instructions '{instructions}'.");
 	}
 
 	protected virtual async Task<AgentHandle> CreateAgent(AIFunction[] tools, String instructions, AiAgentDto agent, IEnumerable<AiProviderDto> providers, CancellationToken token = default)
@@ -111,26 +71,26 @@ internal class AssistantAgent : IDisposable
 		if(String.IsNullOrWhiteSpace(message))
 			throw new ArgumentNullException(nameof(message), "Message cannot be null or whitespace. Provide a valid message to invoke the agent.");
 
-		if(this._handle == null)
+		if(this.Handle == null)
 			throw new InvalidOperationException("Agent is not initialized. Call Initialize or InitializeWorkflow before invoking messages.");
 
 		String traceMessage = "< " + message;
 		if(files?.Length> 0)
 			traceMessage += " Attachments: " + String.Join(", ", files.Select(f => $"{f.Name} Length: {f.Data.Length}"));
 
-		this._trace.TraceEvent(TraceEventType.Verbose, 0, traceMessage);
+		this.Trace.TraceEvent(TraceEventType.Verbose, 0, traceMessage);
 
-		if(!this.IsEvaluationCacheEnabled && this._session == null)
-			this._session = await this._handle.Agent.CreateSessionAsync(cancellationToken);
+		if(!this.IsEvaluationCacheEnabled && this.Session == null)
+			this.Session = await this.Handle.Agent.CreateSessionAsync(cancellationToken);
 
 		ChatMessage chatMessage = BuildUserMessage(message, files);
 		if(useStreaming)
 			await this.ProcessStreamingMessage(chatMessage, cancellationToken);
 		else
-			await this.ProcessMessage(chatMessage, this._handle.Agent, cancellationToken);
+			await this.ProcessMessage(chatMessage, this.Handle.Agent, cancellationToken);
 
-		if(this._sessionStore != null && this._conversationId != null && this._session != null)
-			await this._sessionStore.SaveSessionAsync(this._handle.Agent, this._conversationId, this._session, cancellationToken);
+		if(this.SessionStore != null && this.ConversationId != null && this.Session != null)
+			await this.SessionStore.SaveSessionAsync(this.Handle.Agent, this.ConversationId, this.Session, cancellationToken);
 
 		static ChatMessage BuildUserMessage(String text, DataContent[]? files = null)
 		{
@@ -155,7 +115,7 @@ internal class AssistantAgent : IDisposable
 
 	private async Task ProcessMessage(ChatMessage message, AIAgent agent, CancellationToken token)
 	{
-		AgentResponse response = await agent.RunAsync(message, this._session, null, token);
+		AgentResponse response = await agent.RunAsync(message, this.Session, null, token);
 		while(response.FinishReason == ChatFinishReason.ToolCalls)
 		{
 			ToolApprovalRequestContent request = (ToolApprovalRequestContent)response.Messages[^1].Contents[0];
@@ -164,14 +124,14 @@ internal class AssistantAgent : IDisposable
 				Boolean approved = await this.OnConfirmationRequiredAsync(new AgentConfirmationEventArgs(function));
 				ToolApprovalResponseContent approvalResponse = request.CreateResponse(approved);
 				ChatMessage approvalMessage = new ChatMessage(ChatRole.User, [approvalResponse]);
-				response = await agent.RunAsync(approvalMessage, this._session, null, token);
+				response = await agent.RunAsync(approvalMessage, this.Session, null, token);
 			} else
 				break;
 		}
 
-		this._trace.TraceEvent(TraceEventType.Verbose, 0, "> " + response.ToString());
+		this.Trace.TraceEvent(TraceEventType.Verbose, 0, "> " + response.ToString());
 		if(response.Usage != null)
-			this._trace.TraceEvent(TraceEventType.Verbose, 0, $"AgentId: {response.AgentId} Tokens: {String.Join(Environment.NewLine, Utils.ParseTokenUsageCount(response.Usage))}");
+			this.Trace.TraceEvent(TraceEventType.Verbose, 0, $"AgentId: {response.AgentId} Tokens: {String.Join(Environment.NewLine, Utils.ParseTokenUsageCount(response.Usage))}");
 
 		ChatMessage finalMessage = new ChatMessage(ChatRole.Assistant, response.Text) {AuthorName = response.AgentId, CreatedAt = response.CreatedAt};
 		this.OnAiResponseReceived(new AgentResponseEventArgs(finalMessage, true));
@@ -181,7 +141,7 @@ internal class AssistantAgent : IDisposable
 	{
 		while(true)
 		{
-			IAsyncEnumerable<AgentResponseUpdate> stream = this._handle.Agent.RunStreamingAsync(message, this._session, null, cancellationToken);
+			IAsyncEnumerable<AgentResponseUpdate> stream = this.Handle.Agent.RunStreamingAsync(message, this.Session, null, cancellationToken);
 			ToolApprovalResponseContent? approvalResponse = await this.HandleStreamingResponseAsync(stream, cancellationToken);
 
 			if(approvalResponse == null)
@@ -208,7 +168,7 @@ internal class AssistantAgent : IDisposable
 			if(update.Contents.Count == 0 && update.FinishReason == ChatFinishReason.Stop)
 			{
 				ChatMessage message = new ChatMessage(ChatRole.Assistant, responseCache.ToString()) { AuthorName = update.AuthorName, CreatedAt = update.CreatedAt };
-				this._trace.TraceEvent(TraceEventType.Verbose, 0, "> " + message.Text);
+				this.Trace.TraceEvent(TraceEventType.Verbose, 0, "> " + message.Text);
 				this.OnAiResponseReceived(new AgentResponseEventArgs(message, false));
 				responseCache.Clear();
 				continue;
@@ -228,7 +188,7 @@ internal class AssistantAgent : IDisposable
 				} else if(content is TextContent textContent && !String.IsNullOrEmpty(textContent.Text))
 					responseCache.Append(textContent.Text);
 				else if(content is UsageContent usageContent)
-					this._trace.TraceEvent(TraceEventType.Verbose, 0, $"AuthorName: {update.AuthorName} Tokens: {String.Join(Environment.NewLine, Utils.ParseTokenUsageCount(usageContent.Details))}");
+					this.Trace.TraceEvent(TraceEventType.Verbose, 0, $"AuthorName: {update.AuthorName} Tokens: {String.Join(Environment.NewLine, Utils.ParseTokenUsageCount(usageContent.Details))}");
 				else if(content is ToolApprovalRequestContent request)
 				{
 					if(request.ToolCall is FunctionCallContent function)
@@ -238,16 +198,16 @@ internal class AssistantAgent : IDisposable
 					} else
 						break;
 				} else if(content.RawRepresentation is GitHub.Copilot.SessionModelChangeEvent newModel && newModel.Data.NewModel != null)
-					this._trace.TraceEvent(TraceEventType.Verbose, 0, $"GitHub -> Model used: {newModel.Data.NewModel}");
+					this.Trace.TraceEvent(TraceEventType.Verbose, 0, $"GitHub -> Model used: {newModel.Data.NewModel}");
 				else if(content.RawRepresentation is GitHub.Copilot.SystemMessageEvent systemMessage)
-					this._trace.TraceEvent(TraceEventType.Verbose, 0, $"GitHub -> Content: {systemMessage.Data.Content}");
+					this.Trace.TraceEvent(TraceEventType.Verbose, 0, $"GitHub -> Content: {systemMessage.Data.Content}");
 			}
 		}
 
 		if(responseCache.Length > 0)
 		{
 			ChatMessage message = new ChatMessage(ChatRole.Assistant, responseCache.ToString()) { AuthorName = this.AgentName, CreatedAt = DateTimeOffset.UtcNow };
-			this._trace.TraceEvent(TraceEventType.Verbose, 0, "> " + message.Text);
+			this.Trace.TraceEvent(TraceEventType.Verbose, 0, "> " + message.Text);
 			this.OnAiResponseReceived(new AgentResponseEventArgs(message, false));
 		}
 
@@ -256,16 +216,13 @@ internal class AssistantAgent : IDisposable
 
 	/// <inheritdoc/>
 	public void Dispose()
-		=> this._handle?.Dispose();
+		=> this.Handle?.Dispose();
 
-	private void ResetState(AgentSessionStore? sessionStore, String? conversationId)
+	protected void ResetState()
 	{
-		this._session = null;
-		this._sessionStore = sessionStore;
-		this._conversationId = conversationId;
-		this._sessionScopeName = FileSystemAgentSessionStore.DefaultAgentName;
-		this._targetName = FileSystemAgentSessionStore.DefaultAgentName;
-		this._handle?.Dispose();
-		this._handle = null;
+		this.Session = null;
+		this.SessionScopeName = FileSystemAgentSessionStore.DefaultAgentName;
+		this.Handle?.Dispose();
+		this.Handle = null;
 	}
 }

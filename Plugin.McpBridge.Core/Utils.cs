@@ -4,40 +4,12 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.AI;
-using SAL.Flatbed;
 
 namespace Plugin.McpBridge;
 
 internal static class Utils
 {
 	private static readonly Char[] InvalidFileNameChars = Path.GetInvalidFileNameChars();
-
-	public static Object?[] ConvertArgumentsValue(IPluginMethodInfo method, String argumentsJson)
-	{
-		using(JsonDocument doc = JsonDocument.Parse(argumentsJson))
-		{
-			JsonElement root = doc.RootElement;
-
-			var arguments = method.GetParameters().ToArray();
-			var result = new Object?[arguments.Length];
-
-			for(var loop = 0; loop < arguments.Length; loop++)
-			{
-				var argument = arguments[loop];
-
-				if(root.TryGetProperty(argument.Name, out JsonElement element))
-				{
-					Type targetType = Type.GetType(argument.AssemblyQualifiedName, true)
-						?? throw new InvalidOperationException($"Could not resolve type '{argument.TypeName}' for argument '{argument.Name}'.");
-
-					result[loop] = Utils.ConvertValue(element.GetRawText(), targetType);
-				} else
-					result[loop] = null; // Or handle missing arguments as needed
-			}
-
-			return result;
-		}
-	}
 
 	public static Object? ConvertValue(String valueJson, Type targetType)
 	{

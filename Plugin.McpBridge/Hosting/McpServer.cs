@@ -6,7 +6,7 @@ using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
 using SAL.Flatbed;
 
-namespace Plugin.McpBridge.Mcp;
+namespace Plugin.McpBridge.Hosting;
 
 /// <summary>MCP-compliant HTTP/SSE server (JSON-RPC 2.0) that exposes plugin tools to the out-of-process DevUI executable.</summary>
 internal sealed class McpServer : IDisposable
@@ -172,7 +172,7 @@ internal sealed class McpServer : IDisposable
 		=> new JsonObject
 		{
 			["protocolVersion"] = "2025-03-26",
-			["serverInfo"] = new JsonObject { ["name"] = typeof(McpServer).Assembly.GetName().Name, ["version"] = "1.0" },
+			["serverInfo"] = new JsonObject { ["name"] = Plugin.GetAssemblyName(), ["version"] = "1.0" },
 			["capabilities"] = new JsonObject { ["tools"] = new JsonObject() },
 		};
 

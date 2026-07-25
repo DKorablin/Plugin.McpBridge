@@ -4,7 +4,7 @@ using Microsoft.Agents.AI.Hosting;
 using Microsoft.DurableTask.Client;
 using Microsoft.DurableTask.Worker;
 using Plugin.McpBridge.Agents;
-using Plugin.McpBridge.Tests;
+using Plugin.McpBridge.Core.Remoting;
 using Plugin.McpBridge.Workflows;
 
 namespace Plugin.McpBridge.DevUI;

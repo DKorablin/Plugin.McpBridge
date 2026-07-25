@@ -1,19 +1,18 @@
 ﻿using System.ComponentModel;
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 using SAL.Flatbed;
 
 namespace Plugin.McpBridge.Tools;
 
-internal sealed class PluginMethodsTools : ToolsDiscoveryBase
+internal class PluginMethodsTools : ToolsDiscoveryBase
 {
 	private readonly IHost _host;
-	private readonly XmlReflectionReader _xmlReader;
 
 	public PluginMethodsTools(IHost host)
 	{
 		this._host = host ?? throw new ArgumentNullException(nameof(host));
-		this._xmlReader = new XmlReflectionReader();
 	}
 
 	[Tool]
@@ -83,7 +82,7 @@ internal sealed class PluginMethodsTools : ToolsDiscoveryBase
 		if(member.MemberType == MemberTypes.Method)
 		{
 			var method = (IPluginMethodInfo)member;
-			var arguments = Utils.ConvertArgumentsValue(method, argumentsJson);
+			var arguments = ConvertArgumentsValue(method, argumentsJson);
 			var result = method.Invoke(arguments);
 
 			return Task.FromResult<Object?>(result);
@@ -94,5 +93,32 @@ internal sealed class PluginMethodsTools : ToolsDiscoveryBase
 		exc.Data.Add(nameof(methodName), methodName);
 		exc.Data.Add(nameof(argumentsJson), argumentsJson);
 		throw exc;
+	}
+
+	private static Object?[] ConvertArgumentsValue(IPluginMethodInfo method, String argumentsJson)
+	{
+		using(JsonDocument doc = JsonDocument.Parse(argumentsJson))
+		{
+			JsonElement root = doc.RootElement;
+
+			var arguments = method.GetParameters().ToArray();
+			var result = new Object?[arguments.Length];
+
+			for(var loop = 0; loop < arguments.Length; loop++)
+			{
+				var argument = arguments[loop];
+
+				if(root.TryGetProperty(argument.Name, out JsonElement element))
+				{
+					Type targetType = Type.GetType(argument.AssemblyQualifiedName, true)
+						?? throw new InvalidOperationException($"Could not resolve type '{argument.TypeName}' for argument '{argument.Name}'.");
+
+					result[loop] = Utils.ConvertValue(element.GetRawText(), targetType);
+				} else
+					result[loop] = null; // Or handle missing arguments as needed
+			}
+
+			return result;
+		}
 	}
 }

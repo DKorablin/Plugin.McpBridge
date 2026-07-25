@@ -56,11 +56,6 @@ namespace Plugin.McpBridge.Tests.Tools
 		#endregion
 
 		private static ToolsFactory CreateFactory(IPluginDescription? pluginDescription = null)
-		{
-			(IHost host, PluginSettingsTools _, PluginMethodsTools _, ShellTools _) = TestUtils.CreateDependencies(pluginDescription);
-			Settings settings = new Settings();
-			AiAgentDto agent = settings.SelectedAgent;
-			return new ToolsFactory(host, settings, agent);
-		}
+			=> TestUtils.CreateToolFactory(pluginDescription);
 	}
 }

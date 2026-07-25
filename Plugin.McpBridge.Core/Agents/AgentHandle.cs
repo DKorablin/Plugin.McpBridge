@@ -4,7 +4,7 @@ using Microsoft.Extensions.AI;
 namespace Plugin.McpBridge.Agents;
 
 /// <summary>Owns the lifetime of an AI agent and its underlying client resource.</summary>
-internal sealed class AgentHandle : IAsyncDisposable, IDisposable
+public class AgentHandle : IAsyncDisposable, IDisposable
 {
 	private readonly IDisposable? _syncDisposable;
 	private readonly IAsyncDisposable? _asyncDisposable;

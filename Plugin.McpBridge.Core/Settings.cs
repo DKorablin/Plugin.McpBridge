@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Runtime.Serialization.Json;
+using Plugin.McpBridge.Core.Remoting;
 using Plugin.McpBridge.Data;
-using Plugin.McpBridge.Tests;
 using Plugin.McpBridge.UI.PropertyGrid.Converters;
 
 namespace Plugin.McpBridge
@@ -188,11 +188,11 @@ namespace Plugin.McpBridge
 		[DefaultValue(false)]
 		public Boolean DevUIEnabled
 		{
-			get => this._devUIEnabled && ProcessHost.GetExePath(ProcessHost.ExeType.DevUI, false) != null;
+			get => this._devUIEnabled && ProcessHost.GetProcessPath(ProcessType.DevUI, false) != null;
 			set
 			{
 				if(value)
-					_ = ProcessHost.GetExePath(ProcessHost.ExeType.DevUI, true);
+					_ = ProcessHost.GetProcessPath(ProcessType.DevUI, true);
 
 				this.SetField(ref this._devUIEnabled, value, nameof(this.DevUIEnabled));
 			}
@@ -220,11 +220,11 @@ namespace Plugin.McpBridge
 		[DefaultValue(false)]
 		public Boolean AgUIEnabled
 		{
-			get => this._agUIEnabled && ProcessHost.GetExePath(ProcessHost.ExeType.AgUI, false) != null;
+			get => this._agUIEnabled && ProcessHost.GetProcessPath(ProcessType.AgUI, false) != null;
 			set
 			{
 				if(value)
-					_ = ProcessHost.GetExePath(ProcessHost.ExeType.AgUI, true);
+					_ = ProcessHost.GetProcessPath(ProcessType.AgUI, true);
 
 				this.SetField(ref this._agUIEnabled, value, nameof(this.AgUIEnabled));
 			}
@@ -253,11 +253,11 @@ namespace Plugin.McpBridge
 		[DefaultValue(false)]
 		public Boolean RagProcessEnabled
 		{
-			get => this._ragProcessEnabled && ProcessHost.GetExePath(ProcessHost.ExeType.RAG, false) != null;
+			get => this._ragProcessEnabled && ProcessHost.GetProcessPath(ProcessType.RAG, false) != null;
 			set
 			{
 				if(value)
-					_ = ProcessHost.GetExePath(ProcessHost.ExeType.RAG, true);
+					_ = ProcessHost.GetProcessPath(ProcessType.RAG, true);
 
 				this.SetField(ref this._ragProcessEnabled, value, nameof(this.RagProcessEnabled));
 			}
@@ -292,11 +292,11 @@ namespace Plugin.McpBridge
 		[DefaultValue(false)]
 		public Boolean DtsEmulatorProcessEnabled
 		{
-			get => this._dtsEmulatorProcessEnabled && ProcessHost.GetExePath(ProcessHost.ExeType.DTS, false) != null;
+			get => this._dtsEmulatorProcessEnabled && ProcessHost.GetProcessPath(ProcessType.DTS, false) != null;
 			set
 			{
 				if(value)
-					_ = ProcessHost.GetExePath(ProcessHost.ExeType.DTS, true);
+					_ = ProcessHost.GetProcessPath(ProcessType.DTS, true);
 
 				this.SetField(ref this._dtsEmulatorProcessEnabled, value, nameof(this.DtsEmulatorProcessEnabled));
 			}
@@ -356,36 +356,36 @@ namespace Plugin.McpBridge
 			set => _ = value;
 		}
 
-		internal IEnumerable<ProcessHost.ExeType> EnabledProcesses
+		internal IEnumerable<ProcessType> EnabledProcesses
 		{
 			get
 			{
 				if(this.DevUIEnabled)
-					yield return ProcessHost.ExeType.DevUI;
+					yield return ProcessType.DevUI;
 				if(this.AgUIEnabled)
-					yield return ProcessHost.ExeType.AgUI;
+					yield return ProcessType.AgUI;
 				if(this.RagProcessEnabled)
-					yield return ProcessHost.ExeType.RAG;
+					yield return ProcessType.RAG;
 				if(this.DtsEmulatorProcessEnabled)
-					yield return ProcessHost.ExeType.DTS;
+					yield return ProcessType.DTS;
 			}
 		}
 
 		/// <summary>Disables a process type due to failure.</summary>
-		internal void DisableProcess(ProcessHost.ExeType exeType)
+		internal void DisableProcess(ProcessType exeType)
 		{
 			switch(exeType)
 			{
-			case ProcessHost.ExeType.DevUI:
+			case ProcessType.DevUI:
 				this.DevUIEnabled = false;
 				break;
-			case ProcessHost.ExeType.AgUI:
+			case ProcessType.AgUI:
 				this.AgUIEnabled = false;
 				break;
-			case ProcessHost.ExeType.RAG:
+			case ProcessType.RAG:
 				this.RagProcessEnabled = false;
 				break;
-			case ProcessHost.ExeType.DTS:
+			case ProcessType.DTS:
 				this.DtsEmulatorProcessEnabled = false;
 				break;
 			default:

@@ -1,49 +1,36 @@
 ﻿using System.Diagnostics;
 using System.Runtime.Serialization.Json;
-using Plugin.McpBridge.Agents;
-using SAL.Flatbed;
 
-namespace Plugin.McpBridge.Tests;
+namespace Plugin.McpBridge.Core.Remoting;
 
 /// <summary>Launches and manages the DevUI executable as a child process for local agent diagnostics.</summary>
 internal sealed class ProcessHost : IDisposable
 {
 	private const String ExeNameArgs1 = "Plugin.McpBridge.{0}.exe";
 	private String ConfigName => $"McpBridge.{_exeType}.{Guid.NewGuid():N}.json";
-	private String TraceName => $"{typeof(ProcessHost).Assembly.GetName().Name}.{this._exeType}";
 
-	private readonly IHost _host;
-	private readonly ExeType _exeType;
-	private readonly ITraceSource _trace;
-	private readonly Action<ExeType, Int32>? _onProcessFailed;
+	private readonly ProcessType _exeType;
+	private readonly IMcpTrace _trace;
+	private readonly Action<ProcessType, Int32>? _onProcessFailed;
 	private Process? _process;
 
-	public enum ExeType
+	public ProcessHost(ProcessType type, IMcpTrace trace, Action<ProcessType, Int32>? onProcessFailed = null)
 	{
-		DevUI,
-		AgUI,
-		RAG,
-		DTS,
-	}
-
-	public ProcessHost(IHost host, ExeType type, Action<ExeType, Int32>? onProcessFailed = null)
-	{
-		this._host = host ?? throw new ArgumentNullException(nameof(host));
 		this._exeType = type;
-		this._trace = host.Plugins.CreateTraceSource(this.TraceName);
+		this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
 		this._onProcessFailed = onProcessFailed;
 	}
 
 	/// <summary>Serializes the current settings into a temp config file and launches the DevUI process.</summary>
-	public Task StartAsync(Settings settings, CancellationToken cancellationToken = default)
+	public Task StartAsync(Settings settings, String instructions, CancellationToken cancellationToken = default)
 	{
 		if(this._process != null)
 			this.Stop();
 
-		String exePath = this.GetExePath();
+		String exePath = this.GetProcessPath();
 		String configPath = Path.Combine(Path.GetTempPath(), this.ConfigName);
 
-		SettingsDto config = this.BuildConfig(settings);
+		SettingsDto config = this.BuildConfig(settings, instructions);
 		DataContractJsonSerializer serializer = new DataContractJsonSerializer(typeof(SettingsDto));
 		using(FileStream stream = File.Create(configPath))
 			serializer.WriteObject(stream, config);
@@ -109,7 +96,7 @@ internal sealed class ProcessHost : IDisposable
 	public void Dispose()
 		=> this.Stop();
 
-	public static String? GetExePath(ExeType type, Boolean throwException = false)
+	public static String? GetProcessPath(ProcessType type, Boolean throwException = false)
 	{
 		String exeName = String.Format(ExeNameArgs1, type);
 		String? assemblyDir = Path.GetDirectoryName(typeof(ProcessHost).Assembly.Location);
@@ -154,20 +141,20 @@ internal sealed class ProcessHost : IDisposable
 		this._trace.TraceEvent(TraceEventType.Warning, 0, $"Error received from process {this._exeType}: {e.Data ?? "<null>"}");
 	}
 
-	private String GetExePath()
-		=> GetExePath(this._exeType, true)!;
+	private String GetProcessPath()
+		=> GetProcessPath(this._exeType, true)!;
 
-	private SettingsDto BuildConfig(Settings settings)
+	private SettingsDto BuildConfig(Settings settings, String instructions)
 	{
 		String serverUrl = this._exeType switch
 		{
-			ExeType.DevUI => settings.DevUIServerUrl,
-			ExeType.AgUI => settings.AgUIServerUrl,
-			ExeType.RAG => String.Empty,
-			ExeType.DTS => settings.DtsEmulatorEndpoint,
+			ProcessType.DevUI => settings.DevUIServerUrl,
+			ProcessType.AgUI => settings.AgUIServerUrl,
+			ProcessType.RAG => String.Empty,
+			ProcessType.DTS => settings.DtsEmulatorEndpoint,
 			_ => throw new InvalidOperationException($"Unsupported executable: {this._exeType}"),
 		};
 
-		return new SettingsDto(serverUrl, settings, AgentFactory.BuildSystemInstructions(settings, settings.SelectedAgent, this._host));
+		return new SettingsDto(serverUrl, settings, instructions);
 	}
 }

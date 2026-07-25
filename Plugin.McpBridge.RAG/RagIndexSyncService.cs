@@ -1,14 +1,11 @@
-﻿using System.ClientModel;
-using System.ClientModel.Primitives;
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
-using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel.Connectors.SqliteVec;
 using Plugin.McpBridge.Agents;
+using Plugin.McpBridge.Core.Remoting;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.RAG;
-using Plugin.McpBridge.Tests;
 
 namespace Plugin.McpBridge.RAGHost;
 

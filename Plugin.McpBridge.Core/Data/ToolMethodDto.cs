@@ -7,4 +7,4 @@ namespace Plugin.McpBridge.Data;
 /// <param name="Name">The unique name that identifies the tool method.</param>
 /// <param name="Description">A brief description of the tool method's purpose or functionality.</param>
 /// <param name="Function">The <see cref="AIFunction"/> delegate that can be invoked to execute the tool method.</param>
-internal record ToolMethodDto(Boolean ConfirmationRequired, String Name, String Description, AIFunction Function);
+public record ToolMethodDto(Boolean ConfirmationRequired, String Name, String Description, AIFunction Function);

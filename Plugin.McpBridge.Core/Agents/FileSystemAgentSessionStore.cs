@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting;
@@ -45,13 +46,13 @@ public class FileSystemAgentSessionStore : AgentSessionStore
 	public IEnumerable<String> ListSessions(String? agentName)
 	{
 		String directory = this.GetAgentDirectory(agentName);
-		if(!Directory.Exists(directory))
-			return Array.Empty<String>();
 
-		return Directory.EnumerateFiles(directory, "*.json").Select(Path.GetFileNameWithoutExtension);
+		return Directory.Exists(directory)
+			? Directory.EnumerateFiles(directory, "*.json").Select(Path.GetFileNameWithoutExtension)
+			: Array.Empty<String>();
 	}
 
-	public async IAsyncEnumerable<ChatMessage> ReadSessionAsync(String? agentName, String conversationId, CancellationToken token = default)
+	public async IAsyncEnumerable<ChatMessage> ReadSessionAsync(String? agentName, String conversationId, [EnumeratorCancellation] CancellationToken token = default)
 	{
 		JsonElement? root = await this.ReadSessionAsyncI(agentName, conversationId, token);
 		if(root == null)

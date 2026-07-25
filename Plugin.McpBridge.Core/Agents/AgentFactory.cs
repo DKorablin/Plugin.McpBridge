@@ -1,7 +1,7 @@
 ﻿using System.ClientModel;
 using System.ClientModel.Primitives;
-using System.Text;
 using Azure.AI.OpenAI;
+using GitHub.Copilot;
 using Microsoft.Agents.AI;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.AI;
@@ -12,14 +12,11 @@ using Microsoft.SemanticKernel.Connectors.SqliteVec;
 using OpenAI;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.RAG;
-using Plugin.McpBridge.Tools;
-using SAL.Flatbed;
-using GitHub.Copilot;
 
 namespace Plugin.McpBridge.Agents;
 
 /// <summary>Shared factory methods for building AI agent components, usable by both the WinForms chat path and DevUI.</summary>
-internal class AgentFactory
+public class AgentFactory
 {
 	public async Task<AgentHandle> CreateAgent(
 		AiAgentDto agent,
@@ -97,46 +94,6 @@ internal class AgentFactory
 			options1.AIContextProviders = contextProviders;
 
 			return AgentHandle.FromChatClient(chatClient.AsAIAgent(options1), chatClient, isDebugMode);
-		}
-	}
-
-	public static String BuildSystemInstructions(Settings settings, Data.AiAgentDto agent, IHost host)
-	{
-		String pluginInventory = ListPluginInventory(agent, host);
-		return BuildSystemInstructions(agent.AssistantSystemPrompt, pluginInventory);
-
-		String BuildSystemInstructions(String? systemPrompt, String pluginInventory)
-		{
-			if(pluginInventory.Length > 0)
-			{
-				StringBuilder sb = new StringBuilder(systemPrompt);
-				sb.AppendLine();
-				sb.AppendLine();
-				sb.AppendLine("Loaded SAL plugins:");
-				sb.AppendLine(pluginInventory);
-				return sb.ToString().Trim();
-			} else
-				return systemPrompt;
-		}
-
-		String ListPluginInventory(AiAgentDto agent, IHost host)
-		{
-			var allowedPlugins = agent.PluginsPermission;
-			if(allowedPlugins?.Length == 0)
-				return String.Empty;
-
-			List<String> pluginsText = new List<String>();
-			Boolean allAllowed = allowedPlugins == null;
-			var allowedSet = allAllowed ? null : new HashSet<String>(allowedPlugins!);
-			foreach(IPluginDescription pluginDescription in host.Plugins)
-				if(allAllowed || allowedSet!.Contains(pluginDescription.ID))
-				{
-					String hasSettings = PluginSettingsTools.HasPluginSettings(pluginDescription) ? "yes" : "no";
-					String pluginText = @$"- {pluginDescription.ID} | {pluginDescription.Name} | {pluginDescription.Version} | Settings: {hasSettings}";
-					pluginsText.Add(pluginText);
-				}
-
-			return String.Join(Environment.NewLine, pluginsText.ToArray());
 		}
 	}
 

@@ -2,7 +2,6 @@
 using System.Drawing.Design;
 using System.Windows.Forms.Design;
 using Plugin.McpBridge.Data;
-using Plugin.McpBridge.Tools;
 
 namespace Plugin.McpBridge.UI.PropertyGrid;
 
@@ -12,7 +11,7 @@ internal sealed class ToolsPermissionEditor : UITypeEditor
 	public override Object? EditValue(ITypeDescriptorContext? context, IServiceProvider provider, Object? value)
 	{
 		var plugin = Plugin.StaticInstance!;
-		var ctrl = new ToolPermissionControl(new ToolsFactory(plugin.Host, plugin.Settings, plugin.Settings.SelectedAgent).GetTools());
+		var ctrl = new ToolPermissionControl(plugin.CreateToolsFactory().GetTools());
 		ctrl.SetValue((String[]?)value);
 		((IWindowsFormsEditorService)provider.GetService(typeof(IWindowsFormsEditorService))!).DropDownControl(ctrl);
 		return ctrl.Result;

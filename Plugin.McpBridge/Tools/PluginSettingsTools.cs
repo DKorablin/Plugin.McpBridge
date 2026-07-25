@@ -7,7 +7,7 @@ using SAL.Flatbed;
 namespace Plugin.McpBridge.Tools
 {
 	/// <summary>Reflection-based helpers for inspecting and mutating SAL plugin settings.</summary>
-	internal sealed class PluginSettingsTools : ToolsDiscoveryBase
+	internal class PluginSettingsTools : ToolsDiscoveryBase
 	{
 		private readonly IHost _host;
 
