@@ -228,10 +228,10 @@ namespace Plugin.McpBridge
 			}
 
 			String instructions = this.BuildSystemInstructions();
-			String assembyName = Plugin.GetAssemblyName();
+			String assemblyName = Plugin.GetAssemblyName();
 			foreach(ProcessType exeType in this.Settings.EnabledProcesses)
 			{
-				String traceName = $"{assembyName}.{exeType}";
+				String traceName = $"{assemblyName}.{exeType}";
 				IMcpTrace processTrace = new TraceSourceMcpTrace(this.Host.Plugins.CreateTraceSource(traceName));
 				var process = this._processHosts[exeType] = new ProcessHost(exeType, processTrace, this.OnProcessFailed);
 				Task.Run(() => process.StartAsync(this.Settings, instructions));

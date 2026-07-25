@@ -16,10 +16,10 @@ internal sealed class WorkflowFactory : IDisposable
 		this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
 	}
 
-	public IReadOnlyList<WorkflowFactoryItem> GetWorkflows()
+	public WorkflowFactoryItem[] GetWorkflows()
 	{
 		lock(this._syncRoot)
-			return this._workflows.ToList();
+			return this._workflows.ToArray();
 	}
 
 	public WorkflowFactoryItem? GetWorkflow(String? workflowName)

@@ -45,7 +45,15 @@ public partial class PanelChat : UserControl
 
 	private IWindow Window => (IWindow)base.Parent!;
 
-	private WorkflowFactory WorkflowFactory => this._workflowFactory ??= new WorkflowFactory(this.Plugin.Settings.WorkflowsDirectory, this.Plugin.Trace);
+	private WorkflowFactory? WorkflowFactory
+	{
+		get
+		{
+			if(this._workflowFactory == null && this.Plugin.Settings.WorkflowsDirectory != null && Directory.Exists(this.Plugin.Settings.WorkflowsDirectory))
+				this._workflowFactory = new WorkflowFactory(this.Plugin.Settings.WorkflowsDirectory, this.Plugin.Trace);
+			return this._workflowFactory;
+		}
+	}
 
 	private Boolean IsWorkflowSelected => this._selectedWorkflowName != null;
 
@@ -57,7 +65,7 @@ public partial class PanelChat : UserControl
 			if(selectedWorkflowName == null)
 				return null;
 
-			return this.WorkflowFactory.GetWorkflow(selectedWorkflowName);
+			return this.WorkflowFactory?.GetWorkflow(selectedWorkflowName);
 		}
 	}
 
@@ -282,9 +290,9 @@ public partial class PanelChat : UserControl
 
 	private void ReloadWorkflows()
 	{
-		this.WorkflowFactory.Reload();
+		this.WorkflowFactory?.Reload();
 		if(this._selectedWorkflowName != null
-			&& this.WorkflowFactory.GetWorkflow(this._selectedWorkflowName) == null)
+			&& this.WorkflowFactory?.GetWorkflow(this._selectedWorkflowName) == null)
 			this._selectedWorkflowName = null;
 	}
 
@@ -466,11 +474,14 @@ public partial class PanelChat : UserControl
 
 		tsbnSend.DropDownItems.Add(new ToolStripSeparator());
 
+		if(this.WorkflowFactory == null)
+			return;
+
 		ToolStripMenuItem workflowsHeader = new ToolStripMenuItem("Workflows") { Enabled = false };
 		tsbnSend.DropDownItems.Add(workflowsHeader);
-		IReadOnlyList<WorkflowFactoryItem> workflows = this.WorkflowFactory.GetWorkflows();
+		WorkflowFactoryItem[] workflows = this.WorkflowFactory.GetWorkflows();
 
-		if(workflows.Count == 0)
+		if(workflows.Length == 0)
 			tsbnSend.DropDownItems.Add(new ToolStripMenuItem("(none)") { Enabled = false });
 		else
 			foreach(WorkflowFactoryItem workflow in workflows)
