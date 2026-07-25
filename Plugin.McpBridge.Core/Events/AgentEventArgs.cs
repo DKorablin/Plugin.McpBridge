@@ -3,7 +3,7 @@
 namespace Plugin.McpBridge.Events
 {
 	/// <summary>Arguments for the AiResponseReceived event.</summary>
-	internal sealed class AgentResponseEventArgs : EventArgs
+	public class AgentResponseEventArgs : EventArgs
 	{
 		public Boolean IsFinal { get; }
 
@@ -17,7 +17,7 @@ namespace Plugin.McpBridge.Events
 	}
 
 	/// <summary>Arguments for the ConfirmationRequired event.</summary>
-	internal sealed class AgentConfirmationEventArgs : EventArgs
+	public class AgentConfirmationEventArgs : EventArgs
 	{
 		private readonly TaskCompletionSource<Boolean> _tcs = new TaskCompletionSource<Boolean>();
 

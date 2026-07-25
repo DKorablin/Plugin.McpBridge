@@ -6,7 +6,7 @@ using SAL.Flatbed;
 namespace Plugin.McpBridge.Tools;
 
 /// <summary>Wraps an <see cref="IPluginMethodInfo"/> as an <see cref="AIFunction"/>, building its JSON schema and handling argument deserialization directly.</summary>
-internal sealed class PluginMethodAIFunction : AIFunction
+internal class PluginMethodAIFunction : AIFunction
 {
 	private readonly IPluginMethodInfo _method;
 	private readonly JsonElement _schema;

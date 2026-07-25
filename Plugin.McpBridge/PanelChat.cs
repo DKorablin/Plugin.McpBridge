@@ -1,12 +1,12 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
-using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Events;
 using Plugin.McpBridge.Native;
 using Plugin.McpBridge.UI;
+using Plugin.McpBridge.Workflow;
 using Plugin.McpBridge.Workflows;
 using SAL.Windows;
 
@@ -45,7 +45,7 @@ public partial class PanelChat : UserControl
 
 	private IWindow Window => (IWindow)base.Parent!;
 
-	private WorkflowFactory WorkflowFactory => this._workflowFactory ??= new WorkflowFactory(this.Plugin.Host, this.Plugin.Settings, this.Plugin.Trace);
+	private WorkflowFactory WorkflowFactory => this._workflowFactory ??= new WorkflowFactory(this.Plugin.Settings.WorkflowsDirectory, this.Plugin.Trace);
 
 	private Boolean IsWorkflowSelected => this._selectedWorkflowName != null;
 

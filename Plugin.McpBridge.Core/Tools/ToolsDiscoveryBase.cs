@@ -5,7 +5,7 @@ using Plugin.McpBridge.Data;
 
 namespace Plugin.McpBridge.Tools;
 
-internal abstract class ToolsDiscoveryBase
+public abstract class ToolsDiscoveryBase
 {
 	public virtual IEnumerable<ToolMethodDto> GetTools()
 	{

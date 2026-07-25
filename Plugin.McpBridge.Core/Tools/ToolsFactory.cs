@@ -1,32 +1,18 @@
 ﻿using Microsoft.Extensions.AI;
+using Plugin.McpBridge.Core;
 using Plugin.McpBridge.Data;
-using SAL.Flatbed;
-using SAL.Windows;
 
 namespace Plugin.McpBridge.Tools;
 
 /// <summary>Creates <see cref="ToolFacade"/> instances from methods decorated with <see cref="ToolAttribute"/> using reflection.</summary>
-internal sealed class ToolsFactory
+public class ToolsFactory
 {
 	private readonly ToolsDiscoveryBase[] _targets;
-	private readonly Settings? _settings;
 	private readonly AiAgentDto _agent;
 
-	public ToolsFactory(IHost host, Settings settings, AiAgentDto agent)
+	public ToolsFactory(Settings settings, AiAgentDto agent, ToolsDiscoveryBase[] targets)
 	{
-		List<ToolsDiscoveryBase> tools = new List<ToolsDiscoveryBase>()
-		{
-			new PluginSettingsTools(host),
-			//new PluginMethodsTools(host),
-			new PluginMethodsToolsExtractor(host, settings, agent),
-			new ShellTools(),
-		};
-
-		if(host is IHostWindows hostWindows)
-			tools.Add(new WindowsTools(hostWindows));
-
-		this._targets = tools.ToArray();
-		this._settings = settings;
+		this._targets = targets ?? throw new ArgumentNullException(nameof(targets));
 		this._agent = agent;
 	}
 
@@ -37,10 +23,10 @@ internal sealed class ToolsFactory
 				yield return tool;
 	}
 
-	public IEnumerable<AIFunction> CreateTools(ITraceSource trace)
+	public IEnumerable<AIFunction> CreateTools(IMcpTrace trace)
 		=> this.CreateTools(trace, this._agent.ToolsPermission);
 
-	public IEnumerable<AIFunction> CreateTools(ITraceSource trace, String[]? availableTools)
+	public IEnumerable<AIFunction> CreateTools(IMcpTrace trace, String[]? availableTools)
 	{
 		_ = trace ?? throw new ArgumentNullException(nameof(trace));
 

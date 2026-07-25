@@ -23,30 +23,17 @@ namespace Plugin.McpBridge.Tests.Agents
 		[Fact]
 		public void Ctor_TraceIsNull_ThrowsArgumentNullException()
 		{
-			(IHost host, PluginSettingsTools _, PluginMethodsTools _, ShellTools _) = TestUtils.CreateDependencies();
 			ToolsFactory factory = TestUtils.CreateToolFactory();
 
-			Action act = () => _ = new AssistantAgent(null!, host, factory, new AgentFactory());
+			Action act = () => _ = new AssistantAgent(null!, factory, new AgentFactory());
 
 			act.Should().Throw<ArgumentNullException>().WithParameterName("trace");
 		}
 
 		[Fact]
-		public void Ctor_HostIsNull_ThrowsArgumentNullException()
-		{
-			ToolsFactory factory = TestUtils.CreateToolFactory();
-
-			Action act = () => _ = new AssistantAgent(TestUtils.Trace, null!, factory, new AgentFactory());
-
-			act.Should().Throw<ArgumentNullException>().WithParameterName("host");
-		}
-
-		[Fact]
 		public void Ctor_ToolsFactoryIsNull_ThrowsArgumentNullException()
 		{
-			(IHost host, PluginSettingsTools _, PluginMethodsTools _, ShellTools _) = TestUtils.CreateDependencies();
-
-			Action act = () => _ = new AssistantAgent(TestUtils.Trace, host, null!, new AgentFactory());
+			Action act = () => _ = new AssistantAgent(TestUtils.Trace, null!, new AgentFactory());
 
 			act.Should().Throw<ArgumentNullException>().WithParameterName("toolsFactory");
 		}
@@ -64,15 +51,14 @@ namespace Plugin.McpBridge.Tests.Agents
 					new ChatResponseUpdate { Role = ChatRole.Assistant, Contents = [new TextContent("ok")] },
 					new ChatResponseUpdate { Role = ChatRole.Assistant, Contents = [], FinishReason = ChatFinishReason.Stop }));
 
-			(IHost host, PluginSettingsTools _, PluginMethodsTools _, ShellTools _) = TestUtils.CreateDependencies();
 			Settings agentSettings = new Settings();
-			ToolsFactory factory = new ToolsFactory(host, agentSettings, agentSettings.SelectedAgent);
-			AssistantAgent sut = new AssistantAgent(TestUtils.Trace, host, factory, new StubAgentFactory(mockClient.Object));
+			ToolsFactory factory = new ToolsFactory(agentSettings, agentSettings.SelectedAgent, Array.Empty<ToolsDiscoveryBase>());
+			AssistantAgent sut = new AssistantAgent(TestUtils.Trace, factory, new StubAgentFactory(mockClient.Object));
 			AiProviderDto provider = new AiProviderDto { ProviderType = AiProviderType.Local };
 			agentSettings.AiProviders.Add(provider);
 
-			await sut.Initialize(agentSettings);
-			await sut.Initialize(agentSettings);
+			await sut.Initialize(agentSettings, TestUtils.Instructions);
+			await sut.Initialize(agentSettings, TestUtils.Instructions);
 
 			Func<Task> act = async () => await sut.InvokeMessageAsync("hello");
 			await act.Should().NotThrowAsync();

@@ -1,11 +1,13 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
+using System.Text;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
+using Plugin.McpBridge.Core;
+using Plugin.McpBridge.Core.Remoting;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Events;
-using Plugin.McpBridge.Mcp;
-using Plugin.McpBridge.Tests;
+using Plugin.McpBridge.Hosting;
 using Plugin.McpBridge.Tools;
 using Plugin.McpBridge.Workflows;
 using SAL.Flatbed;
@@ -19,12 +21,14 @@ namespace Plugin.McpBridge
 		internal static Plugin? StaticInstance { get; private set; }
 		private AssistantAgent? _agent;
 
-		private readonly Dictionary<ProcessHost.ExeType, ProcessHost> _processHosts = new Dictionary<ProcessHost.ExeType, ProcessHost>();
+		private readonly Dictionary<ProcessType, ProcessHost> _processHosts = new Dictionary<ProcessType, ProcessHost>();
 		private McpServer? _mcpServer;
 
 		private IMenuItem? _menuChat;
 
 		internal ITraceSource Trace { get; }
+
+		internal IMcpTrace McpTrace { get; }
 
 		Object IPluginSettings.Settings => this.Settings;
 
@@ -80,6 +84,7 @@ namespace Plugin.McpBridge
 			Plugin.StaticInstance = this;
 			this.Host = host ?? throw new ArgumentNullException(nameof(host));
 			this.Trace = trace ?? throw new ArgumentNullException(nameof(trace));
+			this.McpTrace = new TraceSourceMcpTrace(this.Trace);
 		}
 
 		public IWindow? GetPluginControl(String typeName, Object args)
@@ -118,19 +123,36 @@ namespace Plugin.McpBridge
 			return this._agent;
 		}
 
+		internal ToolsFactory CreateToolsFactory()
+		{
+			List<ToolsDiscoveryBase> tools = new List<ToolsDiscoveryBase>()
+			{
+				new PluginSettingsTools(this.Host),
+				//new PluginMethodsTools(this.Host),
+				new PluginMethodsToolsExtractor(this.Host, this.Settings.SelectedAgent),
+				new ShellTools(),
+			};
+
+			if(this.Host is IHostWindows hostWindows)
+				tools.Add(new WindowsTools(hostWindows));
+
+			return new ToolsFactory(this.Settings, this.Settings.SelectedAgent, tools.ToArray());
+		}
+
 		internal async Task<AssistantAgent> InitializeAgent(AiProviderDto provider, String? conversationId = null)
 		{
 			try
 			{
-				ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings, this.Settings.SelectedAgent);
+				ToolsFactory toolsFactory = CreateToolsFactory();
 				AgentFactory agentFactory = new AgentFactory();
 				String? sessionStoreDir = this.Settings.GetSessionStorageDirectory();
 				FileSystemAgentSessionStore? sessionStore = sessionStoreDir == null
 					? null
 					: new FileSystemAgentSessionStore(sessionStoreDir);
 
-				var result = new AssistantAgent(this.Trace, this.Host, toolsFactory, agentFactory);
-				await result.Initialize(this.Settings, sessionStore, conversationId);
+				var result = new AssistantAgent(this.McpTrace, toolsFactory, agentFactory);
+				String instructions = this.BuildSystemInstructions();
+				await result.Initialize(this.Settings, instructions, sessionStore, conversationId);
 				return result;
 			}catch(Exception exc)
 			{
@@ -143,11 +165,11 @@ namespace Plugin.McpBridge
 		{
 			try
 			{
-				ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings, this.Settings.SelectedAgent);
+				ToolsFactory toolsFactory = CreateToolsFactory();
 				AgentFactory agentFactory = new AgentFactory();
 				FileSystemAgentSessionStore? sessionStore = this.CreateSessionStore();
 
-				var result = new AssistantAgent(this.Trace, this.Host, toolsFactory, agentFactory);
+				var result = new AssistantWorkflowAgent(this.McpTrace, toolsFactory, agentFactory);
 				await result.InitializeWorkflow(this.Settings, workflow, sessionStore, conversationId, token);
 				return result;
 			} catch(Exception exc)
@@ -196,28 +218,32 @@ namespace Plugin.McpBridge
 
 		private void Plugins_PluginsLoaded(Object? sender, EventArgs e)
 		{
-			ToolsFactory toolsFactory = new ToolsFactory(this.Host, this.Settings, this.Settings.SelectedAgent);
+			ToolsFactory toolsFactory = CreateToolsFactory();
 
 			if(this.Settings.McpServerEnabled)
 			{
-				IEnumerable<AITool> bridgeTools = toolsFactory.CreateTools(this.Trace);
+				IEnumerable<AITool> bridgeTools = toolsFactory.CreateTools(this.McpTrace);
 				this._mcpServer = new McpServer(this.Trace, this.Settings.McpServerUrl, bridgeTools);
 				this._mcpServer.Start();
 			}
 
-			foreach(ProcessHost.ExeType exeType in this.Settings.EnabledProcesses)
+			String instructions = this.BuildSystemInstructions();
+			String assembyName = Plugin.GetAssemblyName();
+			foreach(ProcessType exeType in this.Settings.EnabledProcesses)
 			{
-				var process = this._processHosts[exeType] = new ProcessHost(this.Host, exeType, this.OnProcessFailed);
-				Task.Run(() => process.StartAsync(this.Settings));
+				String traceName = $"{assembyName}.{exeType}";
+				IMcpTrace processTrace = new TraceSourceMcpTrace(this.Host.Plugins.CreateTraceSource(traceName));
+				var process = this._processHosts[exeType] = new ProcessHost(exeType, processTrace, this.OnProcessFailed);
+				Task.Run(() => process.StartAsync(this.Settings, instructions));
 			}
 		}
 
-		private void OnProcessFailed(ProcessHost.ExeType exeType, Int32 exitCode)
+		private void OnProcessFailed(ProcessType exeType, Int32 exitCode)
 		{
 			switch(exeType)
 			{
-			case ProcessHost.ExeType.DTS:
-			case ProcessHost.ExeType.RAG:
+			case ProcessType.DTS:
+			case ProcessType.RAG:
 				this.Trace.TraceEvent(TraceEventType.Warning, 0, $"Process {exeType} failed with exit code {exitCode}. Disabling...");
 				this.Settings.DisableProcess(exeType);
 				break;
@@ -231,5 +257,48 @@ namespace Plugin.McpBridge
 			=> Plugin.DocumentTypes.TryGetValue(typeName, out DockState state)
 				? this.HostWindows.Windows.CreateWindow(this, typeName, searchForOpened, state, args)
 				: null;
+
+		private String BuildSystemInstructions()
+		{
+			String pluginInventory = ListPluginInventory(this.Settings.SelectedAgent, this.Host);
+			return BuildSystemInstructions(this.Settings.SelectedAgent.AssistantSystemPrompt, pluginInventory);
+
+			String BuildSystemInstructions(String? systemPrompt, String pluginInventory)
+			{
+				if(pluginInventory.Length > 0)
+				{
+					StringBuilder sb = new StringBuilder(systemPrompt);
+					sb.AppendLine();
+					sb.AppendLine();
+					sb.AppendLine("Loaded SAL plugins:");
+					sb.AppendLine(pluginInventory);
+					return sb.ToString().Trim();
+				} else
+					return systemPrompt;
+			}
+
+			String ListPluginInventory(AiAgentDto agent, IHost host)
+			{
+				var allowedPlugins = agent.PluginsPermission;
+				if(allowedPlugins?.Length == 0)
+					return String.Empty;
+
+				List<String> pluginsText = new List<String>();
+				Boolean allAllowed = allowedPlugins == null;
+				var allowedSet = allAllowed ? null : new HashSet<String>(allowedPlugins!);
+				foreach(IPluginDescription pluginDescription in host.Plugins)
+					if(allAllowed || allowedSet!.Contains(pluginDescription.ID))
+					{
+						String hasSettings = PluginSettingsTools.HasPluginSettings(pluginDescription) ? "yes" : "no";
+						String pluginText = @$"- {pluginDescription.ID} | {pluginDescription.Name} | {pluginDescription.Version} | Settings: {hasSettings}";
+						pluginsText.Add(pluginText);
+					}
+
+				return String.Join(Environment.NewLine, pluginsText.ToArray());
+			}
+		}
+
+		internal static String GetAssemblyName()
+			=> typeof(Plugin).Assembly.GetName().Name ?? String.Empty;
 	}
 }

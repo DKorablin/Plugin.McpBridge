@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.AI;
 using Moq;
 using Plugin.McpBridge.Agents;
+using Plugin.McpBridge.Core;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Tests.Helpers;
 using Plugin.McpBridge.Tools;
@@ -15,7 +16,8 @@ namespace Plugin.McpBridge.Tests;
 internal static class TestUtils
 {
 	public const String PluginId = "test-plugin";
-	public static readonly ITraceSource Trace = new Mock<ITraceSource>().Object;
+	public const String Instructions = "You are a helpful assistant.";
+	public static readonly IMcpTrace Trace = new Mock<IMcpTrace>().Object;
 
 	public static (IHost Host, PluginSettingsTools Settings, PluginMethodsTools Methods, ShellTools Shell) CreateDependencies(IPluginDescription? pluginDescription = null, TimeProvider? timeProvider = null)
 	{
@@ -33,19 +35,16 @@ internal static class TestUtils
 
 	public static ToolsFactory CreateToolFactory(IPluginDescription? pluginDescription = null, TimeProvider? timeProvider = null)
 	{
-		(IHost host, PluginSettingsTools _, PluginMethodsTools _, ShellTools _) = CreateDependencies(pluginDescription, timeProvider);
+		(IHost _, PluginSettingsTools settingsTools, PluginMethodsTools methodsTools, ShellTools shellTools) = CreateDependencies(pluginDescription, timeProvider);
 		Settings settings = new Settings();
 		AiAgentDto agent = settings.SelectedAgent;
-		return new ToolsFactory(host, settings, agent);
+		return new ToolsFactory(settings, agent, new ToolsDiscoveryBase[] { settingsTools, methodsTools, shellTools });
 	}
 
 	public static AssistantAgent CreateSut(IPluginDescription? pluginDescription = null)
 	{
-		(IHost host, PluginSettingsTools _, PluginMethodsTools _, ShellTools _) = CreateDependencies(pluginDescription);
-		Settings settings = new Settings();
-		AiAgentDto agent = settings.SelectedAgent;
-		ToolsFactory toolFactory = new ToolsFactory(host, settings, agent);
-		return new AssistantAgent(Trace, host, toolFactory, new AgentFactory());
+		ToolsFactory toolFactory = CreateToolFactory(pluginDescription);
+		return new AssistantAgent(Trace, toolFactory, new AgentFactory());
 	}
 
 	public static async Task<AssistantAgent> CreateInitializedSut(
@@ -53,17 +52,15 @@ internal static class TestUtils
 		TimeProvider? timeProvider = null,
 		Mock<IChatClient>? mockChatClient = null)
 	{
-		(IHost host, PluginSettingsTools _, PluginMethodsTools _, ShellTools _) = CreateDependencies(pluginDescription, timeProvider);
+		ToolsFactory toolFactory = CreateToolFactory(pluginDescription, timeProvider);
 		Settings settings = new Settings();
-		AiAgentDto agentSettings = settings.SelectedAgent;
-		ToolsFactory toolFactory = new ToolsFactory(host, settings, agentSettings);
 		mockChatClient ??= new Mock<IChatClient>();
 
 		AiProviderDto provider = new AiProviderDto { ProviderType = AiProviderType.Local };
 		settings.AiProviders.Add(provider);
 
-		AssistantAgent assistant = new AssistantAgent(Trace, host, toolFactory, new StubAgentFactory(mockChatClient.Object));
-		await assistant.Initialize(settings);
+		AssistantAgent assistant = new AssistantAgent(Trace, toolFactory, new StubAgentFactory(mockChatClient.Object));
+		await assistant.Initialize(settings, Instructions);
 		return assistant;
 	}
 

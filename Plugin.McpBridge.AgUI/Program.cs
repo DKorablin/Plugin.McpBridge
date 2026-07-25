@@ -8,7 +8,7 @@ using Microsoft.DurableTask.Worker;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.AgUI.Agents;
-using Plugin.McpBridge.Tests;
+using Plugin.McpBridge.Core.Remoting;
 using Plugin.McpBridge.Workflows;
 
 namespace Plugin.McpBridge.AgUI;
