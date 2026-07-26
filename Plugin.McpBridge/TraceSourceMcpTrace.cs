@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using Plugin.McpBridge.Core;
+using McpBridge.Core;
 using SAL.Flatbed;
 
 namespace Plugin.McpBridge;

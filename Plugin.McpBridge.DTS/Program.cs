@@ -1,7 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Plugin.McpBridge.Core.Remoting;
+using McpBridge.Core.Remoting;
 
 namespace Plugin.McpBridge.DTS;
 

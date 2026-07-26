@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.AI;
 using Moq;
 using Plugin.McpBridge.Agents;
-using Plugin.McpBridge.Core;
+using McpBridge.Core;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Tests.Helpers;
 using Plugin.McpBridge.Tools;

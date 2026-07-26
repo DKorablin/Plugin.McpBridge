@@ -1,4 +1,4 @@
-﻿namespace Plugin.McpBridge.Core.Remoting;
+﻿namespace McpBridge.Core.Remoting;
 
 public enum ProcessType
 {

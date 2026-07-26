@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 
-namespace Plugin.McpBridge.Core;
+namespace McpBridge.Core;
 
 /// <summary>Core-owned trace sink abstraction, decoupling Core from SAL.Flatbed's <c>ITraceSource</c>.</summary>
 public interface IMcpTrace

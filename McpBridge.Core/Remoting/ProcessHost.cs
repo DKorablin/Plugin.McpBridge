@@ -1,7 +1,8 @@
 ﻿using System.Diagnostics;
 using System.Runtime.Serialization.Json;
+using Plugin.McpBridge;
 
-namespace Plugin.McpBridge.Core.Remoting;
+namespace McpBridge.Core.Remoting;
 
 /// <summary>Launches and manages the DevUI executable as a child process for local agent diagnostics.</summary>
 internal sealed class ProcessHost : IDisposable

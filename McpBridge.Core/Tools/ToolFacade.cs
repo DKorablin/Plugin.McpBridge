@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 using Microsoft.Extensions.AI;
-using Plugin.McpBridge.Core;
+using McpBridge.Core;
 
 namespace Plugin.McpBridge.Tools;
 

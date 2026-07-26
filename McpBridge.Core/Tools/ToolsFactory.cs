@@ -1,5 +1,5 @@
 ﻿using Microsoft.Extensions.AI;
-using Plugin.McpBridge.Core;
+using McpBridge.Core;
 using Plugin.McpBridge.Data;
 
 namespace Plugin.McpBridge.Tools;

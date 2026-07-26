@@ -1,7 +1,7 @@
 using Plugin.McpBridge.Data;
 using Microsoft.Extensions.Logging;
 using Plugin.McpBridge.RAG;
-using Plugin.McpBridge.Core.Remoting;
+using McpBridge.Core.Remoting;
 
 namespace Plugin.McpBridge.RAGHost;
 

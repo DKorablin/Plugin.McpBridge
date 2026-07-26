@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Runtime.Serialization.Json;
-using Plugin.McpBridge.Core.Remoting;
+using McpBridge.Core.Remoting;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.UI.PropertyGrid.Converters;
 
