@@ -3,7 +3,7 @@ using System.Text;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.Extensions.AI;
-using Plugin.McpBridge.Core;
+using McpBridge.Core;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Events;
 using Plugin.McpBridge.Tools;

@@ -3,7 +3,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel.Connectors.SqliteVec;
 using Plugin.McpBridge.Agents;
-using Plugin.McpBridge.Core.Remoting;
+using McpBridge.Core.Remoting;
 using Plugin.McpBridge.Data;
 using Plugin.McpBridge.RAG;
 

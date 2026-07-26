@@ -7,7 +7,7 @@ using Plugin.McpBridge.UI.PropertyGrid.Converters;
 
 namespace Plugin.McpBridge
 {
-	/// <summary>Registers WinForms-only PropertyGrid editor/converter attributes for Core DTO/settings types at runtime, since those types live in the cross-platform Plugin.McpBridge.Core assembly and cannot reference System.Windows.Forms directly. Attributes are merged onto PropertyDescriptors via PropertyAttributeInjector, so both Editor and TypeConverter resolution work exactly as if the attributes were declared inline.</summary>
+	/// <summary>Registers WinForms-only PropertyGrid editor/converter attributes for Core DTO/settings types at runtime, since those types live in the cross-platform McpBridge.Core assembly and cannot reference System.Windows.Forms directly. Attributes are merged onto PropertyDescriptors via PropertyAttributeInjector, so both Editor and TypeConverter resolution work exactly as if the attributes were declared inline.</summary>
 	internal static class PropertyGridMetadata
 	{
 		private static Boolean _registered;

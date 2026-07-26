@@ -33,7 +33,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Plugin.McpBridge.RAG", "Plu
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Plugin.McpBridge.DTS", "Plugin.McpBridge.DTS\Plugin.McpBridge.DTS.csproj", "{B057D3EE-F529-40FA-9C95-38E9FAB6F824}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Plugin.McpBridge.Core", "Plugin.McpBridge.Core\Plugin.McpBridge.Core.csproj", "{903444E3-9BF1-4845-8C2A-CC77A99B3DAD}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "McpBridge.Core", "McpBridge.Core\McpBridge.Core.csproj", "{903444E3-9BF1-4845-8C2A-CC77A99B3DAD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

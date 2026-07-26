@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.Agents.AI.Workflows;
-using Plugin.McpBridge.Core;
+using McpBridge.Core;
 using Plugin.McpBridge.Tools;
 using Plugin.McpBridge.Workflows;
 

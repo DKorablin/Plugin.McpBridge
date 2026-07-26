@@ -2,9 +2,10 @@
 using System.Reflection;
 using System.Runtime.Serialization.Json;
 using Microsoft.Extensions.AI;
+using Plugin.McpBridge;
 using Plugin.McpBridge.Mcp;
 
-namespace Plugin.McpBridge.Core.Remoting;
+namespace McpBridge.Core.Remoting;
 
 /// <summary>Serializable snapshot of the settings needed to start the UI process.</summary>
 public sealed class SettingsDto : Settings
