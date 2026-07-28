@@ -18,9 +18,14 @@
 		<Description>The core library for the MAF facade, providing essential functionality for bridging the Model Context Protocol (MCP) with AI assistants powered by Microsoft Semantic Kernel.</Description>
 		<Authors>Danila Korablin</Authors>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageReadmeFile>docs\README.md</PackageReadmeFile>
 		<RepositoryUrl>https://github.com/DKorablin/Plugin.McpBridge</RepositoryUrl>
 		<PackageTags>SAL plugin maf model-context-protocol semantic-kernel openai azure-openai ai chat assistant</PackageTags>
 	</PropertyGroup>
+
+	<ItemGroup>
+		<None Include="README.md" Pack="true" PackagePath="\docs" />
+	</ItemGroup>
 
 	<ItemGroup>
 		<PackageReference Include="Azure.AI.OpenAI" />
