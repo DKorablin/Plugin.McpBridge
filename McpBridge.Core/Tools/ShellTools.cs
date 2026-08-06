@@ -3,7 +3,7 @@ using System.Globalization;
 
 namespace Plugin.McpBridge.Tools
 {
-	internal sealed class ShellTools : ToolsDiscoveryBase
+	internal class ShellTools : ToolsDiscoveryBase
 	{
 		private readonly TimeProvider _timeProvider;
 
