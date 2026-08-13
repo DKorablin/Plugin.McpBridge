@@ -38,6 +38,12 @@ namespace Plugin.McpBridge
 			{
 				if(this._settings == null)
 				{
+					PropertyGridMetadata.Register();
+					AiAgentDto.Defaults.AssistantSystemPrompt = @"You are a SAL automation assistant.
+Use available MCP tools when useful.
+Return clear user-facing responses, or a command payload only when automation is required.
+Before using relative dates (today, yesterday, last hour), obtain the current system time from the SystemInformation tool.";
+
 					this._settings = new Settings();
 					this.Host.Plugins.Settings(this).LoadAssemblyParameters(this._settings);
 					this._settings.PropertyChanged += this._settings_PropertyChanged;
@@ -80,7 +86,6 @@ namespace Plugin.McpBridge
 
 		public Plugin(IHost host, ITraceSource trace)
 		{
-			PropertyGridMetadata.Register();
 			Plugin.StaticInstance = this;
 			this.Host = host ?? throw new ArgumentNullException(nameof(host));
 			this.Trace = trace ?? throw new ArgumentNullException(nameof(trace));

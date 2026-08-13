@@ -6,12 +6,10 @@ namespace Plugin.McpBridge.Data;
 [TypeConverter(typeof(ExpandableObjectConverter))]
 public record AiAgentDto : INotifyPropertyChanged
 {
-	internal static class Defaults
+	public static class Defaults
 	{
-		public const String AssistantSystemPrompt = @"You are a SAL automation assistant.
-Use available MCP tools when useful.
-Return clear user-facing responses, or a command payload only when automation is required.
-Before using relative dates (today, yesterday, last hour), obtain the current system time from the SystemInformation tool.";
+		// TODO: Find the better way for default system prompt. This is a temporary solution until we have a better way to manage system prompts.
+		public static String AssistantSystemPrompt;
 		public static readonly String[] RagSupportedExtensions = new String[] { ".txt", ".md" };
 	}
 
@@ -70,7 +68,6 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 
 	/// <summary>The system prompt that defines the assistant's behavior and persona.</summary>
 	[Category("Instruments")]
-	[DefaultValue(Defaults.AssistantSystemPrompt)]
 	[Description("The system prompt that defines the assistant's behavior and persona.")]
 	public String? AssistantSystemPrompt
 	{
