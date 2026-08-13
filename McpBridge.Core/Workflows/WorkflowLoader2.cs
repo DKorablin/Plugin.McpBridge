@@ -2,10 +2,10 @@
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
-using Plugin.McpBridge.Agents;
-using Plugin.McpBridge.Data;
+using McpBridge.Core.Agents;
+using McpBridge.Core.Data;
 
-namespace Plugin.McpBridge.Workflows;
+namespace McpBridge.Core.Workflows;
 
 /// <summary>Builds a <see cref="WorkflowHandle"/> from a <see cref="WorkflowDto"/> loaded at runtime.</summary>
 internal sealed class WorkflowLoader2

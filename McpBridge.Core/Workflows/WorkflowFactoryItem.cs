@@ -1,4 +1,4 @@
-namespace Plugin.McpBridge.Workflows;
+namespace McpBridge.Core.Workflows;
 
 public class WorkflowFactoryItem
 {

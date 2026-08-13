@@ -1,8 +1,7 @@
 ﻿using System.Diagnostics;
 using Microsoft.Extensions.AI;
-using McpBridge.Core;
 
-namespace Plugin.McpBridge.Tools;
+namespace McpBridge.Core.Tools;
 
 /// <summary>Catches tool exceptions and returns the message as a string so the LLM receives a result rather than a broken conversation.</summary>
 internal class ToolFacade : DelegatingAIFunction

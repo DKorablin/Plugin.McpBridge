@@ -1,9 +1,9 @@
 ﻿using System.ComponentModel;
 using System.Reflection;
 using Microsoft.Extensions.AI;
-using Plugin.McpBridge.Data;
+using McpBridge.Core.Data;
 
-namespace Plugin.McpBridge.Tools;
+namespace McpBridge.Core.Tools;
 
 public abstract class ToolsDiscoveryBase
 {

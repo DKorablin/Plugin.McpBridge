@@ -1,4 +1,4 @@
-﻿namespace Plugin.McpBridge.Tools;
+﻿namespace McpBridge.Core.Tools;
 
 [AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = false)]
 public class ToolAttribute : Attribute

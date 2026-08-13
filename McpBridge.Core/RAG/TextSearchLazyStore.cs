@@ -1,7 +1,7 @@
 using Microsoft.SemanticKernel.Connectors.InMemory;
-using Plugin.McpBridge.Data;
+using McpBridge.Core.Data;
 
-namespace Plugin.McpBridge.RAG;
+namespace McpBridge.Core.RAG;
 
 internal sealed class TextSearchLazyStore : TextSearchStore
 {

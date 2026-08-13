@@ -1,5 +1,6 @@
 ﻿using System.Reflection;
-using Plugin.McpBridge.Data;
+using McpBridge.Core.Data;
+using McpBridge.Core.Tools;
 using SAL.Flatbed;
 
 namespace Plugin.McpBridge.Tools;

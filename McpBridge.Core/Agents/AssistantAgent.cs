@@ -3,12 +3,11 @@ using System.Text;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.Extensions.AI;
-using McpBridge.Core;
-using Plugin.McpBridge.Data;
-using Plugin.McpBridge.Events;
-using Plugin.McpBridge.Tools;
+using McpBridge.Core.Data;
+using McpBridge.Core.Events;
+using McpBridge.Core.Tools;
 
-namespace Plugin.McpBridge.Agents;
+namespace McpBridge.Core.Agents;
 
 /// <summary>Manages the MAF AIAgent instance and drives the multi-turn agent loop.</summary>
 public class AssistantAgent : IDisposable

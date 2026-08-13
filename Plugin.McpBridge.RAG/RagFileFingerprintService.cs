@@ -1,4 +1,4 @@
-using Plugin.McpBridge.RAG;
+using McpBridge.Core.RAG;
 
 namespace Plugin.McpBridge.RAGHost;
 

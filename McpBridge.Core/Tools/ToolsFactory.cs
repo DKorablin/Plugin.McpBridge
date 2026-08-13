@@ -1,8 +1,7 @@
 ﻿using Microsoft.Extensions.AI;
-using McpBridge.Core;
-using Plugin.McpBridge.Data;
+using McpBridge.Core.Data;
 
-namespace Plugin.McpBridge.Tools;
+namespace McpBridge.Core.Tools;
 
 /// <summary>Creates <see cref="ToolFacade"/> instances from methods decorated with <see cref="ToolAttribute"/> using reflection.</summary>
 public class ToolsFactory

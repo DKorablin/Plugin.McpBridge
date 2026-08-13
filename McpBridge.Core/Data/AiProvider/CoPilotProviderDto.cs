@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Runtime.Serialization;
 
-namespace Plugin.McpBridge.Data;
+namespace McpBridge.Core.Data;
 
 /// <summary>Provider configuration for the GitHub Copilot CLI.</summary>
 [DataContract]

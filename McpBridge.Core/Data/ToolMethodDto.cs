@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.AI;
 
-namespace Plugin.McpBridge.Data;
+namespace McpBridge.Core.Data;
 
 /// <summary>Represents metadata and invocation details for a tool method.</summary>
 /// <param name="ConfirmationRequired">true if the method requires user confirmation before execution; otherwise, false.</param>

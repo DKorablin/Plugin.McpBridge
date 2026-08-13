@@ -1,9 +1,9 @@
 ﻿using System.ComponentModel;
 using System.Runtime.Serialization;
 using Microsoft.Extensions.AI;
-using Plugin.McpBridge.RAG;
+using McpBridge.Core.RAG;
 
-namespace Plugin.McpBridge.Data;
+namespace McpBridge.Core.Data;
 
 [DataContract]
 [KnownType(typeof(NetworkConnectionSettings))]

@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Runtime.Serialization.Json;
-using Plugin.McpBridge;
+using McpBridge.Core;
 
 namespace McpBridge.Core.Remoting;
 

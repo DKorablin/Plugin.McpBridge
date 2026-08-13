@@ -1,6 +1,6 @@
 using Microsoft.Agents.AI.Workflows;
 
-namespace Plugin.McpBridge.Workflows;
+namespace McpBridge.Core.Workflows;
 
 /// <summary>Owns the lifetime of a <see cref="Microsoft.Agents.AI.Workflows.Workflow"/> and all its underlying disposable resources.</summary>
 internal sealed class WorkflowHandle : IDisposable

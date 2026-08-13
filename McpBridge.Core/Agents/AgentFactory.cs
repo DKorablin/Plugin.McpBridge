@@ -10,10 +10,10 @@ using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.SemanticKernel.Connectors.InMemory;
 using Microsoft.SemanticKernel.Connectors.SqliteVec;
 using OpenAI;
-using Plugin.McpBridge.Data;
-using Plugin.McpBridge.RAG;
+using McpBridge.Core.Data;
+using McpBridge.Core.RAG;
 
-namespace Plugin.McpBridge.Agents;
+namespace McpBridge.Core.Agents;
 
 /// <summary>Shared factory methods for building AI agent components, usable by both the WinForms chat path and DevUI.</summary>
 public class AgentFactory

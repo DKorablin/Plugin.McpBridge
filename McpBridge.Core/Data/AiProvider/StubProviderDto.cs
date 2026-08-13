@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Runtime.Serialization;
 
-namespace Plugin.McpBridge.Data;
+namespace McpBridge.Core.Data;
 
 /// <summary>Read-only provider configuration for the local stub client.</summary>
 [DataContract]

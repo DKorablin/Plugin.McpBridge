@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Globalization;
 
-namespace Plugin.McpBridge.UI.PropertyGrid.Converters;
+namespace McpBridge.Core.UI.PropertyGrid.Converters;
 
 internal sealed class SessionStorageDirConverter : StringConverter
 {

@@ -2,8 +2,8 @@ using System;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
-using Plugin.McpBridge.Agents;
-using Plugin.McpBridge.Data;
+using McpBridge.Core.Agents;
+using McpBridge.Core.Data;
 using Xunit;
 
 namespace Plugin.McpBridge.Tests.Agents;

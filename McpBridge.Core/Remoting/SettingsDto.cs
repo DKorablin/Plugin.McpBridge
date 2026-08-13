@@ -2,8 +2,7 @@
 using System.Reflection;
 using System.Runtime.Serialization.Json;
 using Microsoft.Extensions.AI;
-using Plugin.McpBridge;
-using Plugin.McpBridge.Mcp;
+using McpBridge.Core.Mcp;
 
 namespace McpBridge.Core.Remoting;
 

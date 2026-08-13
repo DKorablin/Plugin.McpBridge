@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Text;
+using McpBridge.Core.Tools;
 using SAL.Windows;
 
 namespace Plugin.McpBridge.Tools

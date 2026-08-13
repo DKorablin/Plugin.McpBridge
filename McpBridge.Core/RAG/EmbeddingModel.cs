@@ -1,4 +1,4 @@
-﻿namespace Plugin.McpBridge.RAG;
+﻿namespace McpBridge.Core.RAG;
 
 internal static class EmbeddingModel
 {

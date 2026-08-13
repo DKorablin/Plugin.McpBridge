@@ -1,4 +1,4 @@
-﻿namespace Plugin.McpBridge.Data;
+﻿namespace McpBridge.Core.Data;
 
 /// <summary>Specifies the available AI provider types that can be used for generating responses.</summary>
 /// <remarks>

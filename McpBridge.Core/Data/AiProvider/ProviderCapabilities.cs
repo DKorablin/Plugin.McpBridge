@@ -1,4 +1,4 @@
-namespace Plugin.McpBridge.Data;
+namespace McpBridge.Core.Data;
 
 [Flags]
 public enum ProviderCapabilities

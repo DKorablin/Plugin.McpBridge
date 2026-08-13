@@ -1,4 +1,4 @@
-﻿using Plugin.McpBridge.Workflows;
+﻿using McpBridge.Core.Workflows;
 using SAL.Flatbed;
 
 namespace Plugin.McpBridge.Workflow;

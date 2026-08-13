@@ -4,8 +4,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
-using Plugin.McpBridge.Agents;
-using Plugin.McpBridge.Data;
+using McpBridge.Core.Agents;
+using McpBridge.Core.Data;
 
 namespace Plugin.McpBridge.Tests.Helpers;
 

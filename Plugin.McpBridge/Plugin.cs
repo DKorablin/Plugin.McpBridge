@@ -1,15 +1,17 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
 using System.Text;
+using McpBridge.Core;
+using McpBridge.Core.Agents;
+using McpBridge.Core.Data;
+using McpBridge.Core.Events;
+using McpBridge.Core.Remoting;
+using McpBridge.Core.Tools;
+using McpBridge.Core.Workflows;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Agents;
-using McpBridge.Core;
-using McpBridge.Core.Remoting;
-using Plugin.McpBridge.Data;
-using Plugin.McpBridge.Events;
 using Plugin.McpBridge.Hosting;
 using Plugin.McpBridge.Tools;
-using Plugin.McpBridge.Workflows;
 using SAL.Flatbed;
 using SAL.Windows;
 

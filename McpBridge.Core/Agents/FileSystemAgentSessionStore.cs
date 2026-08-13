@@ -4,7 +4,7 @@ using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.Extensions.AI;
 
-namespace Plugin.McpBridge.Agents;
+namespace McpBridge.Core.Agents;
 
 /// <summary>Persists agent sessions as JSON files under a root storage directory.</summary>
 public class FileSystemAgentSessionStore : AgentSessionStore

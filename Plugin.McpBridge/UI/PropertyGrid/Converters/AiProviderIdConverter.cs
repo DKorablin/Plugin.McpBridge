@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Globalization;
+using McpBridge.Core.Data;
 
 namespace Plugin.McpBridge.UI.PropertyGrid.Converters;
 
@@ -17,7 +18,7 @@ public class AiProviderIdConverter : GuidConverter
 
 		if(Plugin.StaticInstance!.Settings.AiProviders != null)
 			values.AddRange(Plugin.StaticInstance.Settings.AiProviders
-				.Where(p => p.SupportsCapability(Data.ProviderCapabilities.Chat))
+				.Where(p => p.SupportsCapability(ProviderCapabilities.Chat))
 				.Select(p => (Guid?)p.Id));
 		return new StandardValuesCollection(values);
 	}
@@ -30,7 +31,7 @@ public class AiProviderIdConverter : GuidConverter
 				return NoneDisplay;
 
 			var provider = Plugin.StaticInstance.Settings.AiProviders?
-				.Where(p => p.SupportsCapability(Data.ProviderCapabilities.Chat))
+				.Where(p => p.SupportsCapability(ProviderCapabilities.Chat))
 				.FirstOrDefault(p => p.Id == (Guid)value);
 			if(provider != null)
 				return provider.ToString();
@@ -48,7 +49,7 @@ public class AiProviderIdConverter : GuidConverter
 
 			// If the user selected from the dropdown, find the matching ID by name
 			var match = Plugin.StaticInstance.Settings.AiProviders?
-				.Where(p => p.SupportsCapability(Data.ProviderCapabilities.Chat))
+				.Where(p => p.SupportsCapability(ProviderCapabilities.Chat))
 				.FirstOrDefault(p => p.ToString() == s);
 			if(match != null)
 				return match.Id;

@@ -2,11 +2,12 @@
 using System.Collections.Generic;
 using System.Reflection;
 using System.Threading.Tasks;
+using McpBridge.Core;
+using McpBridge.Core.Agents;
+using McpBridge.Core.Data;
+using McpBridge.Core.Tools;
 using Microsoft.Extensions.AI;
 using Moq;
-using Plugin.McpBridge.Agents;
-using McpBridge.Core;
-using Plugin.McpBridge.Data;
 using Plugin.McpBridge.Tests.Helpers;
 using Plugin.McpBridge.Tools;
 using SAL.Flatbed;

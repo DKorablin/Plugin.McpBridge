@@ -2,7 +2,7 @@
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.AI;
 
-namespace Plugin.McpBridge.Mcp;
+namespace McpBridge.Core.Mcp;
 
 public sealed class McpClient : AIFunction
 {

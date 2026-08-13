@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Globalization;
 
-namespace Plugin.McpBridge.UI.PropertyGrid;
+namespace McpBridge.Core.UI.PropertyGrid;
 
 internal sealed class ToolsPermissionConverter : ArrayConverter
 {

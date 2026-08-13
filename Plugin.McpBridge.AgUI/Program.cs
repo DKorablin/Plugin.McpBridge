@@ -1,4 +1,7 @@
 using System.Text.Json;
+using McpBridge.Core.Agents;
+using McpBridge.Core.Remoting;
+using McpBridge.Core.Workflows;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.DurableTask;
 using Microsoft.Agents.AI.Hosting;
@@ -6,10 +9,7 @@ using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
 using Microsoft.DurableTask.Client;
 using Microsoft.DurableTask.Worker;
 using Microsoft.Extensions.AI;
-using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.AgUI.Agents;
-using McpBridge.Core.Remoting;
-using Plugin.McpBridge.Workflows;
 
 namespace Plugin.McpBridge.AgUI;
 

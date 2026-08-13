@@ -3,10 +3,10 @@ using Microsoft.Agents.AI;
 using Microsoft.Extensions.VectorData;
 using Microsoft.SemanticKernel.Connectors.InMemory;
 using Microsoft.SemanticKernel.Connectors.SqliteVec;
-using Plugin.McpBridge.Agents;
-using Plugin.McpBridge.Data;
+using McpBridge.Core.Agents;
+using McpBridge.Core.Data;
 
-namespace Plugin.McpBridge.RAG;
+namespace McpBridge.Core.RAG;
 
 public class TextSearchStore
 {

@@ -4,14 +4,15 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using McpBridge.Core;
+using McpBridge.Core.Agents;
+using McpBridge.Core.Data;
+using McpBridge.Core.Events;
+using McpBridge.Core.Tools;
 using Microsoft.Extensions.AI;
 using Moq;
-using Plugin.McpBridge.Agents;
-using Plugin.McpBridge.Data;
-using Plugin.McpBridge.Events;
 using Plugin.McpBridge.Tests.Helpers;
 using Plugin.McpBridge.Tools;
-using SAL.Flatbed;
 using Xunit;
 
 namespace Plugin.McpBridge.Tests.Agents

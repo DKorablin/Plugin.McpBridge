@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel;
 
-namespace Plugin.McpBridge.UI.PropertyGrid.Converters;
+namespace McpBridge.Core.UI.PropertyGrid.Converters;
 
 /// <summary>Expands a BindingList&lt;T&gt; as indexed child properties inside a PropertyGrid.</summary>
 internal sealed class BindingListConverter<T> : CollectionConverter

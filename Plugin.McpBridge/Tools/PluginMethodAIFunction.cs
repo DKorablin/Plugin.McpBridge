@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using McpBridge.Core;
 using Microsoft.Extensions.AI;
 using SAL.Flatbed;
 

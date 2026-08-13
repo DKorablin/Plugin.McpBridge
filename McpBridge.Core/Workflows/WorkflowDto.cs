@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Plugin.McpBridge.Workflows;
+namespace McpBridge.Core.Workflows;
 
 /// <summary>Supported multi-agent workflow topology patterns.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter))]

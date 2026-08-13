@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using FluentAssertions;
-using Plugin.McpBridge.RAG;
+using McpBridge.Core.RAG;
 using Xunit;
 
 namespace Plugin.McpBridge.Tests;

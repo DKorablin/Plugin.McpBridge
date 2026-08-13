@@ -1,8 +1,8 @@
 ﻿using System.ComponentModel;
 using System.Runtime.Serialization;
-using Plugin.McpBridge.UI.PropertyGrid.Converters;
+using McpBridge.Core.UI.PropertyGrid.Converters;
 
-namespace Plugin.McpBridge.Data;
+namespace McpBridge.Core.Data;
 
 [DataContract]
 [TypeConverter(typeof(ExpandableObjectConverter))]

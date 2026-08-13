@@ -1,7 +1,8 @@
 using System.ComponentModel;
 using System.Drawing.Design;
 using System.Windows.Forms.Design;
-using Plugin.McpBridge.Data;
+using McpBridge.Core;
+using McpBridge.Core.Data;
 using Plugin.McpBridge.UI.PropertyGrid;
 using Plugin.McpBridge.UI.PropertyGrid.Converters;
 

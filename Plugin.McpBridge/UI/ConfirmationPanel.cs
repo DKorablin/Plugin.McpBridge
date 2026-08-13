@@ -1,4 +1,4 @@
-﻿using Plugin.McpBridge.Events;
+﻿using McpBridge.Core.Events;
 
 namespace Plugin.McpBridge.UI;
 

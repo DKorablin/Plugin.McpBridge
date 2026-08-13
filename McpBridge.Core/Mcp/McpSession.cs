@@ -2,7 +2,7 @@
 using System.Text;
 using System.Text.Json.Nodes;
 
-namespace Plugin.McpBridge.Mcp;
+namespace McpBridge.Core.Mcp;
 
 /// <summary>Owns the SSE connection and correlates JSON-RPC responses by id.</summary>
 public sealed class McpSession : IDisposable

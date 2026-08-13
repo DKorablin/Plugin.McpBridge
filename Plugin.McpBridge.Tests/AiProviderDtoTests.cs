@@ -1,6 +1,6 @@
 using System;
 using FluentAssertions;
-using Plugin.McpBridge.Data;
+using McpBridge.Core.Data;
 using Xunit;
 
 namespace Plugin.McpBridge.Tests;

@@ -1,8 +1,8 @@
 using System;
 using System.Linq;
 using FluentAssertions;
-using Plugin.McpBridge.Data;
-using Plugin.McpBridge.Tools;
+using McpBridge.Core.Data;
+using McpBridge.Core.Tools;
 using SAL.Flatbed;
 using Xunit;
 

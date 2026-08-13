@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.AI;
 
-namespace Plugin.McpBridge.Agents
+namespace McpBridge.Core.Agents
 {
 	/// <summary>Scripted IChatClient for UI testing — returns predefined responses with no network or credentials.</summary>
 	/// <remarks>

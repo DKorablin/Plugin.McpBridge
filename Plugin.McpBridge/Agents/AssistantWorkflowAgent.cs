@@ -2,8 +2,9 @@
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.Agents.AI.Workflows;
 using McpBridge.Core;
-using Plugin.McpBridge.Tools;
-using Plugin.McpBridge.Workflows;
+using McpBridge.Core.Tools;
+using McpBridge.Core.Workflows;
+using McpBridge.Core.Agents;
 
 namespace Plugin.McpBridge.Agents;
 

@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel;
-using Plugin.McpBridge.UI.PropertyGrid;
+using McpBridge.Core.UI.PropertyGrid;
 
-namespace Plugin.McpBridge.Data;
+namespace McpBridge.Core.Data;
 
 [TypeConverter(typeof(ExpandableObjectConverter))]
 public record AiAgentDto : INotifyPropertyChanged

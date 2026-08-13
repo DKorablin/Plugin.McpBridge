@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel;
-using Plugin.McpBridge.Data;
+using McpBridge.Core.Data;
 
-namespace Plugin.McpBridge
+namespace McpBridge.Core
 {
 	public partial class Settings
 	{

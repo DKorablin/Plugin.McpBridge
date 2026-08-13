@@ -1,7 +1,7 @@
-using FluentAssertions;
-using Plugin.McpBridge.Data;
-using Xunit;
 using System.ComponentModel;
+using FluentAssertions;
+using McpBridge.Core.Data;
+using Xunit;
 
 namespace Plugin.McpBridge.Tests;
 

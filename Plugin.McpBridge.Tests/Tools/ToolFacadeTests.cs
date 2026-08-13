@@ -1,9 +1,7 @@
 ﻿using System;
-using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
-using Plugin.McpBridge.Tools;
-using SAL.Flatbed;
+using McpBridge.Core.Tools;
 using Xunit;
 
 namespace Plugin.McpBridge.Tests.Tools

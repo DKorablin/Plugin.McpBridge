@@ -2,6 +2,8 @@
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using McpBridge.Core;
+using McpBridge.Core.Tools;
 using SAL.Flatbed;
 
 namespace Plugin.McpBridge.Tools;

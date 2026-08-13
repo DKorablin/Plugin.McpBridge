@@ -1,6 +1,6 @@
 using System.ComponentModel;
 using System.Globalization;
-using Plugin.McpBridge.Data;
+using McpBridge.Core.Data;
 
 namespace Plugin.McpBridge.UI.PropertyGrid.Converters;
 

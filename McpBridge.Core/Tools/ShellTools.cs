@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Globalization;
 
-namespace Plugin.McpBridge.Tools
+namespace McpBridge.Core.Tools
 {
 	internal class ShellTools : ToolsDiscoveryBase
 	{

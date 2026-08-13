@@ -2,10 +2,10 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel.Connectors.SqliteVec;
-using Plugin.McpBridge.Agents;
+using McpBridge.Core.Agents;
 using McpBridge.Core.Remoting;
-using Plugin.McpBridge.Data;
-using Plugin.McpBridge.RAG;
+using McpBridge.Core.Data;
+using McpBridge.Core.RAG;
 
 namespace Plugin.McpBridge.RAGHost;
 

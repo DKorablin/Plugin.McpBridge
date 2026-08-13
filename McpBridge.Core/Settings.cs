@@ -1,10 +1,10 @@
 ﻿using System.ComponentModel;
 using System.Runtime.Serialization.Json;
 using McpBridge.Core.Remoting;
-using Plugin.McpBridge.Data;
-using Plugin.McpBridge.UI.PropertyGrid.Converters;
+using McpBridge.Core.Data;
+using McpBridge.Core.UI.PropertyGrid.Converters;
 
-namespace Plugin.McpBridge
+namespace McpBridge.Core
 {
 	/// <summary>Configuration settings for the MCP Bridge plugin.</summary>
 	public partial class Settings : INotifyPropertyChanged
@@ -20,6 +20,10 @@ namespace Plugin.McpBridge
 
 		private static DataContractJsonSerializer ProvidersSerializer = new DataContractJsonSerializer(typeof(AiProviderDto[]));
 		private static DataContractJsonSerializer AgentSerializer = new DataContractJsonSerializer(typeof(AiAgentDto[]));
+
+		// Legacy namespace migration for deserialization of old settings files. This is a temporary measure.
+		private static String MigrateLegacyNamespace(String json)
+			=> json.Replace(":#Plugin.McpBridge.", ":#McpBridge.Core.", StringComparison.Ordinal);
 
 		private String? _aiProvidersJson = null;
 		private BindingList<AiProviderDto>? _aiProviders = null;
@@ -69,7 +73,7 @@ namespace Plugin.McpBridge
 				{
 					AiProviderDto[]? arrProviders = null;
 					if(this.AiProvidersJson != null)
-						using(MemoryStream stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(this.AiProvidersJson)))
+						using(MemoryStream stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(MigrateLegacyNamespace(this.AiProvidersJson))))
 							arrProviders = (AiProviderDto[]?)ProvidersSerializer.ReadObject(stream);
 
 					List<AiProviderDto> aiProviders = new List<AiProviderDto>(arrProviders ?? Array.Empty<AiProviderDto>());
@@ -104,7 +108,7 @@ namespace Plugin.McpBridge
 				{
 					AiAgentDto[]? arrAgents = null;
 					if(this.AiAgentsJson != null)
-						using(MemoryStream stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(this.AiAgentsJson)))
+						using(MemoryStream stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(MigrateLegacyNamespace(this.AiAgentsJson))))
 							arrAgents = (AiAgentDto[]?)AgentSerializer.ReadObject(stream);
 
 					List<AiAgentDto> aiAgents = arrAgents?.Length > 0

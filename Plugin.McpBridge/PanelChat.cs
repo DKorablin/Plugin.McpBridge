@@ -1,13 +1,14 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics;
+using McpBridge.Core;
+using McpBridge.Core.Agents;
+using McpBridge.Core.Data;
+using McpBridge.Core.Events;
+using McpBridge.Core.Workflows;
 using Microsoft.Extensions.AI;
-using Plugin.McpBridge.Agents;
-using Plugin.McpBridge.Data;
-using Plugin.McpBridge.Events;
 using Plugin.McpBridge.Native;
 using Plugin.McpBridge.UI;
 using Plugin.McpBridge.Workflow;
-using Plugin.McpBridge.Workflows;
 using SAL.Windows;
 
 namespace Plugin.McpBridge;

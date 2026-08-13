@@ -5,7 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.AI;
 
-namespace Plugin.McpBridge;
+namespace McpBridge.Core;
 
 internal static class Utils
 {
