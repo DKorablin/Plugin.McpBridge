@@ -40,6 +40,8 @@
 		<PackageVersion Include="XUnit.Runner.VisualStudio" Version="3.1.5" />
 		<PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.6.0" />
 		<PackageVersion Include="coverlet.collector" Version="10.0.1" />
+		<!--Debugging-->
+		<PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
 		<!--Analyzers-->
 		<GlobalPackageReference Include="SonarAnalyzer.CSharp" Version="10.8.0.113526">
 			<PrivateAssets>All</PrivateAssets>

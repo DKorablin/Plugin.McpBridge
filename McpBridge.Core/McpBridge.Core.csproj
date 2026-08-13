@@ -22,6 +22,9 @@
 		<PackageReadmeFile>docs\README.md</PackageReadmeFile>
 		<RepositoryUrl>https://github.com/DKorablin/Plugin.McpBridge</RepositoryUrl>
 		<PackageTags>maf model-context-protocol semantic-kernel openai azure-openai ai chat assistant</PackageTags>
+		<RepositoryType>git</RepositoryType>
+		<PublishRepositoryUrl>True</PublishRepositoryUrl>
+		<EmbedUntrackedSources>True</EmbedUntrackedSources>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -45,5 +48,7 @@
 		<!--DurableTasks-->
 		<PackageReference Include="Microsoft.DurableTask.Client.Grpc" />
 		<PackageReference Include="Microsoft.DurableTask.Worker.Grpc" />
+		<!--Debugging-->
+		<PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
 	</ItemGroup>
 </Project>
