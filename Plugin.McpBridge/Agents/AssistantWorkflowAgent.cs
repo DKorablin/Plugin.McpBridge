@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.Agents.AI.Workflows;
 using McpBridge.Core;
@@ -16,11 +17,11 @@ internal class AssistantWorkflowAgent : AssistantAgent
 	}
 
 	public async Task InitializeWorkflow(
-	Settings settings,
-	WorkflowFactoryItem workflow,
-	AgentSessionStore? sessionStore = null,
-	String? conversationId = null,
-	CancellationToken token = default)
+		Settings settings,
+		WorkflowFactoryItem workflow,
+		AgentSessionStore? sessionStore = null,
+		String? conversationId = null,
+		CancellationToken token = default)
 	{
 		_ = settings ?? throw new ArgumentNullException(nameof(settings));
 		_ = workflow ?? throw new ArgumentNullException(nameof(workflow));
@@ -37,7 +38,7 @@ internal class AssistantWorkflowAgent : AssistantAgent
 		this.SessionScopeName = workflow.Name;
 
 		if(!this.Handle.IsEvaluationCacheEnabled && this.SessionStore != null && this.ConversationId != null)
-			this.Session = await this.SessionStore.GetSessionAsync(this.Handle.Agent, this.ConversationId, token);
+			this.Session = await this.SessionStore.GetOrCreateSessionAsync(this.Handle.Agent, new AgentSessionStoreKey(this.ConversationId, null), token);
 
 		this.Trace.TraceEvent(TraceEventType.Verbose, 0, $"Initialized workflow AssistantAgent for '{workflow.Name}'.");
 	}

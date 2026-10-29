@@ -62,8 +62,8 @@ internal static class Program
 		builder.Services.Configure<ConsoleLifetimeOptions>(options => options.SuppressStatusMessages = true);
 		Program.ConfigureLogging(builder.Logging);
 
-		List<WorkflowHandle> workflowList = workflows.ToList();
-		Boolean useDurableWorkflowScheduler = config.DtsEmulatorProcessEnabled && workflowList.Count > 0;
+		WorkflowHandle[] workflowList = workflows.ToArray();
+		Boolean useDurableWorkflowScheduler = config.DtsEmulatorProcessEnabled && workflowList.Length > 0;
 		if(useDurableWorkflowScheduler)
 			builder.Services.ConfigureDurableWorkflows(
 				options => options.AddWorkflows(workflowList.Select(w => w.Workflow).ToArray()),

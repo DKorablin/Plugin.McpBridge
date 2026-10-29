@@ -26,21 +26,27 @@ public class FileSystemAgentSessionStore : AgentSessionStore
 			this._storageDirectory = storageDirectory;
 	}
 
-	public override async ValueTask<AgentSession> GetSessionAsync(AIAgent agent, String conversationId, CancellationToken cancellationToken = default)
+	public override async ValueTask<AgentSession?> GetSessionAsync(AIAgent agent, AgentSessionStoreKey key, CancellationToken cancellationToken = default)
 	{
-		var json = await this.ReadSessionAsyncI(agent.Name, conversationId, cancellationToken);
+		var json = await this.ReadSessionAsyncI(agent.Name, key.SessionId, cancellationToken);
 		if(json == null)
-			return await agent.CreateSessionAsync(cancellationToken);
+			return null;
 
 		return await agent.DeserializeSessionAsync(json.Value, cancellationToken: cancellationToken);
 	}
 
-	public override async ValueTask SaveSessionAsync(AIAgent agent, String conversationId, AgentSession session, CancellationToken cancellationToken = default)
+	public override async ValueTask SaveSessionAsync(AIAgent agent, AgentSessionStoreKey key, AgentSession session, CancellationToken cancellationToken = default)
 	{
-		String path = this.GetSessionPath(agent.Name, conversationId, createDirectory: true);
+		String path = this.GetSessionPath(agent.Name, key.SessionId, createDirectory: true);
 
 		JsonElement serialized = await agent.SerializeSessionAsync(session, cancellationToken: cancellationToken);
 		await File.WriteAllTextAsync(path, serialized.GetRawText(), cancellationToken);
+	}
+
+	public override ValueTask DeleteSessionAsync(AIAgent agent, AgentSessionStoreKey key, CancellationToken cancellationToken = default)
+	{
+		this.DeleteSession(agent.Name, key.SessionId);
+		return ValueTask.CompletedTask;
 	}
 
 	public IEnumerable<String> ListSessions(String? agentName)

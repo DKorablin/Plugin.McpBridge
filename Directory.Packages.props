@@ -1,47 +1,56 @@
 ﻿<Project>
 	<PropertyGroup>
 		<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-		<MAIVersion>1.6.2-preview.260521.1</MAIVersion>
+		<!--Transitive dependencies listed below are pinned to the same version in all projects. All projects are deployed to the same plugin folder and must ship the same assembly versions-->
+		<CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+		<MAIVersion>1.26.0-preview.261023.1</MAIVersion>
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageVersion Include="SAL.Windows" Version="1.2.12">
 			<ExcludeAssets>runtime</ExcludeAssets>
 		</PackageVersion>
-		<PackageVersion Include="Microsoft.Agents.AI" Version="1.6.2" />
-		<PackageVersion Include="Microsoft.Agents.AI.Workflows" Version="1.6.2" />
-		<PackageVersion Include="Microsoft.Agents.AI.Workflows.Declarative" Version="1.6.2-rc1" />
+		<PackageVersion Include="Microsoft.Agents.AI" Version="1.26.0" />
+		<PackageVersion Include="Microsoft.Agents.AI.Workflows" Version="1.26.0" />
+		<PackageVersion Include="Microsoft.Agents.AI.Workflows.Declarative" Version="1.26.0" />
 		<PackageVersion Include="Azure.AI.OpenAI" Version="2.9.0-beta.1" />
+		<!--Pinned transitive dependencies. Azure.AI.OpenAI, Microsoft.Extensions.AI.OpenAI and Microsoft.Agents.AI.* require different versions of these packages-->
+		<PackageVersion Include="System.ClientModel" Version="1.15.0" />
+		<PackageVersion Include="OpenAI" Version="2.14.0" />
+		<PackageVersion Include="Azure.Core" Version="1.51.1" />
+		<PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.12" />
+		<PackageVersion Include="System.Linq.AsyncEnumerable" Version="10.0.12" />
+		<PackageVersion Include="System.Net.ServerSentEvents" Version="10.0.12" />
 		<PackageVersion Include="Microsoft.Agents.AI.DevUI" Version="$(MAIVersion)" />
 		<PackageVersion Include="Microsoft.Agents.AI.Hosting" Version="$(MAIVersion)" />
 		<PackageVersion Include="Microsoft.Agents.AI.Hosting.AGUI.AspNetCore" Version="$(MAIVersion)" />
-		<PackageVersion Include="Microsoft.Agents.AI.Hosting.OpenAI" Version="$(MAIVersion)" />
+		<PackageVersion Include="Microsoft.Agents.AI.Hosting.OpenAI" Version="1.26.0-alpha.261023.1" />
 		<!--CoPilot-->
-		<PackageVersion Include="Microsoft.Agents.AI.GitHub.Copilot" Version="1.10.0-rc1" />
+		<PackageVersion Include="Microsoft.Agents.AI.GitHub.Copilot" Version="1.26.0" />
 		<!--AI Extensions-->
-		<PackageVersion Include="Microsoft.Extensions.AI.OpenAI" Version="10.7.0" />
-		<PackageVersion Include="Microsoft.Extensions.AI.Evaluation.Reporting" Version="10.7.0" />
+		<PackageVersion Include="Microsoft.Extensions.AI.OpenAI" Version="10.11.0" />
+		<PackageVersion Include="Microsoft.Extensions.AI.Evaluation.Reporting" Version="10.11.0" />
 		<!--RAG-->
 		<PackageVersion Include="Microsoft.SemanticKernel.Connectors.InMemory" Version="1.74.0-preview" />
 		<PackageVersion Include="Microsoft.SemanticKernel.Connectors.SqliteVec" Version="1.74.0-preview" />
 		<!--DurableTask + DTEmulator-->
-		<PackageVersion Include="Microsoft.Agents.AI.DurableTask" Version="$(MAIVersion)" />
-		<PackageVersion Include="Microsoft.DurableTask.Client.Grpc" Version="1.18.0" />
-		<PackageVersion Include="Microsoft.DurableTask.Worker.Grpc" Version="1.18.0" />
+		<PackageVersion Include="Microsoft.Agents.AI.DurableTask" Version="1.15.0-preview.260722.1" />
+		<PackageVersion Include="Microsoft.DurableTask.Client.Grpc" Version="1.27.0" />
+		<PackageVersion Include="Microsoft.DurableTask.Worker.Grpc" Version="1.27.0" />
 		<PackageVersion Include="Docker.DotNet" Version="3.125.15" />
 		<!--DependencyInjection-->
-		<PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.9" />
-		<PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
-		<PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="10.0.9" />
+		<PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.14" />
+		<PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.14" />
+		<PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="10.0.14" />
 		<!--Tests-->
-		<PackageVersion Include="Moq" Version="4.20.72" />
-		<PackageVersion Include="Moq.AutoMock" Version="4.0.2" />
-		<PackageVersion Include="FluentAssertions" Version="8.10.0" />
+		<PackageVersion Include="Moq" Version="4.21.0" />
+		<PackageVersion Include="Moq.AutoMock" Version="4.0.3" />
+		<PackageVersion Include="FluentAssertions" Version="8.11.0" />
 		<PackageVersion Include="XUnit" Version="2.9.3" />
-		<PackageVersion Include="XUnit.Runner.VisualStudio" Version="3.1.5" />
-		<PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.6.0" />
-		<PackageVersion Include="coverlet.collector" Version="10.0.1" />
+		<PackageVersion Include="XUnit.Runner.VisualStudio" Version="4.0.1" />
+		<PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+		<PackageVersion Include="coverlet.collector" Version="10.1.0" />
 		<!--Debugging-->
-		<PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
+		<PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.403" />
 		<!--Analyzers-->
 		<GlobalPackageReference Include="SonarAnalyzer.CSharp" Version="10.35.0.4138">
 			<PrivateAssets>All</PrivateAssets>

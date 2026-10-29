@@ -66,8 +66,8 @@ internal static class Program
 		builder.Services.Configure<ConsoleLifetimeOptions>(options => options.SuppressStatusMessages = true);
 		Program.ConfigureLogging(builder.Logging);
 
-		List<WorkflowHandle> workflowList = workflows.ToList();
-		Boolean useDurableWorkflowScheduler = settings.DtsEmulatorProcessEnabled && workflowList.Count > 0;
+		WorkflowHandle[] workflowList = workflows.ToArray();
+		Boolean useDurableWorkflowScheduler = settings.DtsEmulatorProcessEnabled && workflowList.Length > 0;
 		if(useDurableWorkflowScheduler)
 			builder.Services.ConfigureDurableWorkflows(
 				options => options.AddWorkflows(workflowList.Select(w => w.Workflow).ToArray()),
@@ -93,7 +93,7 @@ internal static class Program
 				builder.AddWorkflow(workflow.Workflow.Name!, (sp, key) => workflow.Workflow)
 					.AddAsAIAgent();
 
-		builder.Services.AddAGUI();
+		builder.Services.AddAGUIServer();
 
 		var app = builder.Build();
 		MapEmbeddedResource(app, "/agui", "index.html", "text/html; charset=utf-8");
@@ -103,7 +103,7 @@ internal static class Program
 
 		if(sessionStore != null)
 			Program.MapHistoryEndpoints(app, sessionStore, agent.Agent.Name ?? "assistant");
-		app.MapAGUI(agentBuilder, "/agui");
+		app.MapAGUIServer(agentBuilder, "/agui");
 		return app;
 	}
 

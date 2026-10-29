@@ -52,7 +52,7 @@ public class AssistantAgent : IDisposable
 		this.SessionScopeName = this.Handle.Agent.Name;
 
 		if(!this.Handle.IsEvaluationCacheEnabled && this.SessionStore != null && this.ConversationId != null)
-			this.Session = await this.SessionStore.GetSessionAsync(this.Handle.Agent, this.ConversationId, CancellationToken.None);
+			this.Session = await this.SessionStore.GetOrCreateSessionAsync(this.Handle.Agent, new AgentSessionStoreKey(this.ConversationId, null), CancellationToken.None);
 
 		this.Trace.TraceEvent(TraceEventType.Verbose, 0, $"Initialized AssistantAgent with instructions '{instructions}'.");
 	}
@@ -89,7 +89,7 @@ public class AssistantAgent : IDisposable
 			await this.ProcessMessage(chatMessage, this.Handle.Agent, cancellationToken);
 
 		if(this.SessionStore != null && this.ConversationId != null && this.Session != null)
-			await this.SessionStore.SaveSessionAsync(this.Handle.Agent, this.ConversationId, this.Session, cancellationToken);
+			await this.SessionStore.SaveSessionAsync(this.Handle.Agent, new AgentSessionStoreKey(this.ConversationId, null), this.Session, cancellationToken);
 
 		static ChatMessage BuildUserMessage(String text, DataContent[]? files = null)
 		{

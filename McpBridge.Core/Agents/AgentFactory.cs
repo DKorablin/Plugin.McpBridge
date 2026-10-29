@@ -265,13 +265,24 @@ public class AgentFactory
 				+ $", Embeddings: {embeddingProvider} (Dimension={embeddingProvider.Embeddings.Dimension}, TopResults={embeddingProvider.Embeddings.TopResults})"
 				+ $", Extensions: {String.Join(", ", supportedExtensions)}, Tool: '{agent.RagToolName}'");
 
-			providers.Add(new TextSearchProvider((text, ct) => textSearchStore.SearchTextAsync(text, ct), new TextSearchProviderOptions
-			{
-				SearchTime = TextSearchProviderOptions.TextSearchBehavior.OnDemandFunctionCalling,
-				FunctionToolName = agent.RagToolName,
-				FunctionToolDescription = agent.RagToolDescription,
-				CitationsPrompt = agent.RagCitationsPrompt,
-			}));
+			providers.Add(new TextSearchProvider(async (text, ct) =>
+				{
+					try
+					{
+						return await textSearchStore.SearchTextAsync(text, ct);
+					} catch(Exception exc)
+					{
+						this._trace?.TraceData(TraceEventType.Error, 0, exc);
+						throw;
+					}
+				},
+				new TextSearchProviderOptions
+				{
+					SearchTime = TextSearchProviderOptions.TextSearchBehavior.OnDemandFunctionCalling,
+					FunctionToolName = agent.RagToolName,
+					FunctionToolDescription = agent.RagToolDescription,
+					CitationsPrompt = agent.RagCitationsPrompt,
+				}));
 		} else if(agent.RagDirectory != null)
 			this._trace?.TraceEvent(TraceEventType.Warning, 0, $"RAG NOT attached to agent '{agent.Id}': directory '{agent.RagDirectory}' is set, but embedding provider '{embeddingProvider}' "
 				+ $"does not support embeddings or has no Dimension/ModelId (Dimension={embeddingProvider.Embeddings?.Dimension?.ToString() ?? "<null>"}, ModelId={embeddingProvider.Embeddings?.ModelId ?? "<null>"}).");
