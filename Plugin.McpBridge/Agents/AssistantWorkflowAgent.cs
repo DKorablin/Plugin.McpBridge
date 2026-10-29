@@ -29,7 +29,7 @@ internal class AssistantWorkflowAgent : AssistantAgent
 		this.ConversationId = conversationId;
 		this.ResetState();
 
-		WorkflowLoader2 loader = new WorkflowLoader2(settings, workflow.WorkflowPath);
+		WorkflowLoader2 loader = new WorkflowLoader2(settings, workflow.WorkflowPath, this.Trace);
 		WorkflowHandle workflowHandle = await loader.BuildAsync(settings.AiProviders, this.Tools, token);
 		var agent = workflowHandle.Workflow.AsAIAgent(name: workflow.Name);
 		this.Handle = AgentHandle.FromWorkflow(agent, null, workflowHandle.IsEvaluationCacheEnabled);

@@ -1,5 +1,6 @@
 ﻿using System.ClientModel;
 using System.ClientModel.Primitives;
+using System.Diagnostics;
 using Azure.AI.OpenAI;
 using GitHub.Copilot;
 using Microsoft.Agents.AI;
@@ -18,6 +19,12 @@ namespace McpBridge.Core.Agents;
 /// <summary>Shared factory methods for building AI agent components, usable by both the WinForms chat path and DevUI.</summary>
 public class AgentFactory
 {
+	private readonly IMcpTrace? _trace;
+
+	/// <param name="trace">Optional trace sink that receives a verbose summary of the features attached to every created agent.</param>
+	public AgentFactory(IMcpTrace? trace = null)
+		=> this._trace = trace;
+
 	public async Task<AgentHandle> CreateAgent(
 		AiAgentDto agent,
 		IEnumerable<AiProviderDto> providers,
@@ -68,14 +75,17 @@ public class AgentFactory
 				},
 			};
 
+			this.TraceAgentFeatures(agentRole, provider, tools, null, contextProviders);
 			return AgentHandle.FromCopilotClient(copilotClient.AsAIAgent(sessionConfig), copilotClient);
 		default:
 			IChatClient chatClient = AgentFactory.CreateChatClient(provider);
 			Boolean isDebugMode = false;
+			String? evaluationCacheDirectory = null;
 			if(provider is NetworkProviderDto networkProvider && networkProvider.EvaluationCacheEnabled)
 			{
 				isDebugMode = true;
-				chatClient = await AgentFactory.ConfigureEvaluationCache(chatClient, networkProvider, agentRole);
+				evaluationCacheDirectory = AgentFactory.GetEvaluationCacheDirectory(networkProvider, agentRole);
+				chatClient = await AgentFactory.ConfigureEvaluationCache(chatClient, networkProvider, evaluationCacheDirectory);
 			}
 
 			var options1 = new ChatClientAgentOptions
@@ -93,8 +103,38 @@ public class AgentFactory
 
 			options1.AIContextProviders = contextProviders;
 
+			this.TraceAgentFeatures(agentRole, provider, tools, evaluationCacheDirectory, contextProviders);
 			return AgentHandle.FromChatClient(chatClient.AsAIAgent(options1), chatClient, isDebugMode);
 		}
+	}
+
+	/// <summary>Writes a verbose summary of the features (tools, evaluation cache, chat options, context providers) attached to a created agent.</summary>
+	private void TraceAgentFeatures(String agentRole, AiProviderDto provider, AIFunction[] tools, String? evaluationCacheDirectory, IEnumerable<AIContextProvider>? contextProviders)
+	{
+		if(this._trace == null)
+			return;
+
+		String[] contextProviderNames = contextProviders?.Select(p => p.GetType().Name).ToArray() ?? [];
+		List<String> lines = new List<String>
+		{
+			$"Agent '{agentRole}' created. Provider: {provider} ({provider.ProviderType})",
+			$"\tTools ({tools.Length}): {(tools.Length == 0 ? "<none>" : String.Join(", ", tools.Select(t => t.Name)))}",
+		};
+
+		if(provider.ProviderType == AiProviderType.CoPilot)
+		{
+			if(contextProviderNames.Length > 0)
+				lines.Add($"\tContext providers: NOT ATTACHED (not supported by {AiProviderType.CoPilot}): {String.Join(", ", contextProviderNames)}");
+		} else
+		{
+			ChatSettings chat = provider.Chat;
+			lines.Add($"\tEvaluation cache: {(evaluationCacheDirectory == null ? "disabled" : $"enabled ('{evaluationCacheDirectory}')")}");
+			lines.Add($"\tChat options: MaxTokens={chat.MaxTokens?.ToString() ?? "<default>"}, Temperature={chat.Temperature?.ToString() ?? "<default>"}, "
+				+ $"Reasoning={(chat.ReasoningOutput.HasValue || chat.ReasoningEffort.HasValue ? $"{chat.ReasoningOutput ?? ReasoningOutput.None}/{chat.ReasoningEffort ?? ReasoningEffort.Medium}" : "<default>")}");
+			lines.Add($"\tContext providers: {(contextProviderNames.Length == 0 ? "<none>" : String.Join(", ", contextProviderNames))}");
+		}
+
+		this._trace.TraceEvent(TraceEventType.Verbose, 0, String.Join(Environment.NewLine, lines));
 	}
 
 	/// <summary>Creates a raw <see cref="IChatClient"/> for the given provider using the supplied <see cref="HttpClient"/>.</summary>
@@ -151,14 +191,10 @@ public class AgentFactory
 	}
 
 	/// <summary>Wraps a <see cref="IChatClient"/> with a disk-backed response cache when <see cref="NetworkProviderDto.EvaluationCacheEnabled"/> is set.</summary>
-	private static async Task<IChatClient> ConfigureEvaluationCache(IChatClient chatClient, NetworkProviderDto provider, String agentRole)
+	private static async Task<IChatClient> ConfigureEvaluationCache(IChatClient chatClient, NetworkProviderDto provider, String storageRootPath)
 	{
 		if(!provider.EvaluationCacheEnabled)
 			return chatClient;
-
-		String storageRootPath = String.IsNullOrWhiteSpace(provider.EvaluationCacheDirectory)
-			? Utils.GetAgentStorageDirectory(Utils.SpecialDirectory.EvaluationCache, agentRole)
-			: provider.EvaluationCacheDirectory;
 
 		_ = Directory.CreateDirectory(storageRootPath);
 
@@ -169,6 +205,11 @@ public class AgentFactory
 			.UseDistributedCache(cache)
 			.Build();
 	}
+
+	private static String GetEvaluationCacheDirectory(NetworkProviderDto provider, String agentRole)
+		=> String.IsNullOrWhiteSpace(provider.EvaluationCacheDirectory)
+			? Utils.GetAgentStorageDirectory(Utils.SpecialDirectory.EvaluationCache, agentRole)
+			: provider.EvaluationCacheDirectory;
 
 	/// <summary>Wraps a <see cref="IChatClient"/> with token, temperature, and reasoning options from <paramref name="settings"/> and <paramref name="settings"/>.</summary>
 	private static IChatClient ConfigureChatOptions(IChatClient chatClient, ChatSettings settings)
@@ -203,7 +244,8 @@ public class AgentFactory
 			IEmbeddingGenerator<String, Embedding<Single>> embeddingGenerator = AgentFactory.CreateEmbeddingGenerator(embeddingProvider);
 			TextSearchStore textSearchStore;
 			String sqlitePath = TextSearchStore.GetSqliteDatabasePath(agent.RagDirectory, agent.Id);
-			if(File.Exists(sqlitePath))
+			Boolean useSqliteStore = File.Exists(sqlitePath);
+			if(useSqliteStore)
 			{
 				String connectionString = new SqliteConnectionStringBuilder { DataSource = sqlitePath }.ToString();
 				SqliteVectorStore sqliteStore = new SqliteVectorStore(connectionString, new SqliteVectorStoreOptions
@@ -218,6 +260,11 @@ public class AgentFactory
 				textSearchStore = new TextSearchLazyStore(vectorStore, TextSearchStore.DefaultCollectionName, embeddingProvider.Embeddings.Dimension.Value, agent.RagDirectory, supportedExtensions, embeddingProvider.Embeddings.TopResults);
 			}
 
+			this._trace?.TraceEvent(TraceEventType.Verbose, 0, $"RAG attached to agent '{agent.Id}'. Directory: '{agent.RagDirectory}'"
+				+ $", Store: {(useSqliteStore ? $"SQLite ('{sqlitePath}')" : "InMemory (lazy indexing)")}"
+				+ $", Embeddings: {embeddingProvider} (Dimension={embeddingProvider.Embeddings.Dimension}, TopResults={embeddingProvider.Embeddings.TopResults})"
+				+ $", Extensions: {String.Join(", ", supportedExtensions)}, Tool: '{agent.RagToolName}'");
+
 			providers.Add(new TextSearchProvider((text, ct) => textSearchStore.SearchTextAsync(text, ct), new TextSearchProviderOptions
 			{
 				SearchTime = TextSearchProviderOptions.TextSearchBehavior.OnDemandFunctionCalling,
@@ -225,9 +272,15 @@ public class AgentFactory
 				FunctionToolDescription = agent.RagToolDescription,
 				CitationsPrompt = agent.RagCitationsPrompt,
 			}));
-		}
+		} else if(agent.RagDirectory != null)
+			this._trace?.TraceEvent(TraceEventType.Warning, 0, $"RAG NOT attached to agent '{agent.Id}': directory '{agent.RagDirectory}' is set, but embedding provider '{embeddingProvider}' "
+				+ $"does not support embeddings or has no Dimension/ModelId (Dimension={embeddingProvider.Embeddings?.Dimension?.ToString() ?? "<null>"}, ModelId={embeddingProvider.Embeddings?.ModelId ?? "<null>"}).");
+
 		if(agent.SkillsDirectory != null)
+		{
 			providers.Add(new AgentSkillsProvider(agent.SkillsDirectory));
+			this._trace?.TraceEvent(TraceEventType.Verbose, 0, $"Skills attached to agent '{agent.Id}'. Directory: '{agent.SkillsDirectory}'");
+		}
 
 		return providers.Count == 0 ? null : providers.ToArray();
 	}
@@ -284,5 +337,4 @@ public class AgentFactory
 	private static CoPilotConnectionSettings GetCoPilotConnection(AiProviderDto providerSettings)
 		=> providerSettings.Connection as CoPilotConnectionSettings
 			?? throw new InvalidOperationException($"Provider '{providerSettings}' requires Copilot connection settings.");
-
 }

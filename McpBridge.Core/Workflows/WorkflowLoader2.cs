@@ -11,12 +11,14 @@ namespace McpBridge.Core.Workflows;
 internal sealed class WorkflowLoader2
 {
 	private readonly Settings _settings;
-	private readonly AgentFactory _agentFactory = new AgentFactory();
+	private readonly AgentFactory _agentFactory;
 
 	public WorkflowDto Config { get; }
 
-	internal WorkflowLoader2(Settings settings, String workflowPath)
+	internal WorkflowLoader2(Settings settings, String workflowPath, IMcpTrace? trace = null)
 	{
+		this._agentFactory = new AgentFactory(trace);
+
 		if(String.IsNullOrWhiteSpace(workflowPath))
 			throw new ArgumentException("Workflow path must be a non-empty string.", nameof(workflowPath));
 		if(!File.Exists(workflowPath))

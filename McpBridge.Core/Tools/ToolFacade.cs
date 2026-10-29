@@ -29,7 +29,7 @@ internal class ToolFacade : DelegatingAIFunction
 	protected override async ValueTask<Object?> InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
 	{
 		String argString = String.Join(", ", arguments.Select(kv => $"{kv.Key}={kv.Value}"));
-		this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool] {this.Name} {argString}");
+		this._trace.TraceEvent(TraceEventType.Start, 0, $"[tool] {this.Name} {argString}");
 		try
 		{
 			Stopwatch sw = Stopwatch.StartNew();
@@ -39,9 +39,9 @@ internal class ToolFacade : DelegatingAIFunction
 
 			sw.Stop();
 			if(result is Array array && result is not String)
-				this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool result] {result?.GetType()} Length: {array.Length} Elapsed: {sw}");
+				this._trace.TraceEvent(TraceEventType.Stop, 0, $"[tool result] {result?.GetType()} Length: {array.Length} Elapsed: {sw}");
 			else
-				this._trace.TraceEvent(TraceEventType.Verbose, 0, $"[tool result] {result?.GetType()} Elapsed: {sw}");
+				this._trace.TraceEvent(TraceEventType.Stop, 0, $"[tool result] {result?.GetType()} Elapsed: {sw}");
 			return result;
 		} catch(Exception exc)
 		{

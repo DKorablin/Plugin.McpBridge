@@ -151,7 +151,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 			try
 			{
 				ToolsFactory toolsFactory = CreateToolsFactory();
-				AgentFactory agentFactory = new AgentFactory();
+				AgentFactory agentFactory = new AgentFactory(this.McpTrace);
 				String? sessionStoreDir = this.Settings.GetSessionStorageDirectory();
 				FileSystemAgentSessionStore? sessionStore = sessionStoreDir == null
 					? null
@@ -173,7 +173,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 			try
 			{
 				ToolsFactory toolsFactory = CreateToolsFactory();
-				AgentFactory agentFactory = new AgentFactory();
+				AgentFactory agentFactory = new AgentFactory(this.McpTrace);
 				FileSystemAgentSessionStore? sessionStore = this.CreateSessionStore();
 
 				var result = new AssistantWorkflowAgent(this.McpTrace, toolsFactory, agentFactory);

@@ -43,7 +43,7 @@
 		<!--Debugging-->
 		<PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
 		<!--Analyzers-->
-		<GlobalPackageReference Include="SonarAnalyzer.CSharp" Version="10.8.0.113526">
+		<GlobalPackageReference Include="SonarAnalyzer.CSharp" Version="10.35.0.4138">
 			<PrivateAssets>All</PrivateAssets>
 			<IncludeAssets>Runtime; Build; Native; contentfiles; Analyzers; buildtransitive</IncludeAssets>
 		</GlobalPackageReference>

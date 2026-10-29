@@ -84,7 +84,7 @@ public class AssistantAgent : IDisposable
 
 		ChatMessage chatMessage = BuildUserMessage(message, files);
 		if(useStreaming)
-			await this.ProcessStreamingMessage(chatMessage, cancellationToken);
+			await this.ProcessStreamingMessage(chatMessage, this.Handle.Agent, cancellationToken);
 		else
 			await this.ProcessMessage(chatMessage, this.Handle.Agent, cancellationToken);
 
@@ -136,11 +136,11 @@ public class AssistantAgent : IDisposable
 		this.OnAiResponseReceived(new AgentResponseEventArgs(finalMessage, true));
 	}
 
-	private async Task ProcessStreamingMessage(ChatMessage message, CancellationToken cancellationToken)
+	private async Task ProcessStreamingMessage(ChatMessage message, AIAgent agent, CancellationToken cancellationToken)
 	{
 		while(true)
 		{
-			IAsyncEnumerable<AgentResponseUpdate> stream = this.Handle.Agent.RunStreamingAsync(message, this.Session, null, cancellationToken);
+			IAsyncEnumerable<AgentResponseUpdate> stream = agent.RunStreamingAsync(message, this.Session, null, cancellationToken);
 			ToolApprovalResponseContent? approvalResponse = await this.HandleStreamingResponseAsync(stream, cancellationToken);
 
 			if(approvalResponse == null)
@@ -215,7 +215,21 @@ public class AssistantAgent : IDisposable
 
 	/// <inheritdoc/>
 	public void Dispose()
-		=> this.Handle?.Dispose();
+	{
+		this.Dispose(true);
+		GC.SuppressFinalize(this);
+	}
+
+	/// <summary>Releases the resources used by the agent.</summary>
+	/// <param name="disposing"><see langword="true"/> to release managed resources.</param>
+	protected virtual void Dispose(Boolean disposing)
+	{
+		if(disposing)
+		{
+			this.Handle?.Dispose();
+			this.Handle = null;
+		}
+	}
 
 	protected void ResetState()
 	{
