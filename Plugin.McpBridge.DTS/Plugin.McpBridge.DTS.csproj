@@ -20,4 +20,7 @@
 		<!--AI Extensions-->
 		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
 	</ItemGroup>
+	<ItemGroup>
+		<Compile Include="$(MSBuildThisFileDirectory)..\SAL.Shared\LogAppIDs.cs" Link="Logging\LogAppIDs.cs" />
+	</ItemGroup>
 </Project>

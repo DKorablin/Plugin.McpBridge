@@ -2,6 +2,7 @@ using McpBridge.Core.Data;
 using McpBridge.Core.RAG;
 using McpBridge.Core.Remoting;
 using Microsoft.Extensions.Logging;
+using Plugin.McpBridge.RAG;
 
 namespace Plugin.McpBridge.RAGHost;
 
@@ -48,14 +49,14 @@ internal sealed class RagFileSyncCoordinator : IDisposable
 			this._watchers.Add(watcher);
 			watchersCount++;
 		}
-		this._logger.LogInformation("Attached {WatchersCount} file watcher(s) for RAG directories.", watchersCount);
+		this._logger.SyncCoordinatorWatchersAttached(watchersCount);
 
 		lifetimeToken.Register(this.Dispose);
 	}
 
 	public void Dispose()
 	{
-		this._logger.LogDebug("Disposing RAG file sync coordinator.");
+		this._logger.SyncCoordinatorDisposing();
 		foreach(CancellationTokenSource cts in this._pendingSync.Values)
 		{
 			cts.Cancel();
@@ -96,7 +97,7 @@ internal sealed class RagFileSyncCoordinator : IDisposable
 				}
 				catch(Exception ex)
 				{
-					this._logger.LogError(ex, "RAG sync failed for agent {AgentId}.", agent.Id);
+					this._logger.SyncCoordinatorFailed(agent.Id, ex);
 				}
 				finally
 				{

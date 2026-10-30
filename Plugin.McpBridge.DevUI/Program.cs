@@ -11,7 +11,7 @@ namespace Plugin.McpBridge.DevUI;
 
 internal static class Program
 {
-	private static AgentFactory _agentFactory = new AgentFactory();
+	private static readonly AgentFactory _agentFactory = new AgentFactory();
 
 	private static async Task<Int32> Main(String[] args)
 	{
@@ -23,7 +23,7 @@ internal static class Program
 				ILogger logger = loggerFactory.CreateLogger(typeof(Program));
 
 				var bridgeTools = await settings.FetchBridgeToolsAsync();
-				logger.LogInformation("Bridge connected: {Count:N0} tools loaded from {McpServerUrl}", bridgeTools.Length, settings.McpServerUrl);
+				logger.McpBridgeConnected(bridgeTools.Length, settings.McpServerUrl);
 
 				var agentDto = settings.SelectedAgent;
 				AgentHandle agent = await _agentFactory.CreateAgent(
@@ -38,7 +38,7 @@ internal static class Program
 				{
 					foreach(String workflowFile in Directory.EnumerateFiles(settings.WorkflowsDirectory, "*.json"))
 					{
-						logger.LogInformation("Loading workflow from {WorkflowFile}", workflowFile);
+						logger.LoadingWorkflow(workflowFile);
 						WorkflowLoader2 loader = new WorkflowLoader2(settings, workflowFile);
 						WorkflowHandle workflowHandle = await loader.BuildAsync(settings.AiProviders, bridgeTools);
 						workflows.Add(workflowHandle);
@@ -46,7 +46,7 @@ internal static class Program
 				}
 
 				WebApplication app = await BuildWebApp(args, settings, agent, workflows);
-				logger.LogInformation("DevUI running at {DevUiUrl}", $"{settings.UiServerUrl}/devui");
+				logger.DevUIStarted(settings.UiServerUrl);
 				await app.RunAsync(lifetimeCts.Token);
 			} catch(OperationCanceledException) when(lifetimeCts.IsCancellationRequested)
 			{
@@ -55,24 +55,23 @@ internal static class Program
 		return 0;
 	}
 
-	private static async Task<WebApplication> BuildWebApp(String[] args, SettingsDto config, AgentHandle agent, IEnumerable<WorkflowHandle> workflows)
+	private static async Task<WebApplication> BuildWebApp(String[] args, SettingsDto config, AgentHandle agent, IReadOnlyList<WorkflowHandle> workflows)
 	{
 		WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 		((IWebHostBuilder)builder.WebHost).UseUrls(config.UiServerUrl);
 		builder.Services.Configure<ConsoleLifetimeOptions>(options => options.SuppressStatusMessages = true);
 		Program.ConfigureLogging(builder.Logging);
 
-		WorkflowHandle[] workflowList = workflows.ToArray();
-		Boolean useDurableWorkflowScheduler = config.DtsEmulatorProcessEnabled && workflowList.Length > 0;
+		Boolean useDurableWorkflowScheduler = config.DtsEmulatorProcessEnabled && workflows.Count > 0;
 		if(useDurableWorkflowScheduler)
 			builder.Services.ConfigureDurableWorkflows(
-				options => options.AddWorkflows(workflowList.Select(w => w.Workflow).ToArray()),
+				options => options.AddWorkflows(workflows.Select(w => w.Workflow).ToArray()),
 				workerBuilder: worker => worker.UseGrpc(config.DtsEmulatorEndpoint),
 				clientBuilder: client => client.UseGrpc(config.DtsEmulatorEndpoint));
 
 		builder.AddAIAgent(agent.Agent.Name!, (sp, name) => agent.Agent);
 
-		foreach(var workflow in workflowList)
+		foreach(var workflow in workflows)
 			if(useDurableWorkflowScheduler)
 				builder.AddAIAgent(workflow.Workflow.Name!, (sp, name) => sp.GetDurableAgentProxy(workflow.Workflow.Name!));
 			else

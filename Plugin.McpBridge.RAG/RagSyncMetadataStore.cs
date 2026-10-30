@@ -40,8 +40,7 @@ CREATE TABLE IF NOT EXISTS {MetadataTableName} (
 		try
 		{
 			await migrationCmd.ExecuteNonQueryAsync(cancellationToken);
-		}
-		catch(SqliteException ex) when(ex.SqliteErrorCode == 1 && ex.Message.Contains("duplicate column name", StringComparison.OrdinalIgnoreCase))
+		} catch(SqliteException ex) when(ex.SqliteErrorCode == 1 && ex.Message.Contains("duplicate column name", StringComparison.OrdinalIgnoreCase))
 		{
 			// Column already exists.
 		}

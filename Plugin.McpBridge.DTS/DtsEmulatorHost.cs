@@ -20,19 +20,19 @@ internal sealed class DtsEmulatorHost : IHostedService
 
 	public async Task StartAsync(CancellationToken cancellationToken)
 	{
-		this._logger.LogInformation("DTS Emulator starting...");
+		this._logger.EmulatorStarting();
 		Boolean success = await this._containerManager.StartContainerAsync(this._settings.DtsEmulatorPort, this._settings.DtsEmulatorDashboardPort, cancellationToken);
 		
 		if(success)
-			this._logger.LogInformation("DTS Emulator started successfully at {Endpoint} (dashboard: {Dashboard})", this._settings.DtsEmulatorEndpoint, this._settings.DtsEmulatorDashboard);
+			this._logger.EmulatorStarted(this._settings.DtsEmulatorEndpoint, this._settings.DtsEmulatorDashboard);
 		else
-			this._logger.LogError("Failed to start DTS Emulator. Check Docker installation and configuration.");
+			this._logger.EmulatorStartFailed();
 	}
 
 	public async Task StopAsync(CancellationToken cancellationToken)
 	{
-		this._logger.LogInformation("DTS Emulator stopping...");
+		this._logger.EmulatorStopping();
 		await this._containerManager.StopContainerAsync(cancellationToken);
-		this._logger.LogInformation("DTS Emulator stopped");
+		this._logger.EmulatorStopped();
 	}
 }
