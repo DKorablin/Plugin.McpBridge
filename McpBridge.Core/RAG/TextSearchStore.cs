@@ -1,8 +1,8 @@
 ﻿using System.Runtime.InteropServices;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.VectorData;
-using Microsoft.SemanticKernel.Connectors.InMemory;
-using Microsoft.SemanticKernel.Connectors.SqliteVec;
+using CommunityToolkit.VectorData.InMemory;
+using CommunityToolkit.VectorData.SqliteVec;
 using McpBridge.Core.Agents;
 using McpBridge.Core.Data;
 

@@ -1,7 +1,7 @@
 ﻿using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
-using Microsoft.SemanticKernel.Connectors.SqliteVec;
+using CommunityToolkit.VectorData.SqliteVec;
 using McpBridge.Core.Agents;
 using McpBridge.Core.Remoting;
 using McpBridge.Core.Data;

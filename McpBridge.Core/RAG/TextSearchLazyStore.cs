@@ -1,4 +1,4 @@
-using Microsoft.SemanticKernel.Connectors.InMemory;
+﻿using CommunityToolkit.VectorData.InMemory;
 using McpBridge.Core.Data;
 
 namespace McpBridge.Core.RAG;
