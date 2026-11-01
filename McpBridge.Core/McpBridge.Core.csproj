@@ -40,11 +40,13 @@
 		<!--AI Extensions-->
 		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
 		<PackageReference Include="Microsoft.Extensions.AI.Evaluation.Reporting" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Console" />
 		<!--Copilot-->
 		<PackageReference Include="Microsoft.Agents.AI.GitHub.Copilot" />
 		<!--RAG-->
-		<PackageReference Include="Microsoft.SemanticKernel.Connectors.InMemory" />
-		<PackageReference Include="Microsoft.SemanticKernel.Connectors.SqliteVec" />
+		<PackageReference Include="CommunityToolkit.VectorData.InMemory" />
+		<PackageReference Include="CommunityToolkit.VectorData.SqliteVec" />
 		<!--DurableTasks-->
 		<PackageReference Include="Microsoft.DurableTask.Client.Grpc" />
 		<PackageReference Include="Microsoft.DurableTask.Worker.Grpc" />

@@ -21,6 +21,6 @@
 		<!--AI Extensions-->
 		<PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
 	
-		<PackageReference Include="Microsoft.SemanticKernel.Connectors.SqliteVec" />
+		<PackageReference Include="CommunityToolkit.VectorData.SqliteVec" />
 	</ItemGroup>
 </Project>

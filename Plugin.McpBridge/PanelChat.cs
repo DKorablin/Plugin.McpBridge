@@ -4,6 +4,7 @@ using McpBridge.Core;
 using McpBridge.Core.Agents;
 using McpBridge.Core.Data;
 using McpBridge.Core.Events;
+using McpBridge.Core.Logging;
 using McpBridge.Core.Workflows;
 using Microsoft.Extensions.AI;
 using Plugin.McpBridge.Native;
@@ -331,13 +332,14 @@ public partial class PanelChat : UserControl
 
 		this.UpdateUiState();
 
+		using IDisposable? correlation = CorrelationContext.BeginRequest(this.Plugin.Settings.CorrelationIdEnabled);
 		try
 		{
 			AssistantAgent agent = await this.GetAgent();
 			await agent.InvokeMessageAsync(message, attachments, cancellationToken: token);
 		} catch(Exception exc)
 		{
-			this.Plugin.Trace.TraceData(TraceEventType.Error, 0, exc);
+			this.Plugin.Logger.ChatRequestFailed(exc);
 			mdResponse.AppendMessage(exc.Message, MarkdownTextBox.MessageKind.Error);
 		} finally
 		{

@@ -3,16 +3,19 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using McpBridge.Core.Logging;
 using Microsoft.Extensions.AI;
-using SAL.Flatbed;
+using Microsoft.Extensions.Logging;
 
 namespace Plugin.McpBridge.Hosting;
 
 /// <summary>MCP-compliant HTTP/SSE server (JSON-RPC 2.0) that exposes plugin tools to the out-of-process DevUI executable.</summary>
 internal sealed class McpServer : IDisposable
 {
-	private readonly ITraceSource _trace;
+	private readonly ILogger _logger;
+	private readonly Boolean _correlationIdEnabled;
 	private readonly String _mcpServerUrl;
+
 	private readonly HttpListener _listener;
 	private readonly Dictionary<String, AIFunction> _tools;
 	private readonly CancellationTokenSource _cts = new CancellationTokenSource();
@@ -27,14 +30,15 @@ internal sealed class McpServer : IDisposable
 		InternalError = -32603,
 	}
 
-	public McpServer(ITraceSource trace, String mcpServerUrl, IEnumerable<AITool> tools)
+	public McpServer(ILogger logger, String mcpServerUrl, Boolean correlationIdEnabled, IEnumerable<AITool> tools)
 	{
-		this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
-		this._mcpServerUrl = mcpServerUrl ?? throw new ArgumentNullException(nameof(mcpServerUrl));
+		this._logger = logger ?? throw new ArgumentNullException(nameof(logger));
+		this._correlationIdEnabled = correlationIdEnabled;
+		this._mcpServerUrl = mcpServerUrl;
 
 		this._listener = new HttpListener();
 		this._listener.Prefixes.Add(this._mcpServerUrl + "/");
-		this._trace.TraceEvent(System.Diagnostics.TraceEventType.Start, 0, $"MCP server started at {this._mcpServerUrl}");
+		this._logger.McpServerStarted(this._mcpServerUrl);
 
 		this._tools = tools.OfType<AIFunction>()
 			.ToDictionary(t => t.Name, t => t, StringComparer.OrdinalIgnoreCase);
@@ -66,11 +70,14 @@ internal sealed class McpServer : IDisposable
 
 	private async Task HandleAsync(HttpListenerContext ctx, CancellationToken ct)
 	{
+		String path = ctx.Request.Url?.AbsolutePath ?? "/";
+		String method = ctx.Request.HttpMethod;
+
+		using IDisposable? correlation = CorrelationContext.BeginRequest(
+			this._correlationIdEnabled && method == "POST" && path == "/message",
+			ctx.Request.Headers[CorrelationContext.HeaderName]);
 		try
 		{
-			String path = ctx.Request.Url?.AbsolutePath ?? "/";
-			String method = ctx.Request.HttpMethod;
-
 			if(method == "GET" && path == "/sse")
 				await this.HandleSseAsync(ctx, ct);
 			else if(method == "POST" && path == "/message")
@@ -82,7 +89,7 @@ internal sealed class McpServer : IDisposable
 			}
 		} catch(Exception ex)
 		{
-			this._trace.TraceEvent(System.Diagnostics.TraceEventType.Error, 0, ex.Message);
+			this._logger.McpRequestFailed(ex);
 
 			ctx.Response.StatusCode = (Int32)HttpStatusCode.InternalServerError;
 			ctx.Response.Close();
@@ -161,7 +168,7 @@ internal sealed class McpServer : IDisposable
 			}
 		}catch(Exception exc)
 		{
-			this._trace.TraceEvent(System.Diagnostics.TraceEventType.Error, 0, exc.Message);
+			this._logger.McpRequestFailed(exc);
 			if(id == null) return;
 
 			await WriteSseEventAsync(sseResponse, "message", BuildError(id, exc).ToJsonString(), ct);

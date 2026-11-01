@@ -8,6 +8,7 @@ using McpBridge.Core;
 using McpBridge.Core.Agents;
 using McpBridge.Core.Data;
 using McpBridge.Core.Events;
+using McpBridge.Core.Logging;
 using McpBridge.Core.Tools;
 using Microsoft.Extensions.AI;
 using Moq;
@@ -22,19 +23,19 @@ namespace Plugin.McpBridge.Tests.Agents
 		#region Constructor
 
 		[Fact]
-		public void Ctor_TraceIsNull_ThrowsArgumentNullException()
+		public void Ctor_LoggerIsNull_ThrowsArgumentNullException()
 		{
 			ToolsFactory factory = TestUtils.CreateToolFactory();
 
 			Action act = () => _ = new AssistantAgent(null!, factory, new AgentFactory());
 
-			act.Should().Throw<ArgumentNullException>().WithParameterName("trace");
+			act.Should().Throw<ArgumentNullException>().WithParameterName("logger");
 		}
 
 		[Fact]
 		public void Ctor_ToolsFactoryIsNull_ThrowsArgumentNullException()
 		{
-			Action act = () => _ = new AssistantAgent(TestUtils.Trace, null!, new AgentFactory());
+			Action act = () => _ = new AssistantAgent(TestUtils.Logger, null!, new AgentFactory());
 
 			act.Should().Throw<ArgumentNullException>().WithParameterName("toolsFactory");
 		}
@@ -54,7 +55,7 @@ namespace Plugin.McpBridge.Tests.Agents
 
 			Settings agentSettings = new Settings();
 			ToolsFactory factory = new ToolsFactory(agentSettings, agentSettings.SelectedAgent, Array.Empty<ToolsDiscoveryBase>());
-			AssistantAgent sut = new AssistantAgent(TestUtils.Trace, factory, new StubAgentFactory(mockClient.Object));
+			AssistantAgent sut = new AssistantAgent(TestUtils.Logger, factory, new StubAgentFactory(mockClient.Object));
 			AiProviderDto provider = new AiProviderDto { ProviderType = AiProviderType.Local };
 			agentSettings.AiProviders.Add(provider);
 
@@ -168,6 +169,46 @@ namespace Plugin.McpBridge.Tests.Agents
 			await sut.InvokeMessageAsync("update setting");
 
 			confirmationFired.Should().BeTrue();
+		}
+
+		[Fact]
+		public async Task InvokeMessageAsync_ToolConfirmationAwaited_KeepsCorrelationIdUntilRequestFinishes()
+		{
+			Mock<IChatClient> mockClient = new Mock<IChatClient>();
+			ToolApprovalRequestContent approvalRequest = new ToolApprovalRequestContent(
+				"approval-1",
+				new FunctionCallContent("call-1", nameof(PluginSettingsTools.SettingsSet), new Dictionary<String, Object?> { ["pluginId"] = TestUtils.PluginId, ["settingName"] = "Value", ["valueJson"] = "\"x\"" }));
+
+			mockClient.SetupSequence(x => x.GetStreamingResponseAsync(It.IsAny<IEnumerable<ChatMessage>>(), It.IsAny<ChatOptions?>(), It.IsAny<CancellationToken>()))
+				.Returns(AssistantAgentTests.StreamingUpdates(new ChatResponseUpdate { Role = ChatRole.Assistant, Contents = [approvalRequest] }))
+				.Returns(AssistantAgentTests.StreamingUpdates(
+					new ChatResponseUpdate { Role = ChatRole.Assistant, Contents = [new TextContent("done")] },
+					new ChatResponseUpdate { Role = ChatRole.Assistant, Contents = [], FinishReason = ChatFinishReason.Stop }));
+
+			AssistantAgent sut = await TestUtils.CreateInitializedSut(TestUtils.CreateSettingsPlugin(new SimpleSettings()), mockChatClient: mockClient);
+			String? idAtConfirmation = null;
+			String? idAtFinalResponse = null;
+			sut.ConfirmationRequired += (s, e) =>
+			{
+				idAtConfirmation = CorrelationContext.Current;
+				_ = Task.Run(async () => { await Task.Delay(10); e.Confirm(false); });
+			};
+			sut.AiResponseReceived += (s, e) =>
+			{
+				if(e.IsFinal)
+					idAtFinalResponse = CorrelationContext.Current;
+			};
+
+			using(CorrelationContext.BeginRequest(true))
+			{
+				String? expected = CorrelationContext.Current;
+
+				await sut.InvokeMessageAsync("update setting");
+
+				idAtConfirmation.Should().Be(expected);
+				idAtFinalResponse.Should().Be(expected);
+				CorrelationContext.Current.Should().Be(expected);
+			}
 		}
 
 		#endregion

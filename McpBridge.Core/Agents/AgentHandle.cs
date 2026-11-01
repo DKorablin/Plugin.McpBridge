@@ -54,6 +54,8 @@ public class AgentHandle : IAsyncDisposable, IDisposable
 	/// <inheritdoc/>
 	public void Dispose()
 	{
+		GC.SuppressFinalize(this);
+
 		this._syncDisposable?.Dispose();
 		if(this._ownedResources != null)
 			foreach(IDisposable r in this._ownedResources)
@@ -63,6 +65,8 @@ public class AgentHandle : IAsyncDisposable, IDisposable
 	/// <inheritdoc/>
 	public async ValueTask DisposeAsync()
 	{
+		GC.SuppressFinalize(this);
+
 		this._syncDisposable?.Dispose();
 		if(this._ownedResources != null)
 			foreach(IDisposable r in this._ownedResources)

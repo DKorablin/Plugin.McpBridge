@@ -1,11 +1,12 @@
 ﻿using System.Security.Cryptography;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
-using Microsoft.SemanticKernel.Connectors.SqliteVec;
+using CommunityToolkit.VectorData.SqliteVec;
 using McpBridge.Core.Agents;
 using McpBridge.Core.Remoting;
 using McpBridge.Core.Data;
 using McpBridge.Core.RAG;
+using Plugin.McpBridge.RAG;
 
 namespace Plugin.McpBridge.RAGHost;
 
@@ -26,7 +27,7 @@ internal sealed class RagIndexSyncService
 
 	public async Task SyncAllAsync(CancellationToken cancellationToken)
 	{
-		this._logger.LogInformation("Starting full RAG synchronization for {AgentsCount} agent(s).", this._settings.AiAgents.Count);
+		this._logger.SyncAllStarted(this._settings.AiAgents.Count);
 		foreach(AiAgentDto agent in this._settings.AiAgents)
 			await this.SyncAgentAsync(agent, cancellationToken);
 	}
@@ -38,7 +39,7 @@ internal sealed class RagIndexSyncService
 
 		if(!Directory.Exists(agent.RagDirectory))
 		{
-			this._logger.LogWarning("RAG directory '{RagDirectory}' does not exist for agent '{AgentId}'.", agent.RagDirectory, agent.Id);
+			this._logger.RagDirectoryNotFound(agent.RagDirectory, agent.Id);
 			return;
 		}
 
@@ -77,7 +78,7 @@ internal sealed class RagIndexSyncService
 				TextSearchDocument document = TextSearchStore.CreateDocument(agent.RagDirectory, current.Value.SourceLink);
 				upserts.Add(document);
 				metadataUpserts.Add(current.Value);
-				this._logger.LogInformation("RAG sync processed file '{SourcePath}' ({SourceId}): action=Added", current.Value.SourceLink, current.Key);
+				this._logger.FileProcessed(LogLevel.Information, current.Value.SourceLink, current.Key, RagLog.ActionType.Added);
 				continue;
 			}
 
@@ -85,7 +86,7 @@ internal sealed class RagIndexSyncService
 				&& existing.Length == current.Value.Length;
 			if(sameWriteMarker && !String.IsNullOrWhiteSpace(existing.SourceHash))
 			{
-				this._logger.LogInformation("RAG sync processed file '{SourcePath}' ({SourceId}): action=Unchanged", current.Value.SourceLink, current.Key);
+				this._logger.FileProcessed(LogLevel.Debug, current.Value.SourceLink, current.Key, RagLog.ActionType.Unchanged);
 				continue;
 			}
 
@@ -95,14 +96,14 @@ internal sealed class RagIndexSyncService
 			if(String.IsNullOrWhiteSpace(existing.SourceHash) || String.Equals(existing.SourceHash, currentHash, StringComparison.OrdinalIgnoreCase))
 			{
 				metadataUpserts.Add(current.Value);
-				this._logger.LogInformation("RAG sync processed file '{SourcePath}' ({SourceId}): action=MetadataUpdated", current.Value.SourceLink, current.Key);
+				this._logger.FileProcessed(LogLevel.Information, current.Value.SourceLink, current.Key, RagLog.ActionType.MetadataUpdated);
 				continue;
 			}
 
 			TextSearchDocument changedDocument = TextSearchStore.CreateDocument(agent.RagDirectory, current.Value.SourceLink);
 			upserts.Add(changedDocument);
 			metadataUpserts.Add(current.Value);
-			this._logger.LogInformation("RAG sync processed file '{SourcePath}' ({SourceId}): action=Updated", current.Value.SourceLink, current.Key);
+			this._logger.FileProcessed(LogLevel.Information, current.Value.SourceLink, current.Key, RagLog.ActionType.Updated);
 		}
 
 		List<String> deletes = existingMetadata.Keys
@@ -110,7 +111,7 @@ internal sealed class RagIndexSyncService
 			.ToList();
 
 		foreach(String sourceId in deletes)
-			this._logger.LogInformation("RAG sync processed file '{SourceId}': action=Removed", sourceId);
+			this._logger.FileRemoved(sourceId);
 
 		if(upserts.Count > 0)
 			await searchStore.UpsertDocumentsAsync(upserts, cancellationToken);
@@ -121,7 +122,7 @@ internal sealed class RagIndexSyncService
 		if(deletes.Count > 0)
 			await metadataStore.DeleteAsync(deletes, cancellationToken);
 
-		this._logger.LogInformation("RAG index synchronized for '{RagDirectory}' -> '{SqlitePath}'. Added/updated: {AddedUpdatedCount}, removed: {RemovedCount}", agent.RagDirectory, sqlitePath, upserts.Count, deletes.Count);
+		this._logger.SyncCompleted(agent.RagDirectory, sqlitePath, upserts.Count, deletes.Count);
 	}
 
 	private static String ComputeFileHash(String filePath)

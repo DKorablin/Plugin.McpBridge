@@ -32,12 +32,12 @@ internal sealed class DockerContainerManager
 			return false;
 
 		if(!await this.StopExistingContainerAsync(cancellationToken))
-			this._logger.LogWarning("Failed to stop existing container, continuing anyway.");
+			this._logger.ContainerFailedToStop();
 
 		if(!await this.CreateAndStartContainerAsync(dtsEmulatorPort, dtsEmulatorDashboardPort, cancellationToken))
 			return false;
 
-		this._logger.LogInformation("DTS Emulator container started successfully ({Image}:{Tag})", DtsImageName, DtsImageTag);
+		this._logger.ContainerStarted(DtsImageName, DtsImageTag);
 		return true;
 	}
 
@@ -53,7 +53,7 @@ internal sealed class DockerContainerManager
 		await this._dockerClient.Containers.RemoveContainerAsync(this._containerId,
 			new ContainerRemoveParameters(), cancellationToken);
 
-		this._logger.LogInformation("DTS Emulator container stopped and removed");
+		this._logger.ContainerStoppedAndRemoved();
 	}
 
 	private async Task<Boolean> TryInitializeDockerClientAsync(CancellationToken cancellationToken)
@@ -77,12 +77,11 @@ internal sealed class DockerContainerManager
 			await this._dockerClient.System.PingAsync(connectTimeoutCts.Token);
 		} catch(TimeoutException exc)
 		{
-			this._logger.LogError(exc, "Failed to connect to Docker daemon at {Endpoint} within timeout. Ensure Docker is running and accessible.", this._dockerEndpoint);
+			this._logger.ContainerConnectionFailed(this._dockerEndpoint, exc);
 			throw;
 		}
 
-		this._logger.LogInformation("Docker client initialized successfully. Endpoint: {Endpoint}",
-			this._dockerEndpoint?.ToString() ?? "default endpoint");
+		this._logger.ContainerConnectedSucessfully(this._dockerEndpoint);
 		return true;
 	}
 
@@ -110,17 +109,17 @@ internal sealed class DockerContainerManager
 			{
 				Filters = new Dictionary<String, IDictionary<String, Boolean>>
 			{
-					{ "reference", new Dictionary<String, Boolean> { { fullImageName, true } } }
+				{ "reference", new Dictionary<String, Boolean> { { fullImageName, true } } }
 			}
 			}, cancellationToken);
 
 		if(images.Count > 0)
 		{
-			this._logger.LogInformation("DTS Emulator image already available: {ImageName}", fullImageName);
+			this._logger.DtsImageAlreadyAvailable(fullImageName);
 			return true;
 		}
 
-		this._logger.LogInformation("Pulling DTS Emulator image: {ImageName}", fullImageName);
+		this._logger.DtsEmulatorPulling(fullImageName);
 
 		await this._dockerClient.Images.CreateImageAsync(
 			new ImagesCreateParameters { FromImage = DtsImageName, Tag = DtsImageTag },
@@ -128,11 +127,11 @@ internal sealed class DockerContainerManager
 			new Progress<JSONMessage>(msg =>
 			{
 				if(!String.IsNullOrEmpty(msg.Status))
-					this._logger.LogInformation("Image pull: {Status}", msg.Status);
+					this._logger.DtsEmulatorPullingStatus(msg.Status);
 			}),
 			cancellationToken);
 
-		this._logger.LogInformation("DTS Emulator image pulled successfully");
+		this._logger.DtsEmulatorPulledSucessfully();
 		return true;
 	}
 
@@ -147,7 +146,7 @@ internal sealed class DockerContainerManager
 				All = true,
 				Filters = new Dictionary<String, IDictionary<String, Boolean>>
 				{
-						{ "name", new Dictionary<String, Boolean> { { DtsContainerName, true } } }
+					{ "name", new Dictionary<String, Boolean> { { DtsContainerName, true } } }
 				}
 			}, cancellationToken);
 
@@ -155,7 +154,7 @@ internal sealed class DockerContainerManager
 		{
 			if(container.State == "running")
 			{
-				this._logger.LogInformation("Stopping existing container: {ContainerId}", container.ID);
+				this._logger.ContainerStopping(container.ID);
 				await this._dockerClient.Containers.StopContainerAsync(container.ID,
 					new ContainerStopParameters { WaitBeforeKillSeconds = 10 }, cancellationToken);
 			}
@@ -172,7 +171,7 @@ internal sealed class DockerContainerManager
 		if(this._dockerClient == null)
 			return false;
 
-		this._logger.LogInformation("Starting DTS emulator container for ports gRPC={GrpcPort}, Dashboard={DashboardPort}", dtsEmulatorPort, dtsEmulatorDashboardPort);
+		this._logger.DtsEmulatorStarting(dtsEmulatorPort, dtsEmulatorDashboardPort);
 		String imageName = $"{DtsImageName}:{DtsImageTag}";
 		Int32[] dtsPorts = [dtsEmulatorPort, dtsEmulatorDashboardPort];
 
@@ -199,12 +198,12 @@ internal sealed class DockerContainerManager
 			}, cancellationToken);
 
 		this._containerId = container.ID;
-		this._logger.LogInformation("Container created: {ContainerId}", this._containerId);
+		this._logger.ContainerCreated(this._containerId);
 
 		await this._dockerClient.Containers.StartContainerAsync(this._containerId,
 			new ContainerStartParameters(), cancellationToken);
 
-		this._logger.LogInformation("Container started with ports gRPC={GrpcPort}, Dashboard={DashboardPort}", dtsEmulatorPort, dtsEmulatorDashboardPort);
+		this._logger.DtsEmulatorStarted(dtsEmulatorPort, dtsEmulatorDashboardPort);
 		return true;
 	}
 }

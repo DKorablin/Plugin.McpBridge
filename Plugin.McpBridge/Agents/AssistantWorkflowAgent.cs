@@ -1,6 +1,7 @@
-﻿using System.Diagnostics;
+﻿using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.Agents.AI.Workflows;
+using Microsoft.Extensions.Logging;
 using McpBridge.Core;
 using McpBridge.Core.Tools;
 using McpBridge.Core.Workflows;
@@ -10,17 +11,17 @@ namespace Plugin.McpBridge.Agents;
 
 internal class AssistantWorkflowAgent : AssistantAgent
 {
-	public AssistantWorkflowAgent(IMcpTrace trace, ToolsFactory toolsFactory, AgentFactory agentFactory)
-		: base(trace, toolsFactory, agentFactory)
+	public AssistantWorkflowAgent(ILogger logger, ToolsFactory toolsFactory, AgentFactory agentFactory)
+		: base(logger, toolsFactory, agentFactory)
 	{
 	}
 
 	public async Task InitializeWorkflow(
-	Settings settings,
-	WorkflowFactoryItem workflow,
-	AgentSessionStore? sessionStore = null,
-	String? conversationId = null,
-	CancellationToken token = default)
+		Settings settings,
+		WorkflowFactoryItem workflow,
+		AgentSessionStore? sessionStore = null,
+		String? conversationId = null,
+		CancellationToken token = default)
 	{
 		_ = settings ?? throw new ArgumentNullException(nameof(settings));
 		_ = workflow ?? throw new ArgumentNullException(nameof(workflow));
@@ -29,7 +30,7 @@ internal class AssistantWorkflowAgent : AssistantAgent
 		this.ConversationId = conversationId;
 		this.ResetState();
 
-		WorkflowLoader2 loader = new WorkflowLoader2(settings, workflow.WorkflowPath);
+		WorkflowLoader2 loader = new WorkflowLoader2(settings, workflow.WorkflowPath, this.Logger);
 		WorkflowHandle workflowHandle = await loader.BuildAsync(settings.AiProviders, this.Tools, token);
 		var agent = workflowHandle.Workflow.AsAIAgent(name: workflow.Name);
 		this.Handle = AgentHandle.FromWorkflow(agent, null, workflowHandle.IsEvaluationCacheEnabled);
@@ -37,8 +38,8 @@ internal class AssistantWorkflowAgent : AssistantAgent
 		this.SessionScopeName = workflow.Name;
 
 		if(!this.Handle.IsEvaluationCacheEnabled && this.SessionStore != null && this.ConversationId != null)
-			this.Session = await this.SessionStore.GetSessionAsync(this.Handle.Agent, this.ConversationId, token);
+			this.Session = await this.SessionStore.GetOrCreateSessionAsync(this.Handle.Agent, new AgentSessionStoreKey(this.ConversationId, null), token);
 
-		this.Trace.TraceEvent(TraceEventType.Verbose, 0, $"Initialized workflow AssistantAgent for '{workflow.Name}'.");
+		this.Logger.WorkflowAgentInitialized(workflow.Name);
 	}
 }

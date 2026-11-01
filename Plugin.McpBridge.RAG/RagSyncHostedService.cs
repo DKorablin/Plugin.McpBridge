@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Plugin.McpBridge.RAG;
 
 namespace Plugin.McpBridge.RAGHost;
 
@@ -18,18 +19,18 @@ internal sealed class RagSyncHostedService : BackgroundService
 
 	protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 	{
-		this._logger.LogInformation("RAG sync hosted service started.");
+		this._logger.SyncServiceStarted();
 		await this._syncService.SyncAllAsync(stoppingToken);
 		this._fileSync.AttachFolderWatchers(stoppingToken);
-		this._logger.LogInformation("RAG folder watchers attached.");
+		this._logger.SyncServiceFolderWatchersAttached();
 
 		try
 		{
 			await Task.Delay(Timeout.InfiniteTimeSpan, stoppingToken);
 		}
-		catch(OperationCanceledException ex)
+		catch(OperationCanceledException)
 		{
-			this._logger.LogInformation(ex, "RAG sync hosted service is stopping.");
+			this._logger.SyncServiceStopped();
 		}
 	}
 }

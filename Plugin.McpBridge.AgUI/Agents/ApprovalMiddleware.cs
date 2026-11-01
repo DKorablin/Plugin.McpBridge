@@ -189,6 +189,7 @@ internal static class ApprovalMiddleware
 
 		FunctionCallContent? functionCall = approvalRequest.ToolCall as FunctionCallContent;
 		String approvalId = functionCall?.CallId ?? Guid.NewGuid().ToString("N");
+		CorrelationMiddleware.RegisterPendingApproval(approvalId);
 
 		JsonElement? argsElement = functionCall?.Arguments?.Count > 0
 			? JsonSerializer.SerializeToElement<IDictionary<String, Object?>>(functionCall.Arguments, jsonOptions)

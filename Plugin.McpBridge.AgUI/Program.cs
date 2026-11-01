@@ -1,5 +1,6 @@
 using System.Text.Json;
 using McpBridge.Core.Agents;
+using McpBridge.Core.Logging;
 using McpBridge.Core.Remoting;
 using McpBridge.Core.Workflows;
 using Microsoft.Agents.AI;
@@ -9,28 +10,29 @@ using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
 using Microsoft.DurableTask.Client;
 using Microsoft.DurableTask.Worker;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging.Console;
 using Plugin.McpBridge.AgUI.Agents;
 
 namespace Plugin.McpBridge.AgUI;
 
 internal static class Program
 {
-	private static AgentFactory _agentFactory = new AgentFactory();
-
 	private static async Task<Int32> Main(String[] args)
 	{
 		using(CancellationTokenSource lifetimeCts = new CancellationTokenSource())
 			try
 			{
 				SettingsDto settings = SettingsDto.CreateSettingsFromArgs(ref args, lifetimeCts);
-				using ILoggerFactory loggerFactory = LoggerFactory.Create(Program.ConfigureLogging);
+				using ILoggerFactory loggerFactory = LoggerFactory.Create(logging => Program.ConfigureLogging(logging, settings));
 				ILogger logger = loggerFactory.CreateLogger(typeof(Program));
+				ILogger agentLogger = loggerFactory.CreateLogger<AgentFactory>();
+				AgentFactory agentFactory = new AgentFactory(agentLogger);
 
 				var bridgeTools = await settings.FetchBridgeToolsAsync();
-				logger.LogInformation("Bridge connected: {Count:N0} tools loaded from {McpServerUrl}", bridgeTools.Length, settings.McpServerUrl);
+				logger.McpBridgeConnected(bridgeTools.Length, settings.McpServerUrl);
 
 				var agentDto = settings.SelectedAgent;
-				AgentHandle agent = await _agentFactory.CreateAgent(
+				AgentHandle agent = await agentFactory.CreateAgent(
 					agentDto,
 					settings.AiProviders,
 					bridgeTools,
@@ -42,15 +44,15 @@ internal static class Program
 				{
 					foreach(String workflowFile in Directory.EnumerateFiles(settings.WorkflowsDirectory, "*.json"))
 					{
-						logger.LogInformation("Loading workflow from {WorkflowFile}", workflowFile);
-						WorkflowLoader2 loader = new WorkflowLoader2(settings, workflowFile);
+						logger.LoadingWorkflow(workflowFile);
+						WorkflowLoader2 loader = new WorkflowLoader2(settings, workflowFile, agentLogger);
 						WorkflowHandle workflowHandle = await loader.BuildAsync(settings.AiProviders, bridgeTools);
 						workflows.Add(workflowHandle);
 					}
 				}
 
 				WebApplication app = BuildWebApp(args, settings, agent, workflows);
-				logger.LogInformation("AG-UI running at {AgUiUrl}", $"{settings.UiServerUrl}/agui");
+				logger.AgUIStarted(settings.UiServerUrl);
 				await app.RunAsync(lifetimeCts.Token);
 			} catch(OperationCanceledException) when(lifetimeCts.IsCancellationRequested)
 			{
@@ -59,18 +61,17 @@ internal static class Program
 		return 0;
 	}
 
-	private static WebApplication BuildWebApp(String[] args, SettingsDto settings, AgentHandle agent, IEnumerable<WorkflowHandle> workflows)
+	private static WebApplication BuildWebApp(String[] args, SettingsDto settings, AgentHandle agent, IReadOnlyList<WorkflowHandle> workflows)
 	{
 		var builder = WebApplication.CreateBuilder(args);
 		((IWebHostBuilder)builder.WebHost).UseUrls(settings.UiServerUrl);
 		builder.Services.Configure<ConsoleLifetimeOptions>(options => options.SuppressStatusMessages = true);
-		Program.ConfigureLogging(builder.Logging);
+		Program.ConfigureLogging(builder.Logging, settings);
 
-		List<WorkflowHandle> workflowList = workflows.ToList();
-		Boolean useDurableWorkflowScheduler = settings.DtsEmulatorProcessEnabled && workflowList.Count > 0;
+		Boolean useDurableWorkflowScheduler = settings.DtsEmulatorProcessEnabled && workflows.Count > 0;
 		if(useDurableWorkflowScheduler)
 			builder.Services.ConfigureDurableWorkflows(
-				options => options.AddWorkflows(workflowList.Select(w => w.Workflow).ToArray()),
+				options => options.AddWorkflows(workflows.Select(w => w.Workflow).ToArray()),
 				workerBuilder: worker => worker.UseGrpc(settings.DtsEmulatorEndpoint),
 				clientBuilder: client => client.UseGrpc(settings.DtsEmulatorEndpoint));
 
@@ -83,19 +84,22 @@ internal static class Program
 		if(settings.EnableSessionStorage && !agent.IsEvaluationCacheEnabled)
 		{// Persist sessions to disk so they survive server restarts
 			sessionStore = new FileSystemAgentSessionStore(settings.GetSessionStorageDirectory());
-			agentBuilder.WithSessionStore(sessionStore);
+			agentBuilder.WithSessionStore(sessionStore, withIsolation: false);// Single-user host without authentication, so there is no caller identity to partition sessions by
 		}
 
-		foreach(var workflow in workflowList)
+		foreach(var workflow in workflows)
 			if(useDurableWorkflowScheduler)
 				builder.AddAIAgent(workflow.Workflow.Name!, (sp, name) => sp.GetDurableAgentProxy(workflow.Workflow.Name!));
 			else
 				builder.AddWorkflow(workflow.Workflow.Name!, (sp, key) => workflow.Workflow)
 					.AddAsAIAgent();
 
-		builder.Services.AddAGUI();
+		builder.Services.AddAGUIServer();
 
 		var app = builder.Build();
+		if(settings.CorrelationIdEnabled)
+			app.UseCorrelationId("/agui");
+
 		MapEmbeddedResource(app, "/agui", "index.html", "text/html; charset=utf-8");
 		MapEmbeddedResource(app, "/agui-client.js", "agui-client.js", "application/javascript");
 		MapEmbeddedResource(app, "/index.css", "index.css", "text/css");
@@ -103,18 +107,22 @@ internal static class Program
 
 		if(sessionStore != null)
 			Program.MapHistoryEndpoints(app, sessionStore, agent.Agent.Name ?? "assistant");
-		app.MapAGUI(agentBuilder, "/agui");
+		app.MapAGUIServer(agentBuilder, "/agui");
 		return app;
 	}
 
-	private static void ConfigureLogging(ILoggingBuilder logging)
+	private static void ConfigureLogging(ILoggingBuilder logging, SettingsDto settings)
 	{
 		logging.ClearProviders();
-		logging.AddSimpleConsole(options =>
-		{
-			options.SingleLine = true;
-			options.TimestampFormat = "HH:mm:ss ";
-		});
+		if(settings.CorrelationIdEnabled)
+			logging.AddConsole(options => options.FormatterName = CorrelationConsoleFormatter.FormatterName)
+				.AddConsoleFormatter<CorrelationConsoleFormatter, ConsoleFormatterOptions>();
+		else
+			logging.AddSimpleConsole(options =>
+			{
+				options.SingleLine = true;
+				options.TimestampFormat = "HH:mm:ss ";
+			});
 	}
 
 	static void MapEmbeddedResource(WebApplication app, String pattern, String resourceName, String contentType)

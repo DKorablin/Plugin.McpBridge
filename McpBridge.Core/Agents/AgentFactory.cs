@@ -7,8 +7,10 @@ using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.AI.Evaluation.Reporting.Storage;
 using Microsoft.Extensions.Caching.Distributed;
-using Microsoft.SemanticKernel.Connectors.InMemory;
-using Microsoft.SemanticKernel.Connectors.SqliteVec;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using CommunityToolkit.VectorData.InMemory;
+using CommunityToolkit.VectorData.SqliteVec;
 using OpenAI;
 using McpBridge.Core.Data;
 using McpBridge.Core.RAG;
@@ -18,6 +20,12 @@ namespace McpBridge.Core.Agents;
 /// <summary>Shared factory methods for building AI agent components, usable by both the WinForms chat path and DevUI.</summary>
 public class AgentFactory
 {
+	private readonly ILogger _logger;
+
+	/// <param name="logger">Optional logger that receives a debug summary of the features attached to every created agent.</param>
+	public AgentFactory(ILogger? logger = null)
+		=> this._logger = logger ?? NullLogger.Instance;
+
 	public async Task<AgentHandle> CreateAgent(
 		AiAgentDto agent,
 		IEnumerable<AiProviderDto> providers,
@@ -68,14 +76,17 @@ public class AgentFactory
 				},
 			};
 
+			this.TraceAgentFeatures(agentRole, provider, tools, null, contextProviders);
 			return AgentHandle.FromCopilotClient(copilotClient.AsAIAgent(sessionConfig), copilotClient);
 		default:
 			IChatClient chatClient = AgentFactory.CreateChatClient(provider);
 			Boolean isDebugMode = false;
+			String? evaluationCacheDirectory = null;
 			if(provider is NetworkProviderDto networkProvider && networkProvider.EvaluationCacheEnabled)
 			{
 				isDebugMode = true;
-				chatClient = await AgentFactory.ConfigureEvaluationCache(chatClient, networkProvider, agentRole);
+				evaluationCacheDirectory = AgentFactory.GetEvaluationCacheDirectory(networkProvider, agentRole);
+				chatClient = await AgentFactory.ConfigureEvaluationCache(chatClient, networkProvider, evaluationCacheDirectory);
 			}
 
 			var options1 = new ChatClientAgentOptions
@@ -93,7 +104,33 @@ public class AgentFactory
 
 			options1.AIContextProviders = contextProviders;
 
+			this.TraceAgentFeatures(agentRole, provider, tools, evaluationCacheDirectory, contextProviders);
 			return AgentHandle.FromChatClient(chatClient.AsAIAgent(options1), chatClient, isDebugMode);
+		}
+	}
+
+	/// <summary>Writes a debug summary of the features (tools, evaluation cache, chat options, context providers) attached to a created agent.</summary>
+	private void TraceAgentFeatures(String agentRole, AiProviderDto provider, AIFunction[] tools, String? evaluationCacheDirectory, IEnumerable<AIContextProvider>? contextProviders)
+	{
+		if(!this._logger.IsEnabled(LogLevel.Debug))
+			return;
+
+		String[] contextProviderNames = contextProviders?.Select(p => p.GetType().Name).ToArray() ?? [];
+		String toolNames = tools.Length == 0 ? "<none>" : String.Join(", ", tools.Select(t => t.Name));
+		String contextProvidersText = contextProviderNames.Length == 0 ? "<none>" : String.Join(", ", contextProviderNames);
+
+		if(provider.ProviderType == AiProviderType.CoPilot)
+		{
+			if(contextProviderNames.Length > 0)
+				contextProvidersText = $"NOT ATTACHED (not supported by {AiProviderType.CoPilot}): {contextProvidersText}";
+			this._logger.CopilotAgentCreated(agentRole, provider, provider.ProviderType, tools.Length, toolNames, contextProvidersText);
+		} else
+		{
+			ChatSettings chat = provider.Chat;
+			String evaluationCache = evaluationCacheDirectory == null ? "disabled" : $"enabled ('{evaluationCacheDirectory}')";
+			String chatOptions = $"MaxTokens={chat.MaxTokens?.ToString() ?? "<default>"}, Temperature={chat.Temperature?.ToString() ?? "<default>"}, "
+				+ $"Reasoning={(chat.ReasoningOutput.HasValue || chat.ReasoningEffort.HasValue ? $"{chat.ReasoningOutput ?? ReasoningOutput.None}/{chat.ReasoningEffort ?? ReasoningEffort.Medium}" : "<default>")}";
+			this._logger.AgentCreated(agentRole, provider, provider.ProviderType, tools.Length, toolNames, evaluationCache, chatOptions, contextProvidersText);
 		}
 	}
 
@@ -151,14 +188,10 @@ public class AgentFactory
 	}
 
 	/// <summary>Wraps a <see cref="IChatClient"/> with a disk-backed response cache when <see cref="NetworkProviderDto.EvaluationCacheEnabled"/> is set.</summary>
-	private static async Task<IChatClient> ConfigureEvaluationCache(IChatClient chatClient, NetworkProviderDto provider, String agentRole)
+	private static async Task<IChatClient> ConfigureEvaluationCache(IChatClient chatClient, NetworkProviderDto provider, String storageRootPath)
 	{
 		if(!provider.EvaluationCacheEnabled)
 			return chatClient;
-
-		String storageRootPath = String.IsNullOrWhiteSpace(provider.EvaluationCacheDirectory)
-			? Utils.GetAgentStorageDirectory(Utils.SpecialDirectory.EvaluationCache, agentRole)
-			: provider.EvaluationCacheDirectory;
 
 		_ = Directory.CreateDirectory(storageRootPath);
 
@@ -169,6 +202,11 @@ public class AgentFactory
 			.UseDistributedCache(cache)
 			.Build();
 	}
+
+	private static String GetEvaluationCacheDirectory(NetworkProviderDto provider, String agentRole)
+		=> String.IsNullOrWhiteSpace(provider.EvaluationCacheDirectory)
+			? Utils.GetAgentStorageDirectory(Utils.SpecialDirectory.EvaluationCache, agentRole)
+			: provider.EvaluationCacheDirectory;
 
 	/// <summary>Wraps a <see cref="IChatClient"/> with token, temperature, and reasoning options from <paramref name="settings"/> and <paramref name="settings"/>.</summary>
 	private static IChatClient ConfigureChatOptions(IChatClient chatClient, ChatSettings settings)
@@ -203,7 +241,8 @@ public class AgentFactory
 			IEmbeddingGenerator<String, Embedding<Single>> embeddingGenerator = AgentFactory.CreateEmbeddingGenerator(embeddingProvider);
 			TextSearchStore textSearchStore;
 			String sqlitePath = TextSearchStore.GetSqliteDatabasePath(agent.RagDirectory, agent.Id);
-			if(File.Exists(sqlitePath))
+			Boolean useSqliteStore = File.Exists(sqlitePath);
+			if(useSqliteStore)
 			{
 				String connectionString = new SqliteConnectionStringBuilder { DataSource = sqlitePath }.ToString();
 				SqliteVectorStore sqliteStore = new SqliteVectorStore(connectionString, new SqliteVectorStoreOptions
@@ -218,16 +257,37 @@ public class AgentFactory
 				textSearchStore = new TextSearchLazyStore(vectorStore, TextSearchStore.DefaultCollectionName, embeddingProvider.Embeddings.Dimension.Value, agent.RagDirectory, supportedExtensions, embeddingProvider.Embeddings.TopResults);
 			}
 
-			providers.Add(new TextSearchProvider((text, ct) => textSearchStore.SearchTextAsync(text, ct), new TextSearchProviderOptions
-			{
-				SearchTime = TextSearchProviderOptions.TextSearchBehavior.OnDemandFunctionCalling,
-				FunctionToolName = agent.RagToolName,
-				FunctionToolDescription = agent.RagToolDescription,
-				CitationsPrompt = agent.RagCitationsPrompt,
-			}));
-		}
+			this._logger.RagAttached(agent.Id, agent.RagDirectory,
+				useSqliteStore ? $"SQLite ('{sqlitePath}')" : "InMemory (lazy indexing)",
+				embeddingProvider, embeddingProvider.Embeddings.Dimension, embeddingProvider.Embeddings.TopResults,
+				String.Join(", ", supportedExtensions), agent.RagToolName);
+
+			providers.Add(new TextSearchProvider(async (text, ct) =>
+				{
+					try
+					{
+						return await textSearchStore.SearchTextAsync(text, ct);
+					} catch(Exception exc)
+					{
+						this._logger.RagSearchFailed(agent.Id, exc);
+						throw;
+					}
+				},
+				new TextSearchProviderOptions
+				{
+					SearchTime = TextSearchProviderOptions.TextSearchBehavior.OnDemandFunctionCalling,
+					FunctionToolName = agent.RagToolName,
+					FunctionToolDescription = agent.RagToolDescription,
+					CitationsPrompt = agent.RagCitationsPrompt,
+				}));
+		} else if(agent.RagDirectory != null)
+			this._logger.RagNotAttached(agent.Id, agent.RagDirectory, embeddingProvider, embeddingProvider.Embeddings?.Dimension, embeddingProvider.Embeddings?.ModelId);
+
 		if(agent.SkillsDirectory != null)
+		{
 			providers.Add(new AgentSkillsProvider(agent.SkillsDirectory));
+			this._logger.SkillsAttached(agent.Id, agent.SkillsDirectory);
+		}
 
 		return providers.Count == 0 ? null : providers.ToArray();
 	}
@@ -284,5 +344,4 @@ public class AgentFactory
 	private static CoPilotConnectionSettings GetCoPilotConnection(AiProviderDto providerSettings)
 		=> providerSettings.Connection as CoPilotConnectionSettings
 			?? throw new InvalidOperationException($"Provider '{providerSettings}' requires Copilot connection settings.");
-
 }

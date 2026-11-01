@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
 using McpBridge.Core.Data;
 
 namespace McpBridge.Core.Tools;
@@ -22,12 +23,12 @@ public class ToolsFactory
 				yield return tool;
 	}
 
-	public IEnumerable<AIFunction> CreateTools(IMcpTrace trace)
-		=> this.CreateTools(trace, this._agent.ToolsPermission);
+	public IEnumerable<AIFunction> CreateTools(ILogger logger)
+		=> this.CreateTools(logger, this._agent.ToolsPermission);
 
-	public IEnumerable<AIFunction> CreateTools(IMcpTrace trace, String[]? availableTools)
+	public IEnumerable<AIFunction> CreateTools(ILogger logger, String[]? availableTools)
 	{
-		_ = trace ?? throw new ArgumentNullException(nameof(trace));
+		_ = logger ?? throw new ArgumentNullException(nameof(logger));
 
 		Boolean allAllowed = availableTools == null;
 		var allowedSet = allAllowed ? null : new HashSet<String>(availableTools!);
@@ -35,7 +36,7 @@ public class ToolsFactory
 		foreach(var method in this.GetTools())
 			if(allAllowed || allowedSet!.Contains(method.Name))
 			{
-				var tool = new ToolFacade(trace, method.Function, method.ConfirmationRequired);
+				var tool = new ToolFacade(logger, method.Function, method.ConfirmationRequired);
 				yield return method.ConfirmationRequired
 					? new ApprovalRequiredAIFunction(tool)
 					: tool;
