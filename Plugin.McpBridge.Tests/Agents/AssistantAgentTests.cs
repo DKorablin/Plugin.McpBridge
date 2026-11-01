@@ -22,19 +22,19 @@ namespace Plugin.McpBridge.Tests.Agents
 		#region Constructor
 
 		[Fact]
-		public void Ctor_TraceIsNull_ThrowsArgumentNullException()
+		public void Ctor_LoggerIsNull_ThrowsArgumentNullException()
 		{
 			ToolsFactory factory = TestUtils.CreateToolFactory();
 
 			Action act = () => _ = new AssistantAgent(null!, factory, new AgentFactory());
 
-			act.Should().Throw<ArgumentNullException>().WithParameterName("trace");
+			act.Should().Throw<ArgumentNullException>().WithParameterName("logger");
 		}
 
 		[Fact]
 		public void Ctor_ToolsFactoryIsNull_ThrowsArgumentNullException()
 		{
-			Action act = () => _ = new AssistantAgent(TestUtils.Trace, null!, new AgentFactory());
+			Action act = () => _ = new AssistantAgent(TestUtils.Logger, null!, new AgentFactory());
 
 			act.Should().Throw<ArgumentNullException>().WithParameterName("toolsFactory");
 		}
@@ -54,7 +54,7 @@ namespace Plugin.McpBridge.Tests.Agents
 
 			Settings agentSettings = new Settings();
 			ToolsFactory factory = new ToolsFactory(agentSettings, agentSettings.SelectedAgent, Array.Empty<ToolsDiscoveryBase>());
-			AssistantAgent sut = new AssistantAgent(TestUtils.Trace, factory, new StubAgentFactory(mockClient.Object));
+			AssistantAgent sut = new AssistantAgent(TestUtils.Logger, factory, new StubAgentFactory(mockClient.Object));
 			AiProviderDto provider = new AiProviderDto { ProviderType = AiProviderType.Local };
 			agentSettings.AiProviders.Add(provider);
 

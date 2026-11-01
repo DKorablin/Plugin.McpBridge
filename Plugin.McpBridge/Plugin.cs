@@ -9,6 +9,7 @@ using McpBridge.Core.Remoting;
 using McpBridge.Core.Tools;
 using McpBridge.Core.Workflows;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
 using Plugin.McpBridge.Agents;
 using Plugin.McpBridge.Hosting;
 using Plugin.McpBridge.Tools;
@@ -30,7 +31,7 @@ namespace Plugin.McpBridge
 
 		internal ITraceSource Trace { get; }
 
-		internal IMcpTrace McpTrace { get; }
+		internal ILogger Logger { get; }
 
 		Object IPluginSettings.Settings => this.Settings;
 
@@ -91,7 +92,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 			Plugin.StaticInstance = this;
 			this.Host = host ?? throw new ArgumentNullException(nameof(host));
 			this.Trace = trace ?? throw new ArgumentNullException(nameof(trace));
-			this.McpTrace = new TraceSourceMcpTrace(this.Trace);
+			this.Logger = new TraceSourceLogger(this.Trace);
 		}
 
 		public IWindow? GetPluginControl(String typeName, Object args)
@@ -151,13 +152,13 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 			try
 			{
 				ToolsFactory toolsFactory = CreateToolsFactory();
-				AgentFactory agentFactory = new AgentFactory(this.McpTrace);
+				AgentFactory agentFactory = new AgentFactory(this.Logger);
 				String? sessionStoreDir = this.Settings.GetSessionStorageDirectory();
 				FileSystemAgentSessionStore? sessionStore = sessionStoreDir == null
 					? null
 					: new FileSystemAgentSessionStore(sessionStoreDir);
 
-				var result = new AssistantAgent(this.McpTrace, toolsFactory, agentFactory);
+				var result = new AssistantAgent(this.Logger, toolsFactory, agentFactory);
 				String instructions = this.BuildSystemInstructions();
 				await result.Initialize(this.Settings, instructions, sessionStore, conversationId);
 				return result;
@@ -173,10 +174,10 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 			try
 			{
 				ToolsFactory toolsFactory = CreateToolsFactory();
-				AgentFactory agentFactory = new AgentFactory(this.McpTrace);
+				AgentFactory agentFactory = new AgentFactory(this.Logger);
 				FileSystemAgentSessionStore? sessionStore = this.CreateSessionStore();
 
-				var result = new AssistantWorkflowAgent(this.McpTrace, toolsFactory, agentFactory);
+				var result = new AssistantWorkflowAgent(this.Logger, toolsFactory, agentFactory);
 				await result.InitializeWorkflow(this.Settings, workflow, sessionStore, conversationId, token);
 				return result;
 			} catch(Exception exc)
@@ -229,7 +230,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 
 			if(this.Settings.McpServerEnabled)
 			{
-				IEnumerable<AITool> bridgeTools = toolsFactory.CreateTools(this.McpTrace);
+				IEnumerable<AITool> bridgeTools = toolsFactory.CreateTools(this.Logger);
 				this._mcpServer = new McpServer(this.Trace, this.Settings.McpServerUrl, bridgeTools);
 				this._mcpServer.Start();
 			}
@@ -239,8 +240,8 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 			foreach(ProcessType exeType in this.Settings.EnabledProcesses)
 			{
 				String traceName = $"{assemblyName}.{exeType}";
-				IMcpTrace processTrace = new TraceSourceMcpTrace(this.Host.Plugins.CreateTraceSource(traceName));
-				var process = this._processHosts[exeType] = new ProcessHost(exeType, processTrace, this.OnProcessFailed);
+				ILogger processLogger = new TraceSourceLogger(this.Host.Plugins.CreateTraceSource(traceName));
+				var process = this._processHosts[exeType] = new ProcessHost(exeType, processLogger, this.OnProcessFailed);
 				Task.Run(() => process.StartAsync(this.Settings, instructions));
 			}
 		}

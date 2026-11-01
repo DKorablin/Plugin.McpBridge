@@ -2,6 +2,7 @@
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
 using McpBridge.Core.Agents;
 using McpBridge.Core.Data;
 
@@ -15,9 +16,9 @@ internal sealed class WorkflowLoader2
 
 	public WorkflowDto Config { get; }
 
-	internal WorkflowLoader2(Settings settings, String workflowPath, IMcpTrace? trace = null)
+	internal WorkflowLoader2(Settings settings, String workflowPath, ILogger? logger = null)
 	{
-		this._agentFactory = new AgentFactory(trace);
+		this._agentFactory = new AgentFactory(logger);
 
 		if(String.IsNullOrWhiteSpace(workflowPath))
 			throw new ArgumentException("Workflow path must be a non-empty string.", nameof(workflowPath));

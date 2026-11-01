@@ -78,7 +78,7 @@ internal sealed class RagIndexSyncService
 				TextSearchDocument document = TextSearchStore.CreateDocument(agent.RagDirectory, current.Value.SourceLink);
 				upserts.Add(document);
 				metadataUpserts.Add(current.Value);
-				this._logger.FileProcessed(LogLevel.Information, current.Value.SourceLink, current.Key, RagSyncLog.ActionType.Added);
+				this._logger.FileProcessed(LogLevel.Information, current.Value.SourceLink, current.Key, RagLog.ActionType.Added);
 				continue;
 			}
 
@@ -86,7 +86,7 @@ internal sealed class RagIndexSyncService
 				&& existing.Length == current.Value.Length;
 			if(sameWriteMarker && !String.IsNullOrWhiteSpace(existing.SourceHash))
 			{
-				this._logger.FileProcessed(LogLevel.Debug, current.Value.SourceLink, current.Key, RagSyncLog.ActionType.Unchanged);
+				this._logger.FileProcessed(LogLevel.Debug, current.Value.SourceLink, current.Key, RagLog.ActionType.Unchanged);
 				continue;
 			}
 
@@ -96,14 +96,14 @@ internal sealed class RagIndexSyncService
 			if(String.IsNullOrWhiteSpace(existing.SourceHash) || String.Equals(existing.SourceHash, currentHash, StringComparison.OrdinalIgnoreCase))
 			{
 				metadataUpserts.Add(current.Value);
-				this._logger.FileProcessed(LogLevel.Information, current.Value.SourceLink, current.Key, RagSyncLog.ActionType.MetadataUpdated);
+				this._logger.FileProcessed(LogLevel.Information, current.Value.SourceLink, current.Key, RagLog.ActionType.MetadataUpdated);
 				continue;
 			}
 
 			TextSearchDocument changedDocument = TextSearchStore.CreateDocument(agent.RagDirectory, current.Value.SourceLink);
 			upserts.Add(changedDocument);
 			metadataUpserts.Add(current.Value);
-			this._logger.FileProcessed(LogLevel.Information, current.Value.SourceLink, current.Key, RagSyncLog.ActionType.Updated);
+			this._logger.FileProcessed(LogLevel.Information, current.Value.SourceLink, current.Key, RagLog.ActionType.Updated);
 		}
 
 		List<String> deletes = existingMetadata.Keys

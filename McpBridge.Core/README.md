@@ -75,7 +75,7 @@ The provider-agnostic core library behind [Plugin.McpBridge](https://github.com/
 |---|---|
 | `Settings` | Persisted settings bag for providers, agents, permissions, MCP, DevUI, AG-UI, and workflow configuration. |
 | `AgentEventArgs` | Event payload raised by agents (streaming updates, confirmation requests). |
-| `IMcpTrace` | Tracing abstraction implemented by hosts to receive diagnostic events from the core library. |
+| `ILogger` | Core components (`AgentFactory`, `AssistantAgent`, `ToolsFactory`, `ProcessHost`) accept a standard `Microsoft.Extensions.Logging.ILogger`; hosts pass their own logger to receive diagnostic events (EventIds 1000–1999). |
 | `UI/PropertyGrid/Converters/*` | Shared `TypeConverter`/UI editors (tools permission list, session storage directory, evaluation cache directory, binding list) reused by any host that exposes `Settings` in a property grid. |
 
 ## Dependencies

@@ -7,6 +7,8 @@ using McpBridge.Core.Agents;
 using McpBridge.Core.Data;
 using McpBridge.Core.Tools;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Plugin.McpBridge.Tests.Helpers;
 using Plugin.McpBridge.Tools;
@@ -18,7 +20,7 @@ internal static class TestUtils
 {
 	public const String PluginId = "test-plugin";
 	public const String Instructions = "You are a helpful assistant.";
-	public static readonly IMcpTrace Trace = new Mock<IMcpTrace>().Object;
+	public static readonly ILogger Logger = NullLogger.Instance;
 
 	public static (IHost Host, PluginSettingsTools Settings, PluginMethodsTools Methods, ShellTools Shell) CreateDependencies(IPluginDescription? pluginDescription = null, TimeProvider? timeProvider = null)
 	{
@@ -45,7 +47,7 @@ internal static class TestUtils
 	public static AssistantAgent CreateSut(IPluginDescription? pluginDescription = null)
 	{
 		ToolsFactory toolFactory = CreateToolFactory(pluginDescription);
-		return new AssistantAgent(Trace, toolFactory, new AgentFactory());
+		return new AssistantAgent(Logger, toolFactory, new AgentFactory());
 	}
 
 	public static async Task<AssistantAgent> CreateInitializedSut(
@@ -60,7 +62,7 @@ internal static class TestUtils
 		AiProviderDto provider = new AiProviderDto { ProviderType = AiProviderType.Local };
 		settings.AiProviders.Add(provider);
 
-		AssistantAgent assistant = new AssistantAgent(Trace, toolFactory, new StubAgentFactory(mockChatClient.Object));
+		AssistantAgent assistant = new AssistantAgent(Logger, toolFactory, new StubAgentFactory(mockChatClient.Object));
 		await assistant.Initialize(settings, Instructions);
 		return assistant;
 	}

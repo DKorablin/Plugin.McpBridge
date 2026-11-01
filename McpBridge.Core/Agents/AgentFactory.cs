@@ -1,6 +1,5 @@
 ﻿using System.ClientModel;
 using System.ClientModel.Primitives;
-using System.Diagnostics;
 using Azure.AI.OpenAI;
 using GitHub.Copilot;
 using Microsoft.Agents.AI;
@@ -8,6 +7,8 @@ using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.AI.Evaluation.Reporting.Storage;
 using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using CommunityToolkit.VectorData.InMemory;
 using CommunityToolkit.VectorData.SqliteVec;
 using OpenAI;
@@ -19,11 +20,11 @@ namespace McpBridge.Core.Agents;
 /// <summary>Shared factory methods for building AI agent components, usable by both the WinForms chat path and DevUI.</summary>
 public class AgentFactory
 {
-	private readonly IMcpTrace? _trace;
+	private readonly ILogger _logger;
 
-	/// <param name="trace">Optional trace sink that receives a verbose summary of the features attached to every created agent.</param>
-	public AgentFactory(IMcpTrace? trace = null)
-		=> this._trace = trace;
+	/// <param name="logger">Optional logger that receives a debug summary of the features attached to every created agent.</param>
+	public AgentFactory(ILogger? logger = null)
+		=> this._logger = logger ?? NullLogger.Instance;
 
 	public async Task<AgentHandle> CreateAgent(
 		AiAgentDto agent,
@@ -108,33 +109,29 @@ public class AgentFactory
 		}
 	}
 
-	/// <summary>Writes a verbose summary of the features (tools, evaluation cache, chat options, context providers) attached to a created agent.</summary>
+	/// <summary>Writes a debug summary of the features (tools, evaluation cache, chat options, context providers) attached to a created agent.</summary>
 	private void TraceAgentFeatures(String agentRole, AiProviderDto provider, AIFunction[] tools, String? evaluationCacheDirectory, IEnumerable<AIContextProvider>? contextProviders)
 	{
-		if(this._trace == null)
+		if(!this._logger.IsEnabled(LogLevel.Debug))
 			return;
 
 		String[] contextProviderNames = contextProviders?.Select(p => p.GetType().Name).ToArray() ?? [];
-		List<String> lines = new List<String>
-		{
-			$"Agent '{agentRole}' created. Provider: {provider} ({provider.ProviderType})",
-			$"\tTools ({tools.Length}): {(tools.Length == 0 ? "<none>" : String.Join(", ", tools.Select(t => t.Name)))}",
-		};
+		String toolNames = tools.Length == 0 ? "<none>" : String.Join(", ", tools.Select(t => t.Name));
+		String contextProvidersText = contextProviderNames.Length == 0 ? "<none>" : String.Join(", ", contextProviderNames);
 
 		if(provider.ProviderType == AiProviderType.CoPilot)
 		{
 			if(contextProviderNames.Length > 0)
-				lines.Add($"\tContext providers: NOT ATTACHED (not supported by {AiProviderType.CoPilot}): {String.Join(", ", contextProviderNames)}");
+				contextProvidersText = $"NOT ATTACHED (not supported by {AiProviderType.CoPilot}): {contextProvidersText}";
+			this._logger.CopilotAgentCreated(agentRole, provider, provider.ProviderType, tools.Length, toolNames, contextProvidersText);
 		} else
 		{
 			ChatSettings chat = provider.Chat;
-			lines.Add($"\tEvaluation cache: {(evaluationCacheDirectory == null ? "disabled" : $"enabled ('{evaluationCacheDirectory}')")}");
-			lines.Add($"\tChat options: MaxTokens={chat.MaxTokens?.ToString() ?? "<default>"}, Temperature={chat.Temperature?.ToString() ?? "<default>"}, "
-				+ $"Reasoning={(chat.ReasoningOutput.HasValue || chat.ReasoningEffort.HasValue ? $"{chat.ReasoningOutput ?? ReasoningOutput.None}/{chat.ReasoningEffort ?? ReasoningEffort.Medium}" : "<default>")}");
-			lines.Add($"\tContext providers: {(contextProviderNames.Length == 0 ? "<none>" : String.Join(", ", contextProviderNames))}");
+			String evaluationCache = evaluationCacheDirectory == null ? "disabled" : $"enabled ('{evaluationCacheDirectory}')";
+			String chatOptions = $"MaxTokens={chat.MaxTokens?.ToString() ?? "<default>"}, Temperature={chat.Temperature?.ToString() ?? "<default>"}, "
+				+ $"Reasoning={(chat.ReasoningOutput.HasValue || chat.ReasoningEffort.HasValue ? $"{chat.ReasoningOutput ?? ReasoningOutput.None}/{chat.ReasoningEffort ?? ReasoningEffort.Medium}" : "<default>")}";
+			this._logger.AgentCreated(agentRole, provider, provider.ProviderType, tools.Length, toolNames, evaluationCache, chatOptions, contextProvidersText);
 		}
-
-		this._trace.TraceEvent(TraceEventType.Verbose, 0, String.Join(Environment.NewLine, lines));
 	}
 
 	/// <summary>Creates a raw <see cref="IChatClient"/> for the given provider using the supplied <see cref="HttpClient"/>.</summary>
@@ -260,10 +257,10 @@ public class AgentFactory
 				textSearchStore = new TextSearchLazyStore(vectorStore, TextSearchStore.DefaultCollectionName, embeddingProvider.Embeddings.Dimension.Value, agent.RagDirectory, supportedExtensions, embeddingProvider.Embeddings.TopResults);
 			}
 
-			this._trace?.TraceEvent(TraceEventType.Verbose, 0, $"RAG attached to agent '{agent.Id}'. Directory: '{agent.RagDirectory}'"
-				+ $", Store: {(useSqliteStore ? $"SQLite ('{sqlitePath}')" : "InMemory (lazy indexing)")}"
-				+ $", Embeddings: {embeddingProvider} (Dimension={embeddingProvider.Embeddings.Dimension}, TopResults={embeddingProvider.Embeddings.TopResults})"
-				+ $", Extensions: {String.Join(", ", supportedExtensions)}, Tool: '{agent.RagToolName}'");
+			this._logger.RagAttached(agent.Id, agent.RagDirectory,
+				useSqliteStore ? $"SQLite ('{sqlitePath}')" : "InMemory (lazy indexing)",
+				embeddingProvider, embeddingProvider.Embeddings.Dimension, embeddingProvider.Embeddings.TopResults,
+				String.Join(", ", supportedExtensions), agent.RagToolName);
 
 			providers.Add(new TextSearchProvider(async (text, ct) =>
 				{
@@ -272,7 +269,7 @@ public class AgentFactory
 						return await textSearchStore.SearchTextAsync(text, ct);
 					} catch(Exception exc)
 					{
-						this._trace?.TraceData(TraceEventType.Error, 0, exc);
+						this._logger.RagSearchFailed(agent.Id, exc);
 						throw;
 					}
 				},
@@ -284,13 +281,12 @@ public class AgentFactory
 					CitationsPrompt = agent.RagCitationsPrompt,
 				}));
 		} else if(agent.RagDirectory != null)
-			this._trace?.TraceEvent(TraceEventType.Warning, 0, $"RAG NOT attached to agent '{agent.Id}': directory '{agent.RagDirectory}' is set, but embedding provider '{embeddingProvider}' "
-				+ $"does not support embeddings or has no Dimension/ModelId (Dimension={embeddingProvider.Embeddings?.Dimension?.ToString() ?? "<null>"}, ModelId={embeddingProvider.Embeddings?.ModelId ?? "<null>"}).");
+			this._logger.RagNotAttached(agent.Id, agent.RagDirectory, embeddingProvider, embeddingProvider.Embeddings?.Dimension, embeddingProvider.Embeddings?.ModelId);
 
 		if(agent.SkillsDirectory != null)
 		{
 			providers.Add(new AgentSkillsProvider(agent.SkillsDirectory));
-			this._trace?.TraceEvent(TraceEventType.Verbose, 0, $"Skills attached to agent '{agent.Id}'. Directory: '{agent.SkillsDirectory}'");
+			this._logger.SkillsAttached(agent.Id, agent.SkillsDirectory);
 		}
 
 		return providers.Count == 0 ? null : providers.ToArray();

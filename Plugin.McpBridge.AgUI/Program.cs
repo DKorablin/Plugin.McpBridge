@@ -15,8 +15,6 @@ namespace Plugin.McpBridge.AgUI;
 
 internal static class Program
 {
-	private static AgentFactory _agentFactory = new AgentFactory();
-
 	private static async Task<Int32> Main(String[] args)
 	{
 		using(CancellationTokenSource lifetimeCts = new CancellationTokenSource())
@@ -25,12 +23,14 @@ internal static class Program
 				SettingsDto settings = SettingsDto.CreateSettingsFromArgs(ref args, lifetimeCts);
 				using ILoggerFactory loggerFactory = LoggerFactory.Create(Program.ConfigureLogging);
 				ILogger logger = loggerFactory.CreateLogger(typeof(Program));
+				ILogger agentLogger = loggerFactory.CreateLogger<AgentFactory>();
+				AgentFactory agentFactory = new AgentFactory(agentLogger);
 
 				var bridgeTools = await settings.FetchBridgeToolsAsync();
 				logger.McpBridgeConnected(bridgeTools.Length, settings.McpServerUrl);
 
 				var agentDto = settings.SelectedAgent;
-				AgentHandle agent = await _agentFactory.CreateAgent(
+				AgentHandle agent = await agentFactory.CreateAgent(
 					agentDto,
 					settings.AiProviders,
 					bridgeTools,
@@ -43,7 +43,7 @@ internal static class Program
 					foreach(String workflowFile in Directory.EnumerateFiles(settings.WorkflowsDirectory, "*.json"))
 					{
 						logger.LoadingWorkflow(workflowFile);
-						WorkflowLoader2 loader = new WorkflowLoader2(settings, workflowFile);
+						WorkflowLoader2 loader = new WorkflowLoader2(settings, workflowFile, agentLogger);
 						WorkflowHandle workflowHandle = await loader.BuildAsync(settings.AiProviders, bridgeTools);
 						workflows.Add(workflowHandle);
 					}

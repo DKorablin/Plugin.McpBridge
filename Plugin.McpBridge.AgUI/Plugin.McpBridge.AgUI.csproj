@@ -39,9 +39,6 @@
 		<PackageReference Include="Microsoft.DurableTask.Client.Grpc" />
 		<PackageReference Include="Microsoft.DurableTask.Worker.Grpc" />
 	</ItemGroup>
-	<ItemGroup>
-		<Compile Include="$(MSBuildThisFileDirectory)..\SAL.Shared\LogAppIDs.cs" Link="Logging\LogAppIDs.cs" />
-	</ItemGroup>
 
 	<Target Name="NpmInstall" BeforeTargets="NpmBuild" Inputs="ClientApp\package.json" Outputs="ClientApp\node_modules\.package-lock.json">
 		<Exec Command="npm install" WorkingDirectory="$(MSBuildProjectDirectory)\ClientApp" />

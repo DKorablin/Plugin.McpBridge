@@ -11,11 +11,11 @@ namespace Plugin.McpBridge.Tests.Tools
 		#region Constructor
 
 		[Fact]
-		public void Ctor_TraceIsNull_ThrowsArgumentNullException()
+		public void Ctor_LoggerIsNull_ThrowsArgumentNullException()
 		{
 			Action act = () => _ = new ToolFacade(null!, (Func<Task<String>>)(() => Task.FromResult(String.Empty)));
 
-			act.Should().Throw<ArgumentNullException>().WithParameterName("trace");
+			act.Should().Throw<ArgumentNullException>().WithParameterName("logger");
 		}
 
 		#endregion
@@ -26,7 +26,7 @@ namespace Plugin.McpBridge.Tests.Tools
 		public async Task NoConfirmationSubscriber_InvokesInnerFunctionDirectly()
 		{
 			Boolean invoked = false;
-			ToolFacade wrapper = new ToolFacade(TestUtils.Trace, (Func<Task<String>>)(() => { invoked = true; return Task.FromResult("ok"); }));
+			ToolFacade wrapper = new ToolFacade(TestUtils.Logger, (Func<Task<String>>)(() => { invoked = true; return Task.FromResult("ok"); }));
 
 			await wrapper.InvokeAsync();
 
@@ -40,7 +40,7 @@ namespace Plugin.McpBridge.Tests.Tools
 		[Fact]
 		public async Task InnerFunction_ThrowsGenericException_ReturnsToolErrorMessage()
 		{
-			ToolFacade wrapper = new ToolFacade(TestUtils.Trace, (Func<Task<String>>)(() => throw new InvalidOperationException("unexpected")));
+			ToolFacade wrapper = new ToolFacade(TestUtils.Logger, (Func<Task<String>>)(() => throw new InvalidOperationException("unexpected")));
 
 			Func<Task> act = async () => await wrapper.InvokeAsync();
 
@@ -54,7 +54,7 @@ namespace Plugin.McpBridge.Tests.Tools
 		[Fact]
 		public async Task InnerFunction_ReturnsValue_PassesThroughResult()
 		{
-			ToolFacade wrapper = new ToolFacade(TestUtils.Trace, (Func<Task<String>>)(() => Task.FromResult("expected")));
+			ToolFacade wrapper = new ToolFacade(TestUtils.Logger, (Func<Task<String>>)(() => Task.FromResult("expected")));
 
 			Object? result = await wrapper.InvokeAsync();
 
@@ -69,7 +69,7 @@ namespace Plugin.McpBridge.Tests.Tools
 		[Fact]
 		public void Name_ReflectsWrappedMethodName()
 		{
-			ToolFacade wrapper = new ToolFacade(TestUtils.Trace, (Func<Task<String>>)NamedMethod);
+			ToolFacade wrapper = new ToolFacade(TestUtils.Logger, (Func<Task<String>>)NamedMethod);
 
 			wrapper.Name.Should().Be(nameof(NamedMethod));
 		}

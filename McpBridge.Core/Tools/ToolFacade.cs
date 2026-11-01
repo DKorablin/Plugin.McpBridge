@@ -1,35 +1,36 @@
 ﻿using System.Diagnostics;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
 
 namespace McpBridge.Core.Tools;
 
 /// <summary>Catches tool exceptions and returns the message as a string so the LLM receives a result rather than a broken conversation.</summary>
 internal class ToolFacade : DelegatingAIFunction
 {
-	private readonly IMcpTrace _trace;
+	private readonly ILogger _logger;
 	private readonly Dictionary<String, Object?> _additionalProperties;
 
 	public override IReadOnlyDictionary<String, Object?> AdditionalProperties => this._additionalProperties;
 
-	public ToolFacade(IMcpTrace trace, AIFunction function, Boolean confirmationRequired = false)
+	public ToolFacade(ILogger logger, AIFunction function, Boolean confirmationRequired = false)
 		: base(function)
 	{
 		this._additionalProperties = new Dictionary<String, Object?>(function.AdditionalProperties);
 		if(confirmationRequired)
 			this._additionalProperties["destructiveHint"] = true;//(MCP) destructiveHint - Tool may perform destructive updates (default: true)
 
-		this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
+		this._logger = logger ?? throw new ArgumentNullException(nameof(logger));
 	}
 
-	public ToolFacade(IMcpTrace trace, Delegate method, Boolean confirmationRequired = false)
-		: this(trace, AIFunctionFactory.Create(method), confirmationRequired)
+	public ToolFacade(ILogger logger, Delegate method, Boolean confirmationRequired = false)
+		: this(logger, AIFunctionFactory.Create(method), confirmationRequired)
 	{
 	}
 
 	protected override async ValueTask<Object?> InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
 	{
-		String argString = String.Join(", ", arguments.Select(kv => $"{kv.Key}={kv.Value}"));
-		this._trace.TraceEvent(TraceEventType.Start, 0, $"[tool] {this.Name} {argString}");
+		if(this._logger.IsEnabled(LogLevel.Debug))
+			this._logger.ToolInvoking(this.Name, String.Join(", ", arguments.Select(kv => $"{kv.Key}={kv.Value}")));
 		try
 		{
 			Stopwatch sw = Stopwatch.StartNew();
@@ -39,13 +40,13 @@ internal class ToolFacade : DelegatingAIFunction
 
 			sw.Stop();
 			if(result is Array array && result is not String)
-				this._trace.TraceEvent(TraceEventType.Stop, 0, $"[tool result] {result?.GetType()} Length: {array.Length} Elapsed: {sw}");
+				this._logger.ToolCompletedArray(this.Name, result.GetType(), array.Length, sw.Elapsed);
 			else
-				this._trace.TraceEvent(TraceEventType.Stop, 0, $"[tool result] {result?.GetType()} Elapsed: {sw}");
+				this._logger.ToolCompleted(this.Name, result?.GetType(), sw.Elapsed);
 			return result;
 		} catch(Exception exc)
 		{
-			this._trace.TraceData(TraceEventType.Error, 0, exc);
+			this._logger.ToolFailed(this.Name, exc);
 			throw;
 		}
 	}

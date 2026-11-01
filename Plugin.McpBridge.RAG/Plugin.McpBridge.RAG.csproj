@@ -23,7 +23,4 @@
 	
 		<PackageReference Include="CommunityToolkit.VectorData.SqliteVec" />
 	</ItemGroup>
-	<ItemGroup>
-		<Compile Include="$(MSBuildThisFileDirectory)..\SAL.Shared\LogAppIDs.cs" Link="Logging\LogAppIDs.cs" />
-	</ItemGroup>
 </Project>

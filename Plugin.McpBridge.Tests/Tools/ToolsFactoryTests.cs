@@ -13,13 +13,13 @@ namespace Plugin.McpBridge.Tests.Tools
 		#region CreateTools
 
 		[Fact]
-		public void CreateTools_TraceIsNull_ThrowsArgumentNullException()
+		public void CreateTools_LoggerIsNull_ThrowsArgumentNullException()
 		{
 			ToolsFactory sut = CreateFactory();
 
 			Action act = () => sut.CreateTools(null!, null).ToList();
 
-			act.Should().Throw<ArgumentNullException>().WithParameterName("trace");
+			act.Should().Throw<ArgumentNullException>().WithParameterName("logger");
 		}
 
 		[Fact]
@@ -27,7 +27,7 @@ namespace Plugin.McpBridge.Tests.Tools
 		{
 			ToolsFactory sut = CreateFactory();
 
-			Int32 count = sut.CreateTools(TestUtils.Trace, null).Count();
+			Int32 count = sut.CreateTools(TestUtils.Logger, null).Count();
 
 			count.Should().BeGreaterThan(0);
 		}
@@ -37,7 +37,7 @@ namespace Plugin.McpBridge.Tests.Tools
 		{
 			ToolsFactory sut = CreateFactory();
 
-			Int32 count = sut.CreateTools(TestUtils.Trace, new String[] { "DefinitelyNotAToolName" }).Count();
+			Int32 count = sut.CreateTools(TestUtils.Logger, new String[] { "DefinitelyNotAToolName" }).Count();
 
 			count.Should().Be(0);
 		}
@@ -47,7 +47,7 @@ namespace Plugin.McpBridge.Tests.Tools
 		{
 			ToolsFactory sut = CreateFactory();
 
-			var tools = sut.CreateTools(TestUtils.Trace, new String[] { nameof(ShellTools.SystemInformation) }).ToArray();
+			var tools = sut.CreateTools(TestUtils.Logger, new String[] { nameof(ShellTools.SystemInformation) }).ToArray();
 
 			tools.Should().HaveCount(1);
 			tools[0].Name.Should().Be(nameof(ShellTools.SystemInformation));

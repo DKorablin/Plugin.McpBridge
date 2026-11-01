@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Runtime.Serialization.Json;
 using McpBridge.Core;
+using Microsoft.Extensions.Logging;
 
 namespace McpBridge.Core.Remoting;
 
@@ -11,14 +12,14 @@ internal sealed class ProcessHost : IDisposable
 	private String ConfigName => $"McpBridge.{_exeType}.{Guid.NewGuid():N}.json";
 
 	private readonly ProcessType _exeType;
-	private readonly IMcpTrace _trace;
+	private readonly ILogger _logger;
 	private readonly Action<ProcessType, Int32>? _onProcessFailed;
 	private Process? _process;
 
-	public ProcessHost(ProcessType type, IMcpTrace trace, Action<ProcessType, Int32>? onProcessFailed = null)
+	public ProcessHost(ProcessType type, ILogger logger, Action<ProcessType, Int32>? onProcessFailed = null)
 	{
 		this._exeType = type;
-		this._trace = trace ?? throw new ArgumentNullException(nameof(trace));
+		this._logger = logger ?? throw new ArgumentNullException(nameof(logger));
 		this._onProcessFailed = onProcessFailed;
 	}
 
@@ -79,7 +80,7 @@ internal sealed class ProcessHost : IDisposable
 			Int32 exitCode = process.ExitCode;
 			if(exitCode != 0)
 			{
-				this._trace.TraceEvent(TraceEventType.Warning, 0, $"Process {this._exeType} exited with code {exitCode:X8}");
+				this._logger.ProcessExited(this._exeType, exitCode);
 				this._onProcessFailed?.Invoke(this._exeType, exitCode);
 			}
 		}
@@ -89,7 +90,7 @@ internal sealed class ProcessHost : IDisposable
 		}
 		catch(Exception ex)
 		{
-			this._trace.TraceEvent(TraceEventType.Error, 0, $"Error monitoring process {this._exeType}: {ex.Message}");
+			this._logger.ProcessMonitoringFailed(this._exeType, ex);
 			this._onProcessFailed?.Invoke(this._exeType, -1);
 		}
 	}
@@ -134,12 +135,13 @@ internal sealed class ProcessHost : IDisposable
 	private void OnProcessOutputReceived(Object sender, DataReceivedEventArgs e)
 	{
 		if(e.Data != null)
-			this._trace.TraceEvent(TraceEventType.Information, 0, e.Data);
+			this._logger.ProcessOutput(e.Data);
 	}
 
 	private void OnProcessErrorReceived(Object sender, DataReceivedEventArgs e)
 	{
-		this._trace.TraceEvent(TraceEventType.Warning, 0, $"Error received from process {this._exeType}: {e.Data ?? "<null>"}");
+		if(e.Data != null)// null signals the end of the stream when the process exits
+			this._logger.ProcessError(this._exeType, e.Data);
 	}
 
 	private String GetProcessPath()
