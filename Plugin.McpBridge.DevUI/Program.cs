@@ -4,8 +4,10 @@ using Microsoft.Agents.AI.Hosting;
 using Microsoft.DurableTask.Client;
 using Microsoft.DurableTask.Worker;
 using McpBridge.Core.Agents;
+using McpBridge.Core.Logging;
 using McpBridge.Core.Remoting;
 using McpBridge.Core.Workflows;
+using Microsoft.Extensions.Logging.Console;
 
 namespace Plugin.McpBridge.DevUI;
 
@@ -17,7 +19,7 @@ internal static class Program
 			try
 			{
 				SettingsDto settings = SettingsDto.CreateSettingsFromArgs(ref args, lifetimeCts);
-				using ILoggerFactory loggerFactory = LoggerFactory.Create(Program.ConfigureLogging);
+				using ILoggerFactory loggerFactory = LoggerFactory.Create(logging => Program.ConfigureLogging(logging, settings));
 				ILogger logger = loggerFactory.CreateLogger(typeof(Program));
 				ILogger agentLogger = loggerFactory.CreateLogger<AgentFactory>();
 				AgentFactory agentFactory = new AgentFactory(agentLogger);
@@ -60,7 +62,7 @@ internal static class Program
 		WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 		((IWebHostBuilder)builder.WebHost).UseUrls(config.UiServerUrl);
 		builder.Services.Configure<ConsoleLifetimeOptions>(options => options.SuppressStatusMessages = true);
-		Program.ConfigureLogging(builder.Logging);
+		Program.ConfigureLogging(builder.Logging, config);
 
 		Boolean useDurableWorkflowScheduler = config.DtsEmulatorProcessEnabled && workflows.Count > 0;
 		if(useDurableWorkflowScheduler)
@@ -88,6 +90,11 @@ internal static class Program
 		WebApplication app = builder.Build();
 
 		app.UseDeveloperExceptionPage();
+		app.Use(async (context, next) =>
+		{
+			using IDisposable? correlation = CorrelationContext.BeginRequest(config.CorrelationIdEnabled && HttpMethods.IsPost(context.Request.Method));
+			await next(context);
+		});
 
 		app.MapOpenAIResponses();
 		app.MapOpenAIConversations();
@@ -95,13 +102,17 @@ internal static class Program
 		return app;
 	}
 
-	private static void ConfigureLogging(ILoggingBuilder logging)
+	private static void ConfigureLogging(ILoggingBuilder logging, SettingsDto settings)
 	{
 		logging.ClearProviders();
-		logging.AddSimpleConsole(options =>
-		{
-			options.SingleLine = true;
-			options.TimestampFormat = "HH:mm:ss ";
-		});
+		if(settings.CorrelationIdEnabled)
+			logging.AddConsole(options => options.FormatterName = CorrelationConsoleFormatter.FormatterName)
+				.AddConsoleFormatter<CorrelationConsoleFormatter, ConsoleFormatterOptions>();
+		else
+			logging.AddSimpleConsole(options =>
+			{
+				options.SingleLine = true;
+				options.TimestampFormat = "HH:mm:ss ";
+			});
 	}
 }

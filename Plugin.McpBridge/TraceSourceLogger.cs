@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using McpBridge.Core.Logging;
 using Microsoft.Extensions.Logging;
 using SAL.Flatbed;
 
@@ -33,7 +34,12 @@ internal sealed class TraceSourceLogger : ILogger
 			_ => TraceEventType.Critical,
 		};
 
-		this._trace.TraceEvent(eventType, eventId.Id, formatter(state, exception));
+		String message = formatter(state, exception);
+		String? correlationId = CorrelationContext.Current;
+		if(correlationId != null)
+			message = $"[{correlationId}] {message}";
+
+		this._trace.TraceEvent(eventType, eventId.Id, message);
 		if(exception != null)
 			this._trace.TraceData(eventType, eventId.Id, exception);
 	}

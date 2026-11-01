@@ -48,6 +48,17 @@ namespace McpBridge.Core
 		private Boolean _dtsEmulatorProcessEnabled = false;
 		private Int32? _dtsEmulatorPort = null;
 		private Int32? _dtsEmulatorDashboardPort = null;
+		private Boolean _correlationIdEnabled = false;
+
+		[Category("Diagnostics")]
+		[DisplayName("Correlation ID Enabled")]
+		[Description("When enabled, a correlation ID is generated for each user request and added to all log messages written while that request runs. Running child processes pick up a change after they restart.")]
+		[DefaultValue(false)]
+		public Boolean CorrelationIdEnabled
+		{
+			get => this._correlationIdEnabled;
+			set => this.SetField(ref this._correlationIdEnabled, value, nameof(this.CorrelationIdEnabled));
+		}
 
 		[Browsable(false)]
 		public String? AiProvidersJson

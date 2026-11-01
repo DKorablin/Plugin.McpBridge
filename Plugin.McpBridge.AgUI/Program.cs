@@ -1,5 +1,6 @@
 using System.Text.Json;
 using McpBridge.Core.Agents;
+using McpBridge.Core.Logging;
 using McpBridge.Core.Remoting;
 using McpBridge.Core.Workflows;
 using Microsoft.Agents.AI;
@@ -9,6 +10,7 @@ using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
 using Microsoft.DurableTask.Client;
 using Microsoft.DurableTask.Worker;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging.Console;
 using Plugin.McpBridge.AgUI.Agents;
 
 namespace Plugin.McpBridge.AgUI;
@@ -21,7 +23,7 @@ internal static class Program
 			try
 			{
 				SettingsDto settings = SettingsDto.CreateSettingsFromArgs(ref args, lifetimeCts);
-				using ILoggerFactory loggerFactory = LoggerFactory.Create(Program.ConfigureLogging);
+				using ILoggerFactory loggerFactory = LoggerFactory.Create(logging => Program.ConfigureLogging(logging, settings));
 				ILogger logger = loggerFactory.CreateLogger(typeof(Program));
 				ILogger agentLogger = loggerFactory.CreateLogger<AgentFactory>();
 				AgentFactory agentFactory = new AgentFactory(agentLogger);
@@ -64,7 +66,7 @@ internal static class Program
 		var builder = WebApplication.CreateBuilder(args);
 		((IWebHostBuilder)builder.WebHost).UseUrls(settings.UiServerUrl);
 		builder.Services.Configure<ConsoleLifetimeOptions>(options => options.SuppressStatusMessages = true);
-		Program.ConfigureLogging(builder.Logging);
+		Program.ConfigureLogging(builder.Logging, settings);
 
 		Boolean useDurableWorkflowScheduler = settings.DtsEmulatorProcessEnabled && workflows.Count > 0;
 		if(useDurableWorkflowScheduler)
@@ -82,7 +84,7 @@ internal static class Program
 		if(settings.EnableSessionStorage && !agent.IsEvaluationCacheEnabled)
 		{// Persist sessions to disk so they survive server restarts
 			sessionStore = new FileSystemAgentSessionStore(settings.GetSessionStorageDirectory());
-			agentBuilder.WithSessionStore(sessionStore);
+			agentBuilder.WithSessionStore(sessionStore, withIsolation: false);// Single-user host without authentication, so there is no caller identity to partition sessions by
 		}
 
 		foreach(var workflow in workflows)
@@ -95,6 +97,9 @@ internal static class Program
 		builder.Services.AddAGUIServer();
 
 		var app = builder.Build();
+		if(settings.CorrelationIdEnabled)
+			app.UseCorrelationId("/agui");
+
 		MapEmbeddedResource(app, "/agui", "index.html", "text/html; charset=utf-8");
 		MapEmbeddedResource(app, "/agui-client.js", "agui-client.js", "application/javascript");
 		MapEmbeddedResource(app, "/index.css", "index.css", "text/css");
@@ -106,14 +111,18 @@ internal static class Program
 		return app;
 	}
 
-	private static void ConfigureLogging(ILoggingBuilder logging)
+	private static void ConfigureLogging(ILoggingBuilder logging, SettingsDto settings)
 	{
 		logging.ClearProviders();
-		logging.AddSimpleConsole(options =>
-		{
-			options.SingleLine = true;
-			options.TimestampFormat = "HH:mm:ss ";
-		});
+		if(settings.CorrelationIdEnabled)
+			logging.AddConsole(options => options.FormatterName = CorrelationConsoleFormatter.FormatterName)
+				.AddConsoleFormatter<CorrelationConsoleFormatter, ConsoleFormatterOptions>();
+		else
+			logging.AddSimpleConsole(options =>
+			{
+				options.SingleLine = true;
+				options.TimestampFormat = "HH:mm:ss ";
+			});
 	}
 
 	static void MapEmbeddedResource(WebApplication app, String pattern, String resourceName, String contentType)

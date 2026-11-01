@@ -5,6 +5,7 @@ using McpBridge.Core;
 using McpBridge.Core.Agents;
 using McpBridge.Core.Data;
 using McpBridge.Core.Events;
+using McpBridge.Core.Logging;
 using McpBridge.Core.Remoting;
 using McpBridge.Core.Tools;
 using McpBridge.Core.Workflows;
@@ -100,6 +101,8 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 
 		public IEnumerable<String> InvokeMessage(String message)
 		{
+			using IDisposable? correlation = CorrelationContext.BeginRequest(this.Settings.CorrelationIdEnabled);
+
 			var responses = new List<String>();
 			EventHandler<AgentResponseEventArgs> responseHandler = (Object? sender, AgentResponseEventArgs e) =>
 			{
@@ -164,7 +167,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 				return result;
 			}catch(Exception exc)
 			{
-				this.Trace.TraceData(System.Diagnostics.TraceEventType.Error, 10, exc);
+				this.Logger.AgentInitializationFailed(exc);
 				throw;
 			}
 		}
@@ -182,7 +185,7 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 				return result;
 			} catch(Exception exc)
 			{
-				this.Trace.TraceData(System.Diagnostics.TraceEventType.Error, 10, exc);
+				this.Logger.AgentInitializationFailed(exc);
 				throw;
 			}
 		}
@@ -226,12 +229,12 @@ Before using relative dates (today, yesterday, last hour), obtain the current sy
 
 		private void Plugins_PluginsLoaded(Object? sender, EventArgs e)
 		{
-			ToolsFactory toolsFactory = CreateToolsFactory();
+			ToolsFactory toolsFactory = this.CreateToolsFactory();
 
 			if(this.Settings.McpServerEnabled)
 			{
 				IEnumerable<AITool> bridgeTools = toolsFactory.CreateTools(this.Logger);
-				this._mcpServer = new McpServer(this.Trace, this.Settings.McpServerUrl, bridgeTools);
+				this._mcpServer = new McpServer(this.Logger, this.Settings.McpServerUrl, this.Settings.CorrelationIdEnabled, bridgeTools);
 				this._mcpServer.Start();
 			}
 

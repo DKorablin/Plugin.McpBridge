@@ -2,6 +2,7 @@
 using System.Reflection;
 using System.Runtime.Serialization.Json;
 using Microsoft.Extensions.AI;
+using McpBridge.Core.Logging;
 using McpBridge.Core.Mcp;
 
 namespace McpBridge.Core.Remoting;
@@ -69,7 +70,7 @@ public sealed class SettingsDto : Settings
 		AIFunction[] tools;
 		using(CancellationTokenSource timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(30)))
 		{
-			HttpClient bridgeHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(10), BaseAddress = new Uri(this.McpServerUrl) };
+			HttpClient bridgeHttp = new HttpClient(new CorrelationIdHandler(new HttpClientHandler())) { Timeout = TimeSpan.FromSeconds(10), BaseAddress = new Uri(this.McpServerUrl) };
 			tools = await McpClient.FetchAllAsync(SettingsDto.AssemblyName, bridgeHttp, timeoutCts.Token);
 		}
 		return tools;
